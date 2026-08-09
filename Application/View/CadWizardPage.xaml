@@ -1,0 +1,62 @@
+﻿<UserControl x:Class="VIBN_Tools.Application.View.CadWizardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ux="http://Grob.com/wpf.ux"
+             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             xmlns:g="clr-namespace:VIBN_Tools.GlobalClasses"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
+             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="900">
+
+    <d:UserControl.DataContext>
+        <d:DesignInstance Type="vm:CadWizardPageVM" IsDesignTimeCreatable="True"/>
+    </d:UserControl.DataContext>
+    
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
+                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" MinWidth="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <GroupBox Margin="10" Grid.Column="0">
+            <GroupBox.Header>
+                <TextBlock Style="{StaticResource H3Style}" Text="CAD Modification"/>
+            </GroupBox.Header>
+            <StackPanel Orientation="Vertical" Margin="5">
+                <TextBlock Margin="5,20,5,10" Text="{Binding ProjectSettings.SelectedTemplate, StringFormat={}PLC-Type: {0}}" Style="{StaticResource TextRobotoRegularStyle}"/>
+                <ux:Button Margin="5" Content="Create Joints" Command="{Binding CreateJoints}" IsBusy="{Binding IsBusyCreateJoints}" DebounceInterval="150" MinWidth="200" />
+                <ux:Button Margin="5" Content="Create Sensors" Command="{Binding CreateSensors}" IsBusy="{Binding IsBusyCreateSensors}" DebounceInterval="150" MinWidth="200" />
+                <ux:Button Margin="5" Content="Create Conveyors" Command="{Binding CreateConveyors}" IsBusy="{Binding IsBusyCreateConveyors}" DebounceInterval="150" MinWidth="200"  Visibility="Collapsed"/>
+                <ux:Button Margin="5" Content="Create Templates" Command="{Binding CreateTemplates}" IsBusy="{Binding IsBusyCreateTemplates}" DebounceInterval="150" MinWidth="200" />
+                <ux:Button Margin="5,30,5,5" Content="Delete Empty Nodes" Command="{Binding DeleteEmptyNodes}" IsBusy="{Binding IsBusyDeleteEmptyNodes}" DebounceInterval="150" MinWidth="200" />
+
+                <!--<ux:Button Content="Test" Command="{Binding TestButton}"/>-->
+
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Margin="10" Grid.Column="1">
+            <GroupBox.Header>
+                <TextBlock Style="{StaticResource H3Style}" Text="Mini-Tools"/>
+            </GroupBox.Header>
+            <StackPanel Orientation="Vertical" Margin="5">
+                <ux:Button Margin="5" Content="Write Marks to Names" Command="{Binding WriteMarksToNames}" IsBusy="{Binding IsBusyWritingMarks}" DebounceInterval="150" MinWidth="200" />
+
+
+            </StackPanel>
+        </GroupBox>
+
+    </Grid>
+</UserControl>

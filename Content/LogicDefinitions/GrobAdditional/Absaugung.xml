@@ -1,0 +1,114 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="65ffd260-7c5e-4784-8071-db25ed84c314" LogicName="Absaugung" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Absaugung                                                                            //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    21.05.2025       1.0.1          Greif            Header integriert
+//    04.12.2025       1.2.1          Egg              Code optimiert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Logik für eine einfache Absaugung
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Logik bildet eine einfache Absaugung nach
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+if (PLC_O_SwitchOn &amp;&amp; PLC_O_Speed &gt;= PARA_WorkingSpeed)
+{
+    SIM_Speed = (float)PLC_O_Speed;
+    PLC_I_FlowMonitor1 = true;
+    PLC_I_FlowMonitor2 = true;
+    PLC_I_FlowMonitor3 = true;
+    PLC_I_FlowMonitor4 = true;
+    PLC_I_OperatingMessage = true;
+}
+else
+{
+    SIM_Speed = 0.0f;
+    PLC_I_FlowMonitor1 = false;
+    PLC_I_FlowMonitor2 = false;
+    PLC_I_FlowMonitor3 = false;
+    PLC_I_FlowMonitor4 = false;
+    PLC_I_OperatingMessage = false;
+
+}</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="2" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_O_SwitchOn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_O_Speed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PARA_WorkingSpeed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_I_FlowMonitor1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_I_FlowMonitor2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_I_FlowMonitor3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_I_FlowMonitor4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_I_OperatingMessage</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

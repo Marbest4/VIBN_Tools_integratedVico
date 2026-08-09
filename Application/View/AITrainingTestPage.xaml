@@ -1,0 +1,607 @@
+<UserControl x:Class="VIBN_Tools.Application.View.AITrainingTestPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
+             xmlns:ai="clr-namespace:VIBN_Tools.ContainerGeneration.AI">
+    <UserControl.DataContext>
+        <vm:AITrainingTestPageVM/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <ai:HeatmapConverter x:Key="HeatmapConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <Style TargetType="Button">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="10,4"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="RowBackground" Value="#FFF9F9F9"/>
+            <Setter Property="AlternationCount" Value="2"/>
+            <Setter Property="AlternatingRowBackground" Value="#FFF1F1F1"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="ColumnWidth" Value="SizeToCells"/>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="Foreground" Value="Black"/>
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Background" Value="#FFEFEFEF"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Foreground" Value="Black"/>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="Black"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Foreground" Value="Black"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="Gray"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="350"/>
+            <ColumnDefinition Width="6"/>
+            <ColumnDefinition Width="2*" MinWidth="600"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- =========================
+             LINKS: STEUERLEISTE + LOG
+             ========================= -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Toolbar -->
+            <DockPanel Margin="0 0 0 10">
+                <!-- Links: Aktionen -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Content="Train (XML)" Width="150"
+                            Command="{Binding TrainCommand}"/>
+                    <Button Content="Check (XML)" Width="150"
+                            Command="{Binding CheckCommand}"/>
+                </StackPanel>
+
+                <!-- Rechts: Optionen + Buttons -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+
+                    <!-- NEU: Trainingsordner im Explorer öffnen -->
+                    <Button Content="📂 Trainingsordner" Width="148"
+                            Command="{Binding OpenTrainingFolderCommand}"
+                            ToolTip="Öffnet den Ordner mit Trainingsdaten, Corrections.csv und ActionLogs im Windows Explorer"/>
+
+                    <Button Content="ℹ Info" Width="90"
+                            Command="{Binding ToggleInfoCommand}"
+                            ToolTip="Kurzanleitung &amp; Glossar anzeigen"/>
+
+                    <CheckBox Content="LightGBM"
+                              IsChecked="{Binding UseLightGbm}"
+                              Margin="12,0,8,0"
+                              ToolTip="LightGBM = empfohlener Trainer. SDCA = linearer Fallback."/>
+                    <TextBlock Text="Confidence:" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="Black"/>
+                    <Slider Width="140" Minimum="0.5" Maximum="0.99" TickFrequency="0.01" IsSnapToTickEnabled="True"
+                            Value="{Binding ConfidenceThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="{Binding ConfidenceThreshold, StringFormat={}{0:P0}}"
+                               Margin="6,0,0,0" VerticalAlignment="Center" Width="45" Foreground="Black"/>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- LOG -->
+            <Border Grid.Row="1" Background="#1E1E1E" CornerRadius="4" BorderBrush="#333" BorderThickness="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <TextBox Text="{Binding LogText}" FontFamily="Consolas" FontSize="13"
+                             Background="#1E1E1E" Foreground="#F0F0F0" BorderThickness="0"
+                             AcceptsReturn="True" IsReadOnly="True"
+                             ai:TextBoxAutoScrollBehavior.AutoScrollToEnd="True"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Splitter -->
+        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#DDD"/>
+
+        <!-- =========================
+             RECHTS: TABS
+             ========================= -->
+        <TabControl Grid.Column="2">
+
+            <!-- TAB 1: Trainingsdaten -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Trainingsdaten" Foreground="Black"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding ModelEntries.Count}" Foreground="Gray"/>
+                        <TextBlock Text=")" Foreground="Gray"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0 0 0 6">
+                        <Button Content="Export CSV" Width="120" Command="{Binding ExportModelEntriesCsvCommand}"/>
+                    </StackPanel>
+                    <DataGrid ItemsSource="{Binding ModelEntries}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Signal"      Binding="{Binding SignalText}"    Width="*"/>
+                            <DataGridTextColumn Header="Slot"        Binding="{Binding SlotName}"      Width="200"/>
+                            <DataGridTextColumn Header="Type"        Binding="{Binding ComponentType}" Width="180"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- TAB 2: Konflikte -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Konflikte" Foreground="Black"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding ConflictsCount}" Foreground="Gray"/>
+                        <TextBlock Text=" / " Foreground="Gray"/>
+                        <TextBlock Text="{Binding UncertainCount}" Foreground="Gray"/>
+                        <TextBlock Text=")" Foreground="Gray"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <DockPanel>
+                    <!-- Toolbar -->
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0 0 0 6">
+                        <Button Content="Export CSV"     Width="120" Command="{Binding ExportConflictsCsvCommand}"/>
+                        <Button Content="Improve (1)"    Width="120" Command="{Binding ImproveConflictCommand}"
+                                ToolTip="Speichert den Soll-Slot der markierten Zeile als Korrektur"/>
+                        <Button Content="Improve Auswahl" Width="140" Command="{Binding ImproveMultipleCommand}"
+                                CommandParameter="{Binding SelectedItems, ElementName=ConflictsGrid}"
+                                ToolTip="Speichert den Soll-Slot aller markierten Zeilen als Korrekturen"/>
+                        <CheckBox Content="Auto-Train nach Improve"
+                                  IsChecked="{Binding AutoTrainAfterImprove}"
+                                  Margin="8,0,0,0" VerticalAlignment="Center"
+                                  ToolTip="Nach jedem Improve wird sofort neu trainiert und evaluiert"/>
+                        <TextBlock Text="Doppelklick: Öffnet XML in Notepad++ (falls installiert)."
+                                   VerticalAlignment="Center" Foreground="Gray" Margin="12,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Legende -->
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Border Width="14" Height="14" Background="#FF4D4D" Margin="0,0,4,0" CornerRadius="2"/>
+                        <TextBlock Text="Konflikt (falscher Slot)" Foreground="Black" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Border Width="14" Height="14" Background="#FFB84D" Margin="0,0,4,0" CornerRadius="2"/>
+                        <TextBlock Text="Unsicher (korrekt, aber Confidence niedrig)" Foreground="Black" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Grid -->
+                    <DataGrid x:Name="ConflictsGrid"
+                              ItemsSource="{Binding Conflicts}"
+                              SelectedItem="{Binding SelectedConflict}"
+                              SelectionMode="Extended"
+                              IsReadOnly="False">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="ToolTip">
+                                    <Setter.Value>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Top3}" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="ai:DataGridRowDoubleClickBehavior.Command"
+                                        Value="{Binding DataContext.OpenConflictCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConflict}" Value="True">
+                                        <Setter Property="Background" Value="#FF4D4D"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsUncertain}" Value="True">
+                                        <Setter Property="Background" Value="#FFB84D"/>
+                                        <Setter Property="Foreground" Value="Black"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <DataGrid.Columns>
+
+                            <!-- Signal: nur Anzeige -->
+                            <DataGridTextColumn Header="Signal"
+                                                Binding="{Binding Signal}"
+                                                Width="280" IsReadOnly="True"/>
+
+                            <!-- Typ aus XML: nur Anzeige (Originalwert zur Referenz) -->
+                            <DataGridTextColumn Header="Typ (aus XML, nur Anzeige)"
+                                                Binding="{Binding Type}"
+                                                Width="160" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontStyle" Value="Italic"/>
+                                        <Setter Property="Foreground" Value="#888"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- ════════════════════════════════════════════════════
+                                 SOLL-TYP: editierbar per Dropdown
+                                 → Startwert = Typ aus XML.
+                                 Falls der Typ in der XML falsch ist, hier korrigieren.
+                                 Improve speichert diesen Wert als ComponentType ins Training.
+                                 ════════════════════════════════════════════════════ -->
+                            <DataGridTemplateColumn Header="✏ Soll-Typ (editierbar)" Width="180">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding SollType}" VerticalAlignment="Center" Margin="4,0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.KnownTypes,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                  SelectedItem="{Binding SollType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  IsEditable="True"
+                                                  ToolTip="Wähle den korrekten Komponententyp. Dieser Wert wird beim Improve als ComponentType ins Training gespeichert."/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- ════════════════════════════════════════════════════
+                                 SOLL-SLOT: editierbar per Dropdown
+                                 → Das ist der Ground-Truth-Wert den Improve speichert.
+                                 Falls der Soll-Slot in deiner XML schon falsch war,
+                                 kannst du ihn hier korrigieren bevor du Improve drückst.
+                                 ════════════════════════════════════════════════════ -->
+                            <DataGridTemplateColumn Header="✏ Soll-Slot (editierbar)" Width="200">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding SollSlot}" VerticalAlignment="Center" Margin="4,0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.KnownSlots,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                  SelectedItem="{Binding SollSlot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  IsEditable="True"
+                                                  ToolTip="Wähle den korrekten Soll-Slot. Dieser Wert wird beim Improve als Ground Truth gespeichert."/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- ════════════════════════════════════════════════════
+                                 PREDICTED SLOT: reine Anzeige, NICHT editierbar.
+                                 Zeigt was das KI-Modell vorhergesagt hat.
+                                 Wird NICHT ins Training übernommen.
+                                 ════════════════════════════════════════════════════ -->
+                            <DataGridTextColumn Header="🤖 KI-Vorhersage (nur Anzeige)"
+                                                Binding="{Binding PredictedSlot}"
+                                                Width="200" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontStyle" Value="Italic"/>
+                                        <Setter Property="Foreground" Value="#555"/>
+                                        <Setter Property="ToolTip" Value="Dieser Wert kommt vom KI-Modell und wird nicht trainiert."/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Confidence -->
+                            <DataGridTextColumn Header="Confidence"
+                                                Binding="{Binding Confidence, StringFormat={}{0:P0}}"
+                                                Width="110" IsReadOnly="True"/>
+
+                            <!-- Top 3 -->
+                            <DataGridTextColumn Header="Top 3 Vorschläge"
+                                                Binding="{Binding Top3}"
+                                                Width="340" IsReadOnly="True"/>
+
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- TAB 3: Evaluation -->
+            <TabItem Header="Evaluation">
+                <StackPanel Margin="10">
+                    <TextBlock Text="{Binding EvaluationSummary}"
+                               FontWeight="Bold" Margin="0 0 0 10" Foreground="Black"/>
+
+                    <Grid Margin="0,6,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                                   Text="Confusion Matrix (Heatmap)"
+                                   FontWeight="Bold" Margin="0,0,0,6" Foreground="Black"/>
+
+                        <ScrollViewer Grid.Row="1" Grid.Column="1"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding ConfusionLabels}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#EFEFEF" BorderBrush="#DDD" BorderThickness="1"
+                                                Padding="4" Margin="0,0,1,0" MinWidth="80">
+                                            <TextBlock Text="{Binding}" FontWeight="SemiBold" TextAlignment="Center"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <Border Grid.Row="1" Grid.Column="0"
+                                Background="#EFEFEF" BorderBrush="#DDD" BorderThickness="1"
+                                Padding="4" Margin="0,0,1,0">
+                            <TextBlock Text="Actual \ Predicted" FontStyle="Italic" Foreground="Black"/>
+                        </Border>
+
+                        <Grid Grid.Row="2" Grid.ColumnSpan="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding ConfusionLabels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#EFEFEF" BorderBrush="#DDD" BorderThickness="1"
+                                                    Padding="4" Margin="0,0,0,1" MinWidth="120">
+                                                <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="Black"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="HeatmapItemsControl" ItemsSource="{Binding ConfusionCells2D}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding DataContext.ConfusionLabels.Count,
+                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#EEE" BorderThickness="1" MinWidth="80" MinHeight="24">
+                                                <Border.Background>
+                                                    <MultiBinding Converter="{StaticResource HeatmapConverter}">
+                                                        <Binding Path="Count"/>
+                                                        <Binding Path="DataContext.MaxConfusionCount"
+                                                                 RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                                        <Binding Path="Actual"/>
+                                                        <Binding Path="Predicted"/>
+                                                    </MultiBinding>
+                                                </Border.Background>
+                                                <Border.ToolTip>
+                                                    <TextBlock>
+                                                        <TextBlock.Text>
+                                                            <MultiBinding StringFormat="{}{0} → {1}: {2}">
+                                                                <Binding Path="Actual"/>
+                                                                <Binding Path="Predicted"/>
+                                                                <Binding Path="Count"/>
+                                                            </MultiBinding>
+                                                        </TextBlock.Text>
+                                                    </TextBlock>
+                                                </Border.ToolTip>
+                                                <TextBlock Text="{Binding Count}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontWeight="SemiBold" Foreground="Black"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+
+                    <Button Content="Export CSV" Width="120" Margin="0 8 0 0"
+                            Command="{Binding ExportEvaluationCsvCommand}"/>
+                    <Button Content="Heatmap als PNG exportieren" Width="200" Margin="0 4 0 0"
+                            Click="ExportHeatmap_Click"/>
+
+                    <GroupBox Header="Feature-Wichtigkeit" Margin="0 12 0 0">
+                        <DataGrid ItemsSource="{Binding FeatureImportance}" AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Feature" Binding="{Binding Feature}" Width="*"/>
+                                <DataGridTextColumn Header="Score"   Binding="{Binding Score, StringFormat=0.###}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </GroupBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- TAB 4: Analyse -->
+            <TabItem Header="Analyse">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Grid.ColumnSpan="2" Margin="0 0 0 6">
+                        <Button Content="Export CSV"          Width="120" Command="{Binding ExportAnalysisCsvCommand}"/>
+                        <Button Content="Noise-Filter Editor" Width="160" Command="{Binding OpenNoiseFilterEditorCommand}"/>
+                        <Button Content="Analyse aktualisieren" Width="160" Command="{Binding RefreshAnalysisCommand}" Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <GroupBox Header="Slot-Verteilung" Grid.Row="1" Grid.Column="0" Margin="0 0 8 0">
+                        <DataGrid ItemsSource="{Binding SlotDistribution}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Slot"  Binding="{Binding Name}"  Width="*"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </GroupBox>
+
+                    <GroupBox Header="ComponentType-Verteilung" Grid.Row="1" Grid.Column="1" Margin="8 0 0 0">
+                        <DataGrid ItemsSource="{Binding ComponentTypeDistribution}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Type"  Binding="{Binding Name}"  Width="*"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </GroupBox>
+
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                               Text="BadWord-Analyse"
+                               FontWeight="Bold" Margin="0,6,0,6" Foreground="Black"/>
+
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <GroupBox Header="BadWord-Statistik" Grid.Column="0" Margin="0 0 8 0">
+                            <DataGrid ItemsSource="{Binding BadWordStats}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="BadWord" Binding="{Binding Word}"                           Width="*"/>
+                                    <DataGridTextColumn Header="Count"   Binding="{Binding Count}"                          Width="80"/>
+                                    <DataGridTextColumn Header="Anteil"  Binding="{Binding Percent, StringFormat={}{0:P2}}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </GroupBox>
+
+                        <GroupBox Header="Beispiele gefilterter Einträge" Grid.Column="1" Margin="8 0 0 0">
+                            <DataGrid ItemsSource="{Binding BadWordSamples}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Signal"  Binding="{Binding Signal}"  Width="*"/>
+                                    <DataGridTextColumn Header="BadWord" Binding="{Binding BadWord}" Width="180"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </GroupBox>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- =========================
+             INFO-OVERLAY
+             ========================= -->
+        <Grid Visibility="{Binding IsInfoOpen, Converter={StaticResource BoolToVis}}"
+              Background="#66000000" Panel.ZIndex="99">
+            <Border Background="White" CornerRadius="6"
+                    Width="900" MaxHeight="650"
+                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Padding="18" BorderBrush="#DDD" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="AI Training &amp; Test – Hilfe &amp; Leitfaden"
+                               FontSize="18" FontWeight="Bold" Margin="0,0,0,10" Foreground="Black"/>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+
+                            <TextBlock FontWeight="Bold" Text="Zweck" Margin="0,0,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="Black"
+                                       Text="Dieses Tool trainiert ein Modell zur Vorhersage des richtigen Slot-Namens anhand von Signaltext und Komponententyp. Es unterstützt bei Qualitätskontrolle, Fehlererkennung und stetiger Verbesserung über Improve."/>
+
+                            <TextBlock FontWeight="Bold" Text="Workflow (empfohlen)" Margin="0,6,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="1) Train (XML): XML auswählen → Datenpool erweitern, Logs laden, Noise-Filter + Corrections einbinden, Modell trainieren."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="2) Check (XML): Modell-Vorhersage prüfen. Konflikte rot, unsichere Treffer orange. Doppelklick öffnet XML in Notepad++."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="3) Improve: Soll-Typ und Soll-Slot bei Bedarf per Dropdown korrigieren, dann Improve. Beide Werte werden als Ground Truth ins Training gespeichert."/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="Black"
+                                       Text="4) Analyse: Slot-/Type-Verteilung, Inkonsistenzen, BadWords – erkennt Schwachstellen in den Trainingsdaten."/>
+
+                            <TextBlock FontWeight="Bold" Text="Konflikte – Was wird trainiert?" Margin="0,6,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="Improve speichert IMMER den Soll-Slot als Ground Truth ins Training – niemals den vorhergesagten Slot."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="'✏ Soll-Typ': Editierbares Dropdown für den Komponententyp. Falls der Typ in der XML falsch ist, hier korrigieren – Improve speichert ihn als ComponentType."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="'✏ Soll-Slot': Editierbares Dropdown für den Slot. Falls der Slot in der XML falsch ist, hier korrigieren – Improve speichert ihn als Ground Truth."/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="Black"
+                                       Text="Die Spalte '🤖 KI-Vorhersage' ist nur zur Information und fließt nicht ins Training ein."/>
+
+                            <TextBlock FontWeight="Bold" Text="Evaluation – Modellgüte" Margin="0,6,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="Micro Accuracy: Anteil aller korrekten Vorhersagen. Ziel: &gt; 90 % für Produktivbetrieb."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="Macro Accuracy: Durchschnitt je Slot – fair gegenüber seltenen Slots."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="Top-3 Accuracy: Liegt der richtige Slot unter den 3 wahrscheinlichsten Vorschlägen?"/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="Black"
+                                       Text="LogLoss: Qualität der Wahrscheinlichkeiten. Kleiner = besser. &lt; 0.5 = gut, &lt; 0.2 = sehr gut."/>
+
+                            <TextBlock FontWeight="Bold" Text="Datenpfade" Margin="0,6,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="Trainingspool + Corrections:  C:\vibntools\ai_trainingdata\"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black"
+                                       Text="ActionLogs (Drag-and-Drop):   %AppData%\VIBN_Tools\learning\actions\"/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="Black"
+                                       Text="Der Button '📂 Trainingsordner' öffnet den Datenordner direkt im Windows Explorer."/>
+
+                            <TextBlock FontWeight="Bold" Text="Glossar" Margin="0,6,0,6" Foreground="Black"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="Slot: Zielsignal/Platz in der Logik (z. B. PLC_OUT_Clockwise)."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="Confidence: Sicherheitsmaß 0–1. Unter dem Schwellwert → orange markiert."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="Konflikt: KI-Vorhersage ≠ Soll-Slot → rot markiert."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="Improve: Speichert Ground-Truth-Korrektur für künftige Trainings (Gewichtung: 5×)."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="BadWords: Rauschbegriffe die Logs verfälschen. Über den Noise-Filter Editor verwaltbar."/>
+                            <TextBlock TextWrapping="Wrap" Foreground="Black" Text="Auto-Train: Nach Improve wird automatisch neu trainiert und evaluiert."/>
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Schließen" Width="100" Command="{Binding ToggleInfoCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+    </Grid>
+</UserControl>

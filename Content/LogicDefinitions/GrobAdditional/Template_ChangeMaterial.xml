@@ -1,0 +1,160 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="d40a8f24-afc2-4620-8f64-bcf5e14ce942" LogicName="Template_ChangeMaterial" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System;
+using System.Linq;
+using FS.SDK;
+using FS.SDK.Components;
+using FS.SDK.Extensibility;
+using FS.SDK.Util;
+using System.Collections.Generic;
+using FS.SDK.Components.Model;
+using FS.Content;
+using FS.SDK.API.Attributes;
+using FS.SDK.Content;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Template_ChangeMaterial                                                              //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    21.05.2025       1.4.1          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Wechselt das Material
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik ändert das Material eines oder mehrerer DetectionFlags im Sensorbereich und 
+//    wird durch (SIM_Trigger=1) aktiviert.
+//    Sobald vom Sensor das Mark (PAR_MarkToDetect) erkannt wird, wird das Material durch das Material
+//    von (PAR_Material) ersetzt.
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Sensor wird zwingend als Parent benötigt!
+//    Mark und Material dürfen nicht "0", leer oder durch Leerzeichen getrennt werden!
+//
+//    Input Slot Values
+//    SIM_Trigger           =   Bool, zum Aktivieren der Logik
+//    PAR_MarkToDetect      =   String, Mark muss vom Sensor erkannt werden
+//    PAR_Material          =   String, Material auf welches Material geändert wird
+//    
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N   P R U E F E N
+//============================================================================================================
+
+// Prüfung auf Mark vorhanden
+if(String.IsNullOrEmpty(PAR_MarkToDetect) || String.IsNullOrWhiteSpace(PAR_MarkToDetect)) { return; }
+// Prüfung auf Material vorhanden
+if(String.IsNullOrEmpty(PAR_Material) || String.IsNullOrWhiteSpace(PAR_Material)) { return; }
+
+#endregion
+
+#region CollisionList auslesen
+//============================================================================================================
+// C O L L I S I O N L I S T   A U S L E S E N
+//============================================================================================================
+
+// Auf Parent-SceneObject zugreifern (=Sensor) und die CollisionList auslesen. Hier werden alle detektierten Objekte aufgeführt
+var sensor = SceneObject.Parent;
+var collision = sensor.GetComponent&lt;ColliderComponent&gt;();
+var listcol = collision.CollisionList;
+
+#endregion
+
+#region Material umschreiben
+//============================================================================================================
+// M A T E R I A L   U M S C H R E I B E N
+//============================================================================================================
+
+// Über einen Trigger wird das Ändern des Materials angestoßen
+if(SIM_Trigger &amp;&amp; !stateTrigger)
+{
+    if(listcol.Any())
+    {
+        // Objekte mit definiertem Mark identifizieren
+        var targetObjects = listcol.Where(x =&gt; x.MarkComponent.Mark == PAR_MarkToDetect);
+        
+        foreach (var el in targetObjects)
+        {
+            try
+            {
+                el.GetComponent&lt;ModelComponent&gt;().CurrentMaterial = PAR_Material;      
+            }
+            catch
+            {
+            }            
+        }        
+    }
+}
+stateTrigger = SIM_Trigger;
+
+#endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="4" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_MarkToDetect</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Material</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots />
+	<LocalSlots>
+		<LogicSlot>
+			<Name>stateTrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

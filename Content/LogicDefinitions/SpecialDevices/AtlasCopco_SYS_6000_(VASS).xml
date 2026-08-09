@@ -1,0 +1,1129 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="42f8b2db-0977-4892-bf8c-48f5b388eef7" LogicName="AtlasCopco_SYS_6000_(VASS)" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+#load "reference"
+using System.Collections;
+using System.Text;
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Application: AtlasCopco Kleben (SYS 6000) - VW Interface (VASS Standard)
+
+// TIA Hardware Name / Version:
+// KUKA Software Version:
+// 
+// Created: 14.06.2023
+// By: Grob (NE)
+//
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+#region Umwandlung binäre Ein-/Ausgänge
+//============================================================================================================
+// U M W A N D L U N G   B I N Ä R E   E I N - / A U S G Ä N G E
+//============================================================================================================
+
+// Programmanwahl
+ConvertFunctions.BoolToByte(
+    x0: ROB_OUT_Programmanwahl_W1,
+    x1: ROB_OUT_Programmanwahl_W2,
+    x2: ROB_OUT_Programmanwahl_W4,
+    x3: ROB_OUT_Programmanwahl_W8,
+    x4: ROB_OUT_Programmanwahl_W16,
+    x5: ROB_OUT_Programmanwahl_W32,
+    x6: ROB_OUT_Programmanwahl_W64,
+    x7: ROB_OUT_Programmanwahl_W128,
+    out _ROB_OUT_Programmanwahl);
+    
+ConvertFunctions.ByteToBool(_ROB_IN_ProgrammQuittiert,
+    out ROB_IN_Quittierung_Programm_W1,
+    out ROB_IN_Quittierung_Programm_W2,
+    out ROB_IN_Quittierung_Programm_W4,
+    out ROB_IN_Quittierung_Programm_W8,
+    out ROB_IN_Quittierung_Programm_W16,
+    out ROB_IN_Quittierung_Programm_W32,
+    out ROB_IN_Quittierung_Programm_W64,
+    out ROB_IN_Quittierung_Programm_W128);
+    
+
+// Parameteranwahl
+ConvertFunctions.BoolToByte(
+    x0: ROB_OUT_Parameteranwahl_W1,
+    x1: ROB_OUT_Parameteranwahl_W2,
+    x2: ROB_OUT_Parameteranwahl_W4,
+    x3: ROB_OUT_Parameteranwahl_W8,
+    x4: ROB_OUT_Parameteranwahl_W16,
+    x5: ROB_OUT_Parameteranwahl_W32,
+    x6: ROB_OUT_Parameteranwahl_W64,
+    x7: ROB_OUT_Parameteranwahl_W128,
+    out _ROBT_OUT_Parameteranwahl);
+    
+ConvertFunctions.ByteToBool(_ROB_IN_ParameterQuittiert,
+    out ROB_IN_Quittierung_Parameter_W1,
+    out ROB_IN_Quittierung_Parameter_W2,
+    out ROB_IN_Quittierung_Parameter_W4,
+    out ROB_IN_Quittierung_Parameter_W8,
+    out ROB_IN_Quittierung_Parameter_W16,
+    out ROB_IN_Quittierung_Parameter_W32,
+    out ROB_IN_Quittierung_Parameter_W64,
+    out ROB_IN_Quittierung_Parameter_W128);
+
+#endregion
+
+
+
+
+
+// Rückmeldung Pistole anwählen
+ROB_IN_Quittierung_Pistole_W1 = ROB_OUT_Pistolenanwahl_W1;
+ROB_IN_Quittierung_Pistole_W2 = ROB_OUT_Pistolenanwahl_W2;
+ROB_IN_Quittierung_Pistole_W4 = ROB_OUT_Pistolenanwahl_W4;
+
+
+// Simulationsmodus
+ROB_IN_Rueckmeldung_Simulationsbetrieb = ROB_OUT_Vorwahl_Simulationsbetrieb;
+
+// Automatik
+ROB_IN_In_Automatik = ROB_OUT_Roboter_In_Automatik;
+
+
+// Programmanwahl und Parameteranwahl Spiegeln
+_ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+_ROB_IN_ParameterQuittiert = _ROBT_OUT_Parameteranwahl;
+
+
+// Betriebsfreigabe
+ROB_IN_Betriebsbereit = ROB_OUT_Betriebsfreigabe;
+
+
+// Keine Fehler
+ROB_IN_Keine_Sammelstoerung = true;
+ROB_IN_Kein_Fehler_Dosiereinheit = true;
+ROB_IN_Kein_Fehler_Klebeauftrag = true;
+ROB_IN_Kein_Fehler_Pumpensystem = true;
+
+// Energiesparmodus
+ROB_IN_Energiesparmodus_Ein = ROB_OUT_Energiesparmodus_Ein;
+
+
+if(ROB_IN_Betriebsbereit || ROB_OUT_Heizung_Reset)
+{
+    ROB_IN_Heizung_An = true;
+    ROB_IN_Heizung_Temperatur_iO = true;
+}
+if(ROB_OUT_Heizung_Aus)
+{
+    ROB_IN_Heizung_An = false;
+    ROB_IN_Heizung_Temperatur_iO = false;
+}
+
+
+// Füllstand Dosierer
+ROB_IN_Dosierer1_Gefuellt = true;
+ROB_IN_Dosierer2_Gefuellt = true;
+
+
+// Vordruck Kleben
+if(ROB_OUT_Start_Prozess)
+{
+    ROB_IN_Vordruck_Kleben_Bereit = true;
+}
+
+
+// Messung Ende
+if(ROB_OUT_Messen_Ende)
+{
+    ROB_IN_Messen_Beendet = true;
+    ROB_IN_Vordruck_Kleben_Bereit = false;
+}
+else
+{
+    ROB_IN_Messen_Beendet = false;
+}
+
+// Spülen
+if(ROB_OUT_Spuelen)
+{
+    _timerSpuelen += SceneObject.DeltaTime;
+    ROB_IN_Spuelen_Laeuft = true;
+    
+    if(_timerSpuelen &gt;= SIM_Time_Spuelen)
+    {
+        ROB_IN_Spuelen_Laeuft = false;
+        ROB_IN_Spuelen_Fertig = true;
+    }
+}
+else
+{
+    _timerSpuelen = 0f;
+    ROB_IN_Spuelen_Fertig = false;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+
+//============================================================================================================
+// S T A R T   D E S   S Y S T E M S   ( A L L G E M E I N )
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    // Betriebsbereit, wenn System EIN und BEtriebsfreigabe
+    ROB_IN_Betriebsbereit = true;
+    
+    // Trigger Heizung Ein
+    if(ROB_OUT_Heizung_Retrigger &amp;&amp; !_stateHeizungRetrigger)
+    {
+        ROB_IN_Heizung_EIN = true;
+    }
+    _stateHeizungRetrigger = ROB_OUT_Heizung_Retrigger;
+    
+    // Trigger Pumpe Ein
+    if(ROB_OUT_Pumpe_Retrigger &amp;&amp; !_statePumpeRetrigger)
+    {
+        ROB_IN_Pumpe_EIN = true;
+    }
+    _statePumpeRetrigger = ROB_OUT_Pumpe_Retrigger;
+    
+    
+    // Timer Heizung und Pumpe starten
+    if(ROB_IN_Heizung_EIN)
+    {
+        _timerHeizung += SceneObject.DeltaTime;
+    }
+    
+    if(ROB_IN_Pumpe_EIN)
+    {
+        _timerPumpe += SceneObject.DeltaTime;
+    }
+    
+    // Heizung und Pumpe hochgelaufen
+    if(_timerHeizung &gt;= SIM_Time_Heizung_sec &amp;&amp; _timerPumpe &gt;= SIM_Time_Pumpe_sec)
+    {
+        ROB_IN_Fehler_PumpeHeizung = true;
+        ROB_IN_Sammelstoerung = true;
+    }
+}
+else
+{
+    ROB_IN_Betriebsbereit = false;
+    
+    _timerHeizung = 0;
+    _timerPumpe = 0;
+}
+
+
+
+
+
+
+
+
+//============================================================================================================
+// S P Ü L E N
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_Betriebsfreigabe) // &amp;&amp; ROB_OUT_System_EIN
+{
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl an Roboter quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+    }
+    
+    
+    // Dosierer Voll nach Zeit x -&gt; Muss zum Spülen fahren
+    if(!ROB_OUT_Pistole1_Oeffnen)
+    {
+        _timerAnforderungSpuelen += SceneObject.DeltaTime;
+    }
+    else
+    {
+    _timerAnforderungSpuelen = 0;
+    }
+    
+    if(_timerAnforderungSpuelen &gt;= SIM_Time_AnforderungSpuelen)
+    {
+        // Anforderung Spülen setzen
+        _anforderungSpuelen = true;
+    }
+    
+    
+    // Roboter fährt in Spülposition -&gt; Spülvorgang
+    if(ROB_OUT_Freigabe_Spuelen &amp;&amp; ROB_OUT_Spuelen)
+    {
+        _timerSpuelen += SceneObject.DeltaTime;
+        if(_timerSpuelen &gt;= SIM_Time_Spuelen_Sec)
+        {
+            ROB_IN_Spuelen_Beendet = true;
+            _anforderungSpuelen = false;
+            _timerAnforderungSpuelen = 0;
+        }
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = false;
+    }
+    if(!ROB_OUT_Spuelen)
+    {
+        ROB_IN_Spuelen_Beendet = false;
+        _timerSpuelen = 0;
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = true;
+    }
+    
+    ROB_IN_Spuelanforderung = _anforderungSpuelen;  
+        
+}
+
+
+
+//============================================================================================================
+// A N S P Ü L E N   ( V O R D R U C K E I N M E S S U N G )
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl an Roboter quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+        _anforderungAnspuelen = true;
+    }
+    
+    // Roboter fährt in Spülposition -&gt; Spülvorgang
+    if(ROB_OUT_Freigabe_Spuelen &amp;&amp; ROB_OUT_Spuelen)
+    {
+        _timerSpuelen += SceneObject.DeltaTime;
+        if(_timerSpuelen &gt;= SIM_Time_Spuelen_Sec)
+        {
+            ROB_IN_Spuelen_Beendet = true;
+            _anforderungAnspuelen = false;
+        }
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = false;
+    }
+    if(!ROB_OUT_Spuelen)
+    {
+        ROB_IN_Spuelen_Beendet = false;
+        _timerSpuelen = 0;
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = true;
+    }
+    
+    
+    ROB_IN_Anforderung_Anspuelen = _anforderungAnspuelen;
+}
+
+
+
+//============================================================================================================
+// A P P L I K A T I O N S Z Y K L U S
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+    }
+    
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Parameteranwahl quittieren, wenn Programm ansteht
+        _ROB_IN_ParameterQuittiert = _ROBT_OUT_Parameteranwahl;
+    }
+    
+    
+    
+    // Start
+    if(ROB_OUT_Start &amp;&amp; ROB_IN_Fehler_PumpeHeizung)  //&amp;&amp; _ROB_OUT_Analogwertvorgabe_Material &gt; 0 &amp;&amp; _ROB_OUT_Analogwertvorgabe_Swirl &gt; 0)
+    {
+        ROB_IN_Bereit_Fuer_Applikation = !ROB_OUT_Pistole1_Oeffnen;
+    }
+    else
+    {
+        ROB_IN_Bereit_Fuer_Applikation = false;
+    }
+    
+    // Zyklus Ende
+    if(ROB_OUT_Zyklus_Ende)
+    {
+        ROB_IN_Zyklus_Beendet = true;
+        
+        // Kein Fehler -&gt; Materialauftrag OK
+        if(!SIM_Fehler_ObereGrenze &amp;&amp; !SIM_Fehler_UntereGrenze &amp;&amp; !SIM_Fehler_Material &amp;&amp; !SIM_Fehler_System)
+        {
+            ROB_IN_Materialauftrag_OK = true;
+        }
+        // Fehler Obere Grenze
+        if(SIM_Fehler_ObereGrenze)
+        {
+            ROB_IN_Fehler_Einzelnaht_ObereGrenze = false;
+            ROB_IN_Oberer_Grenzwert = false;
+        }
+        // Fehler Untere Grenze
+        if(SIM_Fehler_UntereGrenze)
+        {
+            ROB_IN_Fehler_Einzelnaht_UntereGrenze = false;
+            ROB_IN_Unterer_Grenzwert = false;
+        }
+        // Fehler Material
+        if(SIM_Fehler_Material)
+        {
+            ROB_IN_Fehler_Material = false;
+        }
+        // Fehler System
+        if(SIM_Fehler_System)
+        {
+            ROB_IN_Fehler_System = false;
+        }      
+        
+    }
+    else
+    {
+        ROB_IN_Zyklus_Beendet = false;
+        ROB_IN_Materialauftrag_OK = false;
+    }
+    
+    // Fehler quittieren
+    if(ROB_OUT_Fehler_Quittieren)
+    {
+        ROB_IN_Fehler_Einzelnaht_ObereGrenze = true;
+        ROB_IN_Fehler_Einzelnaht_UntereGrenze = true;
+        ROB_IN_Fehler_Material = true;
+        ROB_IN_Fehler_System = true;
+        ROB_IN_Oberer_Grenzwert = true;
+        ROB_IN_Unterer_Grenzwert = true;
+    }
+   
+}
+
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="4" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W32</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W64</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_W128</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W32</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W64</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_W128</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistolenanwahl_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistolenanwahl_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistolenanwahl_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Steppnaht_Aktiv</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Betriebsfreigabe</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Roboter_In_Automatik</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Start_Prozess</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Vorwahl_Simulationsbetrieb</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Dosierer_Fuellen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Dosierer_Wechsel</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Vordrucktrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Freigabe_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Start_Prozesskontrolle</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Duese_Freiblasen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Bewertung_BT_iO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Bewertung_BT_Wiederholung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Bewertung_BT_Ausschleusen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Bewertung_Auto_Rep</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Messen_Ende</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistole_Auf</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Systemkomponenten_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Energiesparmodus_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pumpenzeit_Reset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Vorwahl_BT_Zeigen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Heizung_Aus</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Heizung_Reset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Abstandsmessung_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_1K_Freispuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_2K_Messen_Kontrolle</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_2K_Mischerwechsel</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_2K_Mischer_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Time_Spuelen</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>112</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W32</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W64</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_W128</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W32</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W64</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_W128</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Pistole_W1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Pistole_W2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Pistole_W4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Keine_Sammelstoerung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Kein_Fehler_Dosiereinheit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Kein_Fehler_Klebeauftrag</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Betriebsbereit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_In_Automatik</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Vordruck_Kleben_Bereit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Rueckmeldung_Simulationsbetrieb</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Fuellen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Dosierer1_Gefuellt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Dosierer2_Gefuellt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelen_Laeuft</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelen_Fertig</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Prozesskontrolle_niO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Prozesskontrolle_iO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_BT_iO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_BT_Wiederholung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_BT_Ausschleusen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Auto_Rep</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Messen_Beendet</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_TCP_Offset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Systemkomponenten_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Energiesparmodus_Ein</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_BT_Auto_Rep_Moeglich</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Kein_Fehler_Pumpensystem</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Vorwarnung_Fassfuellstand</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Heizung_An</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Heizung_Temperatur_iO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Vorwarnungen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_1K_Freispuelen_Laeuft</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_1K_Im_Mischer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_2K_Im_Mischer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Mischung_Undefiniert</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Mischerwechsel</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Drehzahl_Mischer_iO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>105</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Wiegen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>106</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Waage_Leeren</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>107</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Kontrolle_Menge_Wiegen_Fertig</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>108</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Kontrollmessung_Fertig</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>109</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_2K_System</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>110</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_ROB_OUT_Programmanwahl</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROBT_OUT_Parameteranwahl</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_ProgrammQuittiert</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_ParameterQuittiert</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timerSpuelen</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>111</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

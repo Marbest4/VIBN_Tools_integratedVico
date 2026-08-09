@@ -1,0 +1,183 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="7b8a4917-aab3-4337-8b3e-f00458102fca" LogicName="AnalogValueSwitch" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           AnalogValueSwitch                                                                    //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    27.05.2025       1.5.0          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Analogwert mit Wertumschaltung als Word und Int ausgeben
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik gibt einen Analogwert je nach Wertumschaltung als Word und Int aus.
+//    Ist der Eingang (SIM_Value1_Active=1), wird der Analogwert (SIM_Value1) ausgegeben.
+//    Mit den Werten 2-5 wird identisch verfahren.
+//    Über den Eingang (Reset=1) werden die Ausgänge zurückgesetzt und geben den Wert "0" aus.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    SIM_Value1-4_Active       =   Bool, zur Umschaltung des Analogwerts
+//    SIM_Value1-4              =   Int, Analogwert
+//    Reset                     =   Bool, Rücksetzen der Ausgänge
+//
+//    Output Slot Values
+//    Out_Value_Int             =   Int, Ausgabe des Analogwerts
+//    Out_Value_Word            =   Word, Ausgabe des Analogwerts
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Analogwerte ausgeben
+//============================================================================================================
+// A N A L O G W E R T E    A U S G E B E N
+//============================================================================================================
+
+// Wert 1 ausgeben
+if(SIM_Value1_Active)
+{
+    Out_Value_Word = (ushort)SIM_Value1;
+    Out_Value_Int = SIM_Value1;
+}
+
+// Wert 2 ausgeben
+else if(SIM_Value2_Active)
+{
+    Out_Value_Word = (ushort)SIM_Value2;
+    Out_Value_Int = SIM_Value2;
+}
+
+// Wert 3 ausgeben
+else if(SIM_Value3_Active)
+{
+    Out_Value_Word = (ushort)SIM_Value3;
+    Out_Value_Int = SIM_Value3;
+}
+
+// Wert 4 ausgeben
+else if(SIM_Value4_Active)
+{
+    Out_Value_Word = (ushort)SIM_Value4;
+    Out_Value_Int = SIM_Value4;
+}
+
+// Wert 5 ausgeben
+else if(SIM_Value5_Active)
+{
+    Out_Value_Word = (ushort)SIM_Value5;
+    Out_Value_Int = SIM_Value5;
+}
+#endregion
+
+#region Analogwerte zurücksetzen
+//============================================================================================================
+// A N A L O G W E R T E    Z U R Ü C K S E T Z E N
+//============================================================================================================
+
+// Ausgänge zurücksetzen
+if(Reset)
+{
+    Out_Value_Int = 0;
+    Out_Value_Word = 0;
+}
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="5" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_Value1_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value2_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value3_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value4_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value5_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value1</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value2</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value3</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value4</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Value5</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Reset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>Out_Value_Int</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Out_Value_Word</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

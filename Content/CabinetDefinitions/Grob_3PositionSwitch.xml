@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-16"?>
+<CabinetElementDefinition xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" AllowMultistate="false" WidthRatio="0" MainIcon="Internal_threestate.middle" ElementName="Grob_3PositionSwitch">
+  <SlotDefinitions>
+    <IOSlotDefinition SlotType="Bool" SlotName="NO11" Usage="Write" DefaultValue="False" />
+    <IOSlotDefinition SlotType="Bool" SlotName="NO12" Usage="Write" DefaultValue="False" />
+    <IOSlotDefinition SlotType="Bool" SlotName="NC11" Usage="Write" DefaultValue="True" />
+    <IOSlotDefinition SlotType="Bool" SlotName="NC12" Usage="Write" DefaultValue="True" />
+    <IOSlotDefinition SlotType="Bool" SlotName="NO21" Usage="Write" DefaultValue="False" />
+    <IOSlotDefinition SlotType="Bool" SlotName="NO22" Usage="Write" DefaultValue="False" />
+  </SlotDefinitions>
+  <Areas>
+    <Area Debug="false" Column="0" Row="0" ColumnSpan="1" RowSpan="1" Mask="" IsReadOnly="false" MaskType="None" DragHorizontal="false" Name="Low" Usage="Click">
+      <Click>
+        <SlotValue SlotName="NO11">True</SlotValue>
+        <SlotValue SlotName="NO12">True</SlotValue>
+        <SlotValue SlotName="NC11">False</SlotValue>
+        <SlotValue SlotName="NC12">False</SlotValue>
+        <SlotValue SlotName="NO21">False</SlotValue>
+        <SlotValue SlotName="NO22">False</SlotValue>
+      </Click>
+    </Area>
+    <Area Debug="false" Column="1" Row="0" ColumnSpan="1" RowSpan="1" Mask="" IsReadOnly="false" MaskType="None" DragHorizontal="false" Name="Medium" Usage="Click">
+      <Click>
+        <SlotValue SlotName="NO11">False</SlotValue>
+        <SlotValue SlotName="NO12">False</SlotValue>
+        <SlotValue SlotName="NC11">True</SlotValue>
+        <SlotValue SlotName="NC12">True</SlotValue>
+        <SlotValue SlotName="NO21">False</SlotValue>
+        <SlotValue SlotName="NO22">False</SlotValue>
+      </Click>
+    </Area>
+    <Area Debug="false" Column="2" Row="0" ColumnSpan="1" RowSpan="1" Mask="" IsReadOnly="false" MaskType="None" DragHorizontal="false" Name="High" Usage="Click">
+      <Click>
+      	<SlotValue SlotName="NC11">False</SlotValue>
+        <SlotValue SlotName="NC12">False</SlotValue>
+        <SlotValue SlotName="NO11">False</SlotValue>
+        <SlotValue SlotName="NO12">False</SlotValue>
+        <SlotValue SlotName="NO21">True</SlotValue>
+        <SlotValue SlotName="NO22">True</SlotValue>
+      </Click>
+    </Area>
+  </Areas>
+  <States>
+  	<DisplayState DisplayImage="Internal_threestate.middle">
+      <IsActiveExpression>NC11=true</IsActiveExpression>
+    </DisplayState>
+    <DisplayState DisplayImage="Internal_threestate.left">
+      <IsActiveExpression>NO11=true</IsActiveExpression>
+    </DisplayState>    
+    <DisplayState DisplayImage="Internal_threestate.right">
+      <IsActiveExpression>NO21=true</IsActiveExpression>
+    </DisplayState>
+  </States>
+</CabinetElementDefinition>

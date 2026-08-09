@@ -1,0 +1,259 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="d4057e69-e813-4274-8ab9-37c66a17c19f" LogicName="Grob_GripperAddOn_MultiplePartTypes" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+using FS.SDK.Components;
+using System;
+using System.Threading;
+using System.Text;
+using FS.SDK.Extensibility;
+using FS.SDK.Util;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Grob_GripperAddOn_MultiplePartTypes                                                  //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    23.06.2026       1.0.2          Egg              Ur Version
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Egg              AddOn für unterschiedliche Werkstücktypen
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik wird als AddOn für die Grob_GripperBasic Logik verwendet zur Rückmeldung Gespannt mit
+//    unterschiedlichen Werkstücktypen
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    SIM_AddOnStatus               =   Byte, Gripper Status von Hauptlogik
+//    SIM_PartPresent_TypeX         =   Bool, Teil Typ X vorhanden
+//    PAR_ClampedPosition_TypeX     =   Real, Gespannt Position für Typ X
+//    PAR_ClampedPosition_NoPart    =   Real, Gespannt Position für kein Teil
+//
+//    Output Slot Values
+//    PLC_IN_Unclamped              =   Bool, Rückmeldung Greifer gelöst
+//    PLC_IN_Clamped                =   Bool, Rückmeldung Greifer gespannt
+//    PLC_IN_ClampedWithPart_TypeX  =   Bool, Rückmeldung Greifer gespannt mit Typ X
+//    PLC_IN_ClampedWithoutPart     =   Bool, Rückmeldung Greifer gespannt ohne Teil
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#region Read-In Status Byte
+//============================================================================================================
+// R E A D - I N   S T A T U S   B Y T E 
+//============================================================================================================
+
+ConvertFunctions.ByteToBool(SIM_AddOnStatus,
+out _statusBit0_unclamped,
+out _statusBit1_clamped,
+out _statusBit2_clampedWithPart,
+out _statusBit3_clampedWithoutPart,
+out _statusBit4,
+out _statusBit5,
+out _statusBit6,
+out _statusBit7);
+
+
+#endregion
+
+
+#region Werte Schreiben
+//============================================================================================================
+// W E R T E   S C H R E I B E N   
+//============================================================================================================
+
+PLC_IN_Unclamped = _statusBit0_unclamped;
+PLC_IN_Clamped = _statusBit1_clamped;
+
+PLC_IN_ClampedWithPart_Type1 = _statusBit2_clampedWithPart &amp;&amp; SIM_PartPresent_Type1;
+PLC_IN_ClampedWithPart_Type2 = _statusBit2_clampedWithPart &amp;&amp; SIM_PartPresent_Type2;
+PLC_IN_ClampedWithPart_Type3 = _statusBit2_clampedWithPart &amp;&amp; SIM_PartPresent_Type3;
+
+PLC_IN_ClampedWithoutPart = _statusBit3_clampedWithoutPart;
+
+#endregion
+
+
+#region Clamped Position Schreiben
+//============================================================================================================
+// C L A M P E D   P  O S I T I O N   S C  H R E I B E N  
+//============================================================================================================
+
+if(SIM_PartPresent_Type1)
+{
+    SIM_TargetPosition = PAR_ClampedPosition_Type1;
+}
+else if(SIM_PartPresent_Type2)
+{
+    SIM_TargetPosition = PAR_ClampedPosition_Type2;
+}
+else if(SIM_PartPresent_Type3)
+{
+    SIM_TargetPosition = PAR_ClampedPosition_Type3;
+}
+else
+{
+    SIM_TargetPosition = PAR_ClampedPosition_NoPart;
+}
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_AddOnStatus</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_PartPresent_Type1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_PartPresent_Type2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_PartPresent_Type3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedPosition_Type1</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedPosition_Type2</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedPosition_Type3</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedPosition_NoPart</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_Unclamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Clamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithPart_Type1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithPart_Type2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithPart_Type3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithoutPart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_TargetPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_statusBit0_unclamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit1_clamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit2_clampedWithPart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit3_clampedWithoutPart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

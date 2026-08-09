@@ -1,0 +1,1691 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="33074585-5f3a-4ca5-b3ff-5c5e3892772d" LogicName="KeyenceBarcodeSR2000" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+  <ScriptText>#load "reference"
+using System.Collections.Generic;
+using System.Linq;
+using FS.SDK.Util;
+using System.Threading;
+using System;
+using FS.SDK;
+
+ List&lt;Char&gt; ReadList = new List&lt;Char&gt;();
+ 
+ if(SIM_IsDetecting)
+ {
+ 	if(FillReadList())
+    	WriteReadData();
+ }
+ 
+ 
+//Leseablauf
+if(IO_OUT_Operation_Read_Request)
+{
+	Logger.I("IO_OUT_Operation_Read_Request");
+	
+	IO_IN_Busy_BUSY = true;
+	SIM_DoRead = true;
+	
+	if(SIM_ReadOk) //Lesen IO
+	{  
+	   timer+=SceneObject.DeltaTime;
+	   if(timer&lt;1f)
+	   return;
+		Logger.I("SIM_ReadOk");
+		FillReadList();
+		IO_IN_Completion_Read_Complete = true;
+		IO_IN_Operation_Read_Result_Code = 0; //Wertüberprüfen
+		IO_IN_Match_AIM_DPM_Grade = 4; //mit 4-A keine probleme
+		
+		timer=0;
+		/*
+		//max String größe anpassen
+		if(ReadList.Count &gt;= 30)
+			IO_IN_Read_Data_Result_Data_Size = 30;
+		else*/
+			IO_IN_Read_Data_Result_Data_Size = (ushort)ReadList.Count;
+		WriteReadData();
+	}
+	else if(SIM_ReadError) //Lesen n.IO
+	{ timer+=SceneObject.DeltaTime;
+       if(timer&lt;1f)
+       return;
+		Logger.I("SIM_ReadError");
+	 	IO_IN_Error_Read_Failure = true;
+	 	IO_IN_Completion_Read_Complete = true;
+	 	IO_IN_Operation_Read_Result_Code = 1; //Wertüberprüfen
+	 	timer=0;
+	}
+}
+
+if(IO_OUT_Completion_Read_Complete_Clear) //Lesen abgeschlossen, Werte zurücksetzen
+{   timer+=SceneObject.DeltaTime;
+       if(timer&lt;1f)
+       return;
+	Logger.I("IO_OUT_Completion_Read_Complete_Clear");
+	IO_IN_Busy_BUSY = false;
+	SIM_DoRead = false;
+	IO_IN_Error_Read_Failure = false;
+	IO_IN_Completion_Read_Complete = false;
+	IO_IN_Match_AIM_DPM_Grade = 0;
+	IO_IN_Operation_Read_Result_Code = 0;
+	timer=0;
+}
+
+if(IO_OUT_Operation_Tune_Request) //Tuning starten
+{   timer+=SceneObject.DeltaTime;
+       if(timer&lt;1f)
+       return;
+	IO_IN_Busy_BUSY = true;
+	IO_IN_Match_AIM_DPM_Grade = 4;
+	
+	//IO_IN_Error_Tune_Failure = true;
+	IO_IN_Completion_Tune_Complete = true;
+	timer=0;
+}
+
+if(IO_OUT_Completion_Tune_Complete_Clear) //Tuning abgeschlossen
+{   timer+=SceneObject.DeltaTime;
+       if(timer&lt;1f)
+       return;
+	IO_IN_Busy_BUSY = false;
+	IO_IN_Completion_Tune_Complete = false;
+	timer=0;
+	//IO_IN_Error_Tune_Failure = false;
+}
+
+//Hilfsmethoden
+bool FillReadList()
+{
+	//string aufsplitten und readList befüllen
+	if(!String.IsNullOrWhiteSpace(SIM_ReadData))
+	{
+		ReadList = SIM_ReadData.ToList();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+	
+}
+
+void WriteReadData()
+{	
+
+	if(ReadList.Count&lt;=0)
+		return;
+
+	
+	if(!(ReadList.Count&lt;1) )IO_IN_ReadData_1=Convert.ToByte(ReadList[0]);
+	if(!(ReadList.Count&lt;2) )IO_IN_ReadData_2=Convert.ToByte(ReadList[1]);
+	if(!(ReadList.Count&lt;3) )IO_IN_ReadData_3=Convert.ToByte(ReadList[2]);
+	if(!(ReadList.Count&lt;4) )IO_IN_ReadData_4=Convert.ToByte(ReadList[3]);
+	if(!(ReadList.Count&lt;5) )IO_IN_ReadData_5=Convert.ToByte(ReadList[4]);
+	if(!(ReadList.Count&lt;6) )IO_IN_ReadData_6=Convert.ToByte(ReadList[5]);
+	if(!(ReadList.Count&lt;7) )IO_IN_ReadData_7=Convert.ToByte(ReadList[6]);
+	if(!(ReadList.Count&lt;8) )IO_IN_ReadData_8=Convert.ToByte(ReadList[7]);
+	if(!(ReadList.Count&lt;9) )IO_IN_ReadData_9=Convert.ToByte(ReadList[8]);
+	if(!(ReadList.Count&lt;10) )IO_IN_ReadData_10=Convert.ToByte(ReadList[9]);
+	if(!(ReadList.Count&lt;11) )IO_IN_ReadData_11=Convert.ToByte(ReadList[10]);
+	if(!(ReadList.Count&lt;12) )IO_IN_ReadData_12=Convert.ToByte(ReadList[11]);
+	if(!(ReadList.Count&lt;13) )IO_IN_ReadData_13=Convert.ToByte(ReadList[12]);
+	if(!(ReadList.Count&lt;14) )IO_IN_ReadData_14=Convert.ToByte(ReadList[13]);
+	if(!(ReadList.Count&lt;15) )IO_IN_ReadData_15=Convert.ToByte(ReadList[14]);
+	if(!(ReadList.Count&lt;16) )IO_IN_ReadData_16=Convert.ToByte(ReadList[15]);
+	if(!(ReadList.Count&lt;17) )IO_IN_ReadData_17=Convert.ToByte(ReadList[16]);
+	if(!(ReadList.Count&lt;18) )IO_IN_ReadData_18=Convert.ToByte(ReadList[17]);
+	if(!(ReadList.Count&lt;19) )IO_IN_ReadData_19=Convert.ToByte(ReadList[18]);
+	if(!(ReadList.Count&lt;20) )IO_IN_ReadData_20=Convert.ToByte(ReadList[19]);
+	if(!(ReadList.Count&lt;21) )IO_IN_ReadData_21=Convert.ToByte(ReadList[20]);
+	if(!(ReadList.Count&lt;22) )IO_IN_ReadData_22=Convert.ToByte(ReadList[21]);
+	if(!(ReadList.Count&lt;23) )IO_IN_ReadData_23=Convert.ToByte(ReadList[22]);
+	if(!(ReadList.Count&lt;24) )IO_IN_ReadData_24=Convert.ToByte(ReadList[23]);
+	if(!(ReadList.Count&lt;25) )IO_IN_ReadData_25=Convert.ToByte(ReadList[24]);
+	if(!(ReadList.Count&lt;26) )IO_IN_ReadData_26=Convert.ToByte(ReadList[25]);
+	if(!(ReadList.Count&lt;27) )IO_IN_ReadData_27=Convert.ToByte(ReadList[26]);
+	if(!(ReadList.Count&lt;28) )IO_IN_ReadData_28=Convert.ToByte(ReadList[27]);
+	if(!(ReadList.Count&lt;29) )IO_IN_ReadData_29=Convert.ToByte(ReadList[28]);
+	if(!(ReadList.Count&lt;30) )IO_IN_ReadData_30=Convert.ToByte(ReadList[29]);
+	if(!(ReadList.Count&lt;31) )IO_IN_ReadData_31=Convert.ToByte(ReadList[30]);
+	if(!(ReadList.Count&lt;32) )IO_IN_ReadData_32=Convert.ToByte(ReadList[31]);
+	if(!(ReadList.Count&lt;33) )IO_IN_ReadData_33=Convert.ToByte(ReadList[32]);
+	if(!(ReadList.Count&lt;34) )IO_IN_ReadData_34=Convert.ToByte(ReadList[33]);
+	if(!(ReadList.Count&lt;35) )IO_IN_ReadData_35=Convert.ToByte(ReadList[34]);
+	if(!(ReadList.Count&lt;36) )IO_IN_ReadData_36=Convert.ToByte(ReadList[35]);
+	if(!(ReadList.Count&lt;37) )IO_IN_ReadData_37=Convert.ToByte(ReadList[36]);
+	if(!(ReadList.Count&lt;38) )IO_IN_ReadData_38=Convert.ToByte(ReadList[37]);
+	if(!(ReadList.Count&lt;39) )IO_IN_ReadData_39=Convert.ToByte(ReadList[38]);
+	if(!(ReadList.Count&lt;40) )IO_IN_ReadData_40=Convert.ToByte(ReadList[39]);
+	if(!(ReadList.Count&lt;41) )IO_IN_ReadData_41=Convert.ToByte(ReadList[40]);
+	if(!(ReadList.Count&lt;42) )IO_IN_ReadData_42=Convert.ToByte(ReadList[41]);
+	if(!(ReadList.Count&lt;43) )IO_IN_ReadData_43=Convert.ToByte(ReadList[42]);
+	if(!(ReadList.Count&lt;44) )IO_IN_ReadData_44=Convert.ToByte(ReadList[43]);
+	if(!(ReadList.Count&lt;45) )IO_IN_ReadData_45=Convert.ToByte(ReadList[44]);
+	if(!(ReadList.Count&lt;46) )IO_IN_ReadData_46=Convert.ToByte(ReadList[45]);
+	if(!(ReadList.Count&lt;47) )IO_IN_ReadData_47=Convert.ToByte(ReadList[46]);
+	if(!(ReadList.Count&lt;48) )IO_IN_ReadData_48=Convert.ToByte(ReadList[47]);
+	if(!(ReadList.Count&lt;49) )IO_IN_ReadData_49=Convert.ToByte(ReadList[48]);
+	if(!(ReadList.Count&lt;50) )IO_IN_ReadData_50=Convert.ToByte(ReadList[49]);
+	if(!(ReadList.Count&lt;51) )IO_IN_ReadData_51=Convert.ToByte(ReadList[50]);
+	if(!(ReadList.Count&lt;52) )IO_IN_ReadData_52=Convert.ToByte(ReadList[51]);
+	if(!(ReadList.Count&lt;53) )IO_IN_ReadData_53=Convert.ToByte(ReadList[52]);
+	if(!(ReadList.Count&lt;54) )IO_IN_ReadData_54=Convert.ToByte(ReadList[53]);
+	if(!(ReadList.Count&lt;55) )IO_IN_ReadData_55=Convert.ToByte(ReadList[54]);
+	if(!(ReadList.Count&lt;56) )IO_IN_ReadData_56=Convert.ToByte(ReadList[55]);
+	if(!(ReadList.Count&lt;57) )IO_IN_ReadData_57=Convert.ToByte(ReadList[56]);
+	if(!(ReadList.Count&lt;58) )IO_IN_ReadData_58=Convert.ToByte(ReadList[57]);
+	if(!(ReadList.Count&lt;59) )IO_IN_ReadData_59=Convert.ToByte(ReadList[58]);
+	if(!(ReadList.Count&lt;60) )IO_IN_ReadData_60=Convert.ToByte(ReadList[59]);
+	if(!(ReadList.Count&lt;61) )IO_IN_ReadData_61=Convert.ToByte(ReadList[60]);
+	if(!(ReadList.Count&lt;62) )IO_IN_ReadData_62=Convert.ToByte(ReadList[61]);
+	if(!(ReadList.Count&lt;63) )IO_IN_ReadData_63=Convert.ToByte(ReadList[62]);
+	if(!(ReadList.Count&lt;64) )IO_IN_ReadData_64=Convert.ToByte(ReadList[63]);
+	if(!(ReadList.Count&lt;65) )IO_IN_ReadData_65=Convert.ToByte(ReadList[64]);
+	if(!(ReadList.Count&lt;66) )IO_IN_ReadData_66=Convert.ToByte(ReadList[65]);
+	if(!(ReadList.Count&lt;67) )IO_IN_ReadData_67=Convert.ToByte(ReadList[66]);
+	if(!(ReadList.Count&lt;68) )IO_IN_ReadData_68=Convert.ToByte(ReadList[67]);
+	if(!(ReadList.Count&lt;69) )IO_IN_ReadData_69=Convert.ToByte(ReadList[68]);
+	if(!(ReadList.Count&lt;70) )IO_IN_ReadData_70=Convert.ToByte(ReadList[69]);
+	if(!(ReadList.Count&lt;71) )IO_IN_ReadData_71=Convert.ToByte(ReadList[70]);
+	if(!(ReadList.Count&lt;72) )IO_IN_ReadData_72=Convert.ToByte(ReadList[71]);
+	if(!(ReadList.Count&lt;73) )IO_IN_ReadData_73=Convert.ToByte(ReadList[72]);
+	if(!(ReadList.Count&lt;74) )IO_IN_ReadData_74=Convert.ToByte(ReadList[73]);
+	if(!(ReadList.Count&lt;75) )IO_IN_ReadData_75=Convert.ToByte(ReadList[74]);
+	if(!(ReadList.Count&lt;76) )IO_IN_ReadData_76=Convert.ToByte(ReadList[75]);
+	if(!(ReadList.Count&lt;77) )IO_IN_ReadData_77=Convert.ToByte(ReadList[76]);
+	if(!(ReadList.Count&lt;78) )IO_IN_ReadData_78=Convert.ToByte(ReadList[77]);
+	if(!(ReadList.Count&lt;79) )IO_IN_ReadData_79=Convert.ToByte(ReadList[78]);
+	if(!(ReadList.Count&lt;80) )IO_IN_ReadData_80=Convert.ToByte(ReadList[79]);
+	if(!(ReadList.Count&lt;81) )IO_IN_ReadData_81=Convert.ToByte(ReadList[80]);
+	if(!(ReadList.Count&lt;82) )IO_IN_ReadData_82=Convert.ToByte(ReadList[81]);
+	if(!(ReadList.Count&lt;83) )IO_IN_ReadData_83=Convert.ToByte(ReadList[82]);
+	if(!(ReadList.Count&lt;84) )IO_IN_ReadData_84=Convert.ToByte(ReadList[83]);
+	if(!(ReadList.Count&lt;85) )IO_IN_ReadData_85=Convert.ToByte(ReadList[84]);
+	if(!(ReadList.Count&lt;86) )IO_IN_ReadData_86=Convert.ToByte(ReadList[85]);
+	if(!(ReadList.Count&lt;87) )IO_IN_ReadData_87=Convert.ToByte(ReadList[86]);
+	if(!(ReadList.Count&lt;88) )IO_IN_ReadData_88=Convert.ToByte(ReadList[87]);
+	if(!(ReadList.Count&lt;89) )IO_IN_ReadData_89=Convert.ToByte(ReadList[88]);
+	if(!(ReadList.Count&lt;90) )IO_IN_ReadData_90=Convert.ToByte(ReadList[89]);
+	if(!(ReadList.Count&lt;91) )IO_IN_ReadData_91=Convert.ToByte(ReadList[90]);
+	if(!(ReadList.Count&lt;92) )IO_IN_ReadData_92=Convert.ToByte(ReadList[91]);
+	if(!(ReadList.Count&lt;93) )IO_IN_ReadData_93=Convert.ToByte(ReadList[92]);
+	if(!(ReadList.Count&lt;94) )IO_IN_ReadData_94=Convert.ToByte(ReadList[93]);
+	if(!(ReadList.Count&lt;95) )IO_IN_ReadData_95=Convert.ToByte(ReadList[94]);
+	if(!(ReadList.Count&lt;96) )IO_IN_ReadData_96=Convert.ToByte(ReadList[95]);
+	if(!(ReadList.Count&lt;97) )IO_IN_ReadData_97=Convert.ToByte(ReadList[96]);
+	if(!(ReadList.Count&lt;98) )IO_IN_ReadData_98=Convert.ToByte(ReadList[97]);
+	if(!(ReadList.Count&lt;99) )IO_IN_ReadData_99=Convert.ToByte(ReadList[98]);
+	if(!(ReadList.Count&lt;100) )IO_IN_ReadData_100=Convert.ToByte(ReadList[99]);
+	if(!(ReadList.Count&lt;101) )IO_IN_ReadData_101=Convert.ToByte(ReadList[100]);
+	if(!(ReadList.Count&lt;102) )IO_IN_ReadData_102=Convert.ToByte(ReadList[101]);
+	if(!(ReadList.Count&lt;103) )IO_IN_ReadData_103=Convert.ToByte(ReadList[102]);
+	if(!(ReadList.Count&lt;104) )IO_IN_ReadData_104=Convert.ToByte(ReadList[103]);
+	if(!(ReadList.Count&lt;105) )IO_IN_ReadData_105=Convert.ToByte(ReadList[104]);
+	if(!(ReadList.Count&lt;106) )IO_IN_ReadData_106=Convert.ToByte(ReadList[105]);
+	if(!(ReadList.Count&lt;107) )IO_IN_ReadData_107=Convert.ToByte(ReadList[106]);
+	if(!(ReadList.Count&lt;108) )IO_IN_ReadData_108=Convert.ToByte(ReadList[107]);
+	if(!(ReadList.Count&lt;109) )IO_IN_ReadData_109=Convert.ToByte(ReadList[108]);
+	if(!(ReadList.Count&lt;110) )IO_IN_ReadData_110=Convert.ToByte(ReadList[109]);
+	if(!(ReadList.Count&lt;111) )IO_IN_ReadData_111=Convert.ToByte(ReadList[110]);
+	if(!(ReadList.Count&lt;112) )IO_IN_ReadData_112=Convert.ToByte(ReadList[111]);
+	if(!(ReadList.Count&lt;113) )IO_IN_ReadData_113=Convert.ToByte(ReadList[112]);
+	if(!(ReadList.Count&lt;114) )IO_IN_ReadData_114=Convert.ToByte(ReadList[113]);
+	if(!(ReadList.Count&lt;115) )IO_IN_ReadData_115=Convert.ToByte(ReadList[114]);
+	if(!(ReadList.Count&lt;116) )IO_IN_ReadData_116=Convert.ToByte(ReadList[115]);
+	if(!(ReadList.Count&lt;117) )IO_IN_ReadData_117=Convert.ToByte(ReadList[116]);
+	if(!(ReadList.Count&lt;118) )IO_IN_ReadData_118=Convert.ToByte(ReadList[117]);
+	if(!(ReadList.Count&lt;119) )IO_IN_ReadData_119=Convert.ToByte(ReadList[118]);
+	if(!(ReadList.Count&lt;120) )IO_IN_ReadData_120=Convert.ToByte(ReadList[119]);
+	if(!(ReadList.Count&lt;121) )IO_IN_ReadData_121=Convert.ToByte(ReadList[120]);
+	if(!(ReadList.Count&lt;122) )IO_IN_ReadData_122=Convert.ToByte(ReadList[121]);
+	if(!(ReadList.Count&lt;123) )IO_IN_ReadData_123=Convert.ToByte(ReadList[122]);
+	if(!(ReadList.Count&lt;124) )IO_IN_ReadData_124=Convert.ToByte(ReadList[123]);
+	if(!(ReadList.Count&lt;125) )IO_IN_ReadData_125=Convert.ToByte(ReadList[124]);
+	if(!(ReadList.Count&lt;126) )IO_IN_ReadData_126=Convert.ToByte(ReadList[125]);
+	if(!(ReadList.Count&lt;127) )IO_IN_ReadData_127=Convert.ToByte(ReadList[126]);
+	if(!(ReadList.Count&lt;128) )IO_IN_ReadData_128=Convert.ToByte(ReadList[127]);
+	if(!(ReadList.Count&lt;129) )IO_IN_ReadData_129=Convert.ToByte(ReadList[128]);
+	if(!(ReadList.Count&lt;130) )IO_IN_ReadData_130=Convert.ToByte(ReadList[129]);
+	if(!(ReadList.Count&lt;131) )IO_IN_ReadData_131=Convert.ToByte(ReadList[130]);
+	if(!(ReadList.Count&lt;132) )IO_IN_ReadData_132=Convert.ToByte(ReadList[131]);
+	if(!(ReadList.Count&lt;133) )IO_IN_ReadData_133=Convert.ToByte(ReadList[132]);
+	if(!(ReadList.Count&lt;134) )IO_IN_ReadData_134=Convert.ToByte(ReadList[133]);
+	if(!(ReadList.Count&lt;135) )IO_IN_ReadData_135=Convert.ToByte(ReadList[134]);
+	if(!(ReadList.Count&lt;136) )IO_IN_ReadData_136=Convert.ToByte(ReadList[135]);
+	if(!(ReadList.Count&lt;137) )IO_IN_ReadData_137=Convert.ToByte(ReadList[136]);
+	if(!(ReadList.Count&lt;138) )IO_IN_ReadData_138=Convert.ToByte(ReadList[137]);
+	if(!(ReadList.Count&lt;139) )IO_IN_ReadData_139=Convert.ToByte(ReadList[138]);
+	if(!(ReadList.Count&lt;140) )IO_IN_ReadData_140=Convert.ToByte(ReadList[139]);
+	if(!(ReadList.Count&lt;141) )IO_IN_ReadData_141=Convert.ToByte(ReadList[140]);
+	if(!(ReadList.Count&lt;142) )IO_IN_ReadData_142=Convert.ToByte(ReadList[141]);
+	if(!(ReadList.Count&lt;143) )IO_IN_ReadData_143=Convert.ToByte(ReadList[142]);
+	if(!(ReadList.Count&lt;144) )IO_IN_ReadData_144=Convert.ToByte(ReadList[143]);
+	if(!(ReadList.Count&lt;145) )IO_IN_ReadData_145=Convert.ToByte(ReadList[144]);
+	if(!(ReadList.Count&lt;146) )IO_IN_ReadData_146=Convert.ToByte(ReadList[145]);
+	if(!(ReadList.Count&lt;147) )IO_IN_ReadData_147=Convert.ToByte(ReadList[146]);
+	if(!(ReadList.Count&lt;148) )IO_IN_ReadData_148=Convert.ToByte(ReadList[147]);
+	if(!(ReadList.Count&lt;149) )IO_IN_ReadData_149=Convert.ToByte(ReadList[148]);
+	if(!(ReadList.Count&lt;150) )IO_IN_ReadData_150=Convert.ToByte(ReadList[149]);
+	if(!(ReadList.Count&lt;151) )IO_IN_ReadData_151=Convert.ToByte(ReadList[150]);
+	if(!(ReadList.Count&lt;152) )IO_IN_ReadData_152=Convert.ToByte(ReadList[151]);
+	if(!(ReadList.Count&lt;153) )IO_IN_ReadData_153=Convert.ToByte(ReadList[152]);
+	if(!(ReadList.Count&lt;154) )IO_IN_ReadData_154=Convert.ToByte(ReadList[153]);
+	if(!(ReadList.Count&lt;155) )IO_IN_ReadData_155=Convert.ToByte(ReadList[154]);
+	if(!(ReadList.Count&lt;156) )IO_IN_ReadData_156=Convert.ToByte(ReadList[155]);
+	if(!(ReadList.Count&lt;157) )IO_IN_ReadData_157=Convert.ToByte(ReadList[156]);
+	if(!(ReadList.Count&lt;158) )IO_IN_ReadData_158=Convert.ToByte(ReadList[157]);
+	if(!(ReadList.Count&lt;159) )IO_IN_ReadData_159=Convert.ToByte(ReadList[158]);
+	if(!(ReadList.Count&lt;160) )IO_IN_ReadData_160=Convert.ToByte(ReadList[159]);
+	if(!(ReadList.Count&lt;161) )IO_IN_ReadData_161=Convert.ToByte(ReadList[160]);
+	if(!(ReadList.Count&lt;162) )IO_IN_ReadData_162=Convert.ToByte(ReadList[161]);
+	if(!(ReadList.Count&lt;163) )IO_IN_ReadData_163=Convert.ToByte(ReadList[162]);
+	if(!(ReadList.Count&lt;164) )IO_IN_ReadData_164=Convert.ToByte(ReadList[163]);
+	if(!(ReadList.Count&lt;165) )IO_IN_ReadData_165=Convert.ToByte(ReadList[164]);
+	if(!(ReadList.Count&lt;166) )IO_IN_ReadData_166=Convert.ToByte(ReadList[165]);
+	if(!(ReadList.Count&lt;167) )IO_IN_ReadData_167=Convert.ToByte(ReadList[166]);
+	if(!(ReadList.Count&lt;168) )IO_IN_ReadData_168=Convert.ToByte(ReadList[167]);
+	if(!(ReadList.Count&lt;169) )IO_IN_ReadData_169=Convert.ToByte(ReadList[168]);
+	if(!(ReadList.Count&lt;170) )IO_IN_ReadData_170=Convert.ToByte(ReadList[169]);
+	if(!(ReadList.Count&lt;171) )IO_IN_ReadData_171=Convert.ToByte(ReadList[170]);
+	if(!(ReadList.Count&lt;172) )IO_IN_ReadData_172=Convert.ToByte(ReadList[171]);
+	if(!(ReadList.Count&lt;173) )IO_IN_ReadData_173=Convert.ToByte(ReadList[172]);
+	if(!(ReadList.Count&lt;174) )IO_IN_ReadData_174=Convert.ToByte(ReadList[173]);
+	if(!(ReadList.Count&lt;175) )IO_IN_ReadData_175=Convert.ToByte(ReadList[174]);
+	if(!(ReadList.Count&lt;176) )IO_IN_ReadData_176=Convert.ToByte(ReadList[175]);
+	if(!(ReadList.Count&lt;177) )IO_IN_ReadData_177=Convert.ToByte(ReadList[176]);
+	if(!(ReadList.Count&lt;178) )IO_IN_ReadData_178=Convert.ToByte(ReadList[177]);
+	if(!(ReadList.Count&lt;179) )IO_IN_ReadData_179=Convert.ToByte(ReadList[178]);
+	if(!(ReadList.Count&lt;180) )IO_IN_ReadData_180=Convert.ToByte(ReadList[179]);
+	if(!(ReadList.Count&lt;181) )IO_IN_ReadData_181=Convert.ToByte(ReadList[180]);
+	if(!(ReadList.Count&lt;182) )IO_IN_ReadData_182=Convert.ToByte(ReadList[181]);
+	if(!(ReadList.Count&lt;183) )IO_IN_ReadData_183=Convert.ToByte(ReadList[182]);
+	if(!(ReadList.Count&lt;184) )IO_IN_ReadData_184=Convert.ToByte(ReadList[183]);
+	if(!(ReadList.Count&lt;185) )IO_IN_ReadData_185=Convert.ToByte(ReadList[184]);
+	if(!(ReadList.Count&lt;186) )IO_IN_ReadData_186=Convert.ToByte(ReadList[185]);
+	if(!(ReadList.Count&lt;187) )IO_IN_ReadData_187=Convert.ToByte(ReadList[186]);
+	if(!(ReadList.Count&lt;188) )IO_IN_ReadData_188=Convert.ToByte(ReadList[187]);
+	if(!(ReadList.Count&lt;189) )IO_IN_ReadData_189=Convert.ToByte(ReadList[188]);
+	if(!(ReadList.Count&lt;190) )IO_IN_ReadData_190=Convert.ToByte(ReadList[189]);
+	if(!(ReadList.Count&lt;191) )IO_IN_ReadData_191=Convert.ToByte(ReadList[190]);
+	if(!(ReadList.Count&lt;192) )IO_IN_ReadData_192=Convert.ToByte(ReadList[191]);
+	if(!(ReadList.Count&lt;193) )IO_IN_ReadData_193=Convert.ToByte(ReadList[192]);
+	if(!(ReadList.Count&lt;194) )IO_IN_ReadData_194=Convert.ToByte(ReadList[193]);
+	if(!(ReadList.Count&lt;195) )IO_IN_ReadData_195=Convert.ToByte(ReadList[194]);
+	if(!(ReadList.Count&lt;196) )IO_IN_ReadData_196=Convert.ToByte(ReadList[195]);
+	if(!(ReadList.Count&lt;197) )IO_IN_ReadData_197=Convert.ToByte(ReadList[196]);
+	if(!(ReadList.Count&lt;198) )IO_IN_ReadData_198=Convert.ToByte(ReadList[197]);
+	if(!(ReadList.Count&lt;199) )IO_IN_ReadData_199=Convert.ToByte(ReadList[198]);
+	if(!(ReadList.Count&lt;200) )IO_IN_ReadData_200=Convert.ToByte(ReadList[199]);
+	if(!(ReadList.Count&lt;201) )IO_IN_ReadData_201=Convert.ToByte(ReadList[200]);
+	if(!(ReadList.Count&lt;202) )IO_IN_ReadData_202=Convert.ToByte(ReadList[201]);
+	if(!(ReadList.Count&lt;203) )IO_IN_ReadData_203=Convert.ToByte(ReadList[202]);
+	if(!(ReadList.Count&lt;204) )IO_IN_ReadData_204=Convert.ToByte(ReadList[203]);
+	if(!(ReadList.Count&lt;205) )IO_IN_ReadData_205=Convert.ToByte(ReadList[204]);
+	if(!(ReadList.Count&lt;206) )IO_IN_ReadData_206=Convert.ToByte(ReadList[205]);
+	if(!(ReadList.Count&lt;207) )IO_IN_ReadData_207=Convert.ToByte(ReadList[206]);
+	if(!(ReadList.Count&lt;208) )IO_IN_ReadData_208=Convert.ToByte(ReadList[207]);
+	if(!(ReadList.Count&lt;209) )IO_IN_ReadData_209=Convert.ToByte(ReadList[208]);
+	if(!(ReadList.Count&lt;210) )IO_IN_ReadData_210=Convert.ToByte(ReadList[209]);
+	if(!(ReadList.Count&lt;211) )IO_IN_ReadData_211=Convert.ToByte(ReadList[210]);
+	if(!(ReadList.Count&lt;212) )IO_IN_ReadData_212=Convert.ToByte(ReadList[211]);
+	if(!(ReadList.Count&lt;213) )IO_IN_ReadData_213=Convert.ToByte(ReadList[212]);
+	if(!(ReadList.Count&lt;214) )IO_IN_ReadData_214=Convert.ToByte(ReadList[213]);
+	if(!(ReadList.Count&lt;215) )IO_IN_ReadData_215=Convert.ToByte(ReadList[214]);
+	if(!(ReadList.Count&lt;216) )IO_IN_ReadData_216=Convert.ToByte(ReadList[215]);
+	if(!(ReadList.Count&lt;217) )IO_IN_ReadData_217=Convert.ToByte(ReadList[216]);
+	if(!(ReadList.Count&lt;218) )IO_IN_ReadData_218=Convert.ToByte(ReadList[217]);
+	if(!(ReadList.Count&lt;219) )IO_IN_ReadData_219=Convert.ToByte(ReadList[218]);
+	if(!(ReadList.Count&lt;220) )IO_IN_ReadData_220=Convert.ToByte(ReadList[219]);
+	if(!(ReadList.Count&lt;221) )IO_IN_ReadData_221=Convert.ToByte(ReadList[220]);
+	if(!(ReadList.Count&lt;222) )IO_IN_ReadData_222=Convert.ToByte(ReadList[221]);
+	if(!(ReadList.Count&lt;223) )IO_IN_ReadData_223=Convert.ToByte(ReadList[222]);
+	if(!(ReadList.Count&lt;224) )IO_IN_ReadData_224=Convert.ToByte(ReadList[223]);
+	if(!(ReadList.Count&lt;225) )IO_IN_ReadData_225=Convert.ToByte(ReadList[224]);
+	if(!(ReadList.Count&lt;226) )IO_IN_ReadData_226=Convert.ToByte(ReadList[225]);
+	if(!(ReadList.Count&lt;227) )IO_IN_ReadData_227=Convert.ToByte(ReadList[226]);
+	if(!(ReadList.Count&lt;228) )IO_IN_ReadData_228=Convert.ToByte(ReadList[227]);
+	if(!(ReadList.Count&lt;229) )IO_IN_ReadData_229=Convert.ToByte(ReadList[228]);
+	if(!(ReadList.Count&lt;230) )IO_IN_ReadData_230=Convert.ToByte(ReadList[229]);
+	if(!(ReadList.Count&lt;231) )IO_IN_ReadData_231=Convert.ToByte(ReadList[230]);
+	if(!(ReadList.Count&lt;232) )IO_IN_ReadData_232=Convert.ToByte(ReadList[231]);
+	if(!(ReadList.Count&lt;233) )IO_IN_ReadData_233=Convert.ToByte(ReadList[232]);
+	if(!(ReadList.Count&lt;234) )IO_IN_ReadData_234=Convert.ToByte(ReadList[233]);
+	if(!(ReadList.Count&lt;235) )IO_IN_ReadData_235=Convert.ToByte(ReadList[234]);
+	if(!(ReadList.Count&lt;236) )IO_IN_ReadData_236=Convert.ToByte(ReadList[235]);
+	if(!(ReadList.Count&lt;237) )IO_IN_ReadData_237=Convert.ToByte(ReadList[236]);
+	if(!(ReadList.Count&lt;238) )IO_IN_ReadData_238=Convert.ToByte(ReadList[237]);
+	if(!(ReadList.Count&lt;239) )IO_IN_ReadData_239=Convert.ToByte(ReadList[238]);
+	if(!(ReadList.Count&lt;240) )IO_IN_ReadData_240=Convert.ToByte(ReadList[239]);
+	if(!(ReadList.Count&lt;241) )IO_IN_ReadData_241=Convert.ToByte(ReadList[240]);
+	if(!(ReadList.Count&lt;242) )IO_IN_ReadData_242=Convert.ToByte(ReadList[241]);
+	if(!(ReadList.Count&lt;243) )IO_IN_ReadData_243=Convert.ToByte(ReadList[242]);
+	if(!(ReadList.Count&lt;244) )IO_IN_ReadData_244=Convert.ToByte(ReadList[243]);
+	if(!(ReadList.Count&lt;245) )IO_IN_ReadData_245=Convert.ToByte(ReadList[244]);
+
+}</ScriptText>
+  <Version Major="2" Minor="3" Patch="1" />
+  <InputSlots>
+    <LogicSlot>
+      <Name>IO_OUT_Operation_Read_Request</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_OUT_Completion_Read_Complete_Clear</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_OUT_Operation_Tune_Request</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_OUT_Completion_Tune_Complete_Clear</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>SIM_IsDetecting</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>SIM_ReadOk</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>SIM_ReadError</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>SIM_ReadData</Name>
+      <IOSlotType>String</IOSlotType>
+      <IOMode>Read</IOMode>
+    </LogicSlot>    
+  </InputSlots>
+  <OutputSlots>
+    <LogicSlot>
+      <Name>IO_IN_Busy_BUSY</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Completion_Read_Complete</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Error_Read_Failure</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Operation_Read_Result_Code</Name>
+      <IOSlotType>Word</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Read_Data_Result_Data_Size</Name>
+      <IOSlotType>Word</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Completion_Tune_Complete</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_Match_AIM_DPM_Grade</Name>
+      <IOSlotType>Word</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>    
+    <LogicSlot>
+      <Name>SIM_DoRead</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>SIM_DoDelete</Name>
+      <IOSlotType>Bool</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_1</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_2</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>    
+    <LogicSlot>
+      <Name>IO_IN_ReadData_3</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_4</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_5</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_6</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_7</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_8</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_9</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_10</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_11</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_12</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_13</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_14</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_15</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_16</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_17</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_18</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_19</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_20</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_21</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_22</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_23</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_24</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_25</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_26</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_27</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_28</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_29</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_30</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_31</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_32</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_33</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_34</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_35</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_36</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_37</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_38</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_39</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_40</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_41</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_42</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_43</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_44</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_45</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_46</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_47</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_48</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_49</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_50</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_51</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_52</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_53</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_54</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_55</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_56</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_57</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_58</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_59</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_60</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_61</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_62</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_63</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_64</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_65</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_66</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_67</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_68</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_69</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_70</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_71</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_72</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_73</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_74</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_75</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_76</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_77</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_78</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_79</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_80</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_81</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_82</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_83</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_84</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_85</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_86</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_87</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_88</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_89</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_90</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_91</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_92</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_93</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_94</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_95</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_96</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_97</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_98</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_99</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_100</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_101</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_102</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_103</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_104</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_105</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_106</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_107</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_108</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_109</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_110</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_111</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_112</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_113</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_114</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_115</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_116</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_117</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_118</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_119</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_120</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_121</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_122</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_123</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_124</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_125</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_126</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_127</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_128</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_129</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_130</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_131</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_132</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_133</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_134</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_135</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_136</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_137</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_138</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_139</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_140</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_141</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_142</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_143</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_144</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_145</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_146</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_147</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_148</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_149</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_150</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_151</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_152</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_153</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_154</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_155</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_156</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_157</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_158</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_159</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_160</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_161</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_162</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_163</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_164</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_165</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_166</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_167</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_168</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_169</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_170</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_171</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_172</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_173</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_174</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_175</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_176</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_177</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_178</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_179</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_180</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_181</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_182</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_183</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_184</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_185</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_186</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_187</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_188</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_189</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_190</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_191</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_192</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_193</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_194</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_195</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_196</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_197</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_198</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_199</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_200</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_201</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_202</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_203</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_204</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_205</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_206</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_207</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_208</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_209</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_210</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_211</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_212</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_213</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_214</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_215</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_216</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_217</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_218</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_219</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_220</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_221</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_222</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_223</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_224</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_225</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_226</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_227</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_228</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_229</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_230</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_231</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_232</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_233</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_234</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_235</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_236</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_237</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_238</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_239</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_240</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_241</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_242</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_243</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_244</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_245</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>IO_IN_ReadData_246</Name>
+      <IOSlotType>Byte</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+    <LogicSlot>
+      <Name>timer</Name>
+      <IOSlotType>Real</IOSlotType>
+      <IOMode>Write</IOMode>
+    </LogicSlot>
+  </OutputSlots>
+  <LocalSlots />
+</LogicDefinition>

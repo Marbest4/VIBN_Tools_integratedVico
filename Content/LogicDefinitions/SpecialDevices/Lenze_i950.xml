@@ -1,0 +1,1316 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="4a3b4b33-0ff6-4981-a849-417148fc94bd" LogicName="Lenze_i950" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+using System;
+using System.Collections;
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Application: Lenze i950
+// Lenze i950 frequency converter
+// 
+// Created: 05.07.2022
+// By: F.EE (PS)
+//
+// V1.45.0 integration of breaktest
+// V1.45.5 STO active when SS1 active
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//controlword
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+ConvertFunctions.UIntToBool(I_PLC_Controlword_PO0_PO1, 
+x00: out _PO1_Bit0,             //PQ0 Bit0: Spare
+x01: out _PO1_Bit1,             //PQ0 Bit1: Spare
+x02: out _PO1_activateQSP,      //PQ0 Bit2: Activate QSP
+x03: out _PO1_enableOperation,  //PQ0 Bit3: Enable Operation
+x04: out _PO1_startOperation,   //PQ0 Bit4: Start Operation
+x05: out _PO1_posJog,           //PQ0 Bit5: Jog Pos
+x06: out _PO1_negJog,           //PQ0 Bit6: Jog Neg
+x07: out _PO1_resetFault,      //PQ0 Bit7: Reset Fault
+x08: out _PO1_syncRestart,      //PQ0 Bit8: Sync Restart
+x09: out _PO1_Bit9,             //PQ0 Bit9: Spare
+x10: out _PO1_Bit10,            //PQ0 Bit10: Spare
+x11: out _PO1_fastSlow,         //PQ0 Bit11: Fast Slow
+x12: out _PO1_invertDirection,  //PQ0 Bit12: Invert Direction
+x13: out _PO1_velOverride,      //PQ0 Bit13: Activate Vel Override
+x14: out _PO1_manuelReleaseBrake,//PQ0 Bit14: Manuel Release Brake
+x15: out _PO1_reduceTorque,     //PQ0 Bit15: Reduce Torque
+x16: out _PO1_command1,         //PQ1 Bit0: Command 1 (Select Commands 0 - 31)
+x17: out _PO1_command2,         //PQ1 Bit1: Command 2
+x18: out _PO1_command4,         //PQ1 Bit2: Command 4
+x19: out _PO1_command8,         //PQ1 Bit3: Command 8
+x20: out _PO1_command16,        //PQ1 Bit1: Command 16
+x21: out _PO1_activateCommand,  //PQ1 Bit5: Activate Command
+x22: out _PO1_setHomePos,       //PQ1 Bit6: Set Home Pos
+x23: out _PO1_homingWithinTraveling,    //PQ1 Bit7: Homing within traveling
+x24: out _PO1_remoteHT,         //PQ1 Bit8: Activate Remote HT
+x25: out _PO1_conveyerThrugh,   //PQ1 Bit9: Activate Conveyering Thrugh
+x26: out _PO1_extPosition,      //PQ1 Bit10: Activate Ext Position
+x27: out _PO1_extVelocity,      //PQ1 Bit11: Activate Ext Velocity
+x28: out _PO1_extAccDecJerk,    //PQ1 Bit12: Activate Ext Acc Dec Jerk
+x29: out _PO1_lifeBit,          //PQ1 Bit13: LIfe bit
+x30: out _PO1_extTorque,        //PQ1 Bit14: Activate Ext Torque
+x31: out _PO1_outputA1);         //PQ1 Bit15: Output A1
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Safety controlDword
+////////////////////////////////////////////////////////////////////////////////////////////////
+ConvertFunctions.UIntToBool(I_PLC_Safety_Output_Dword, 
+x00: out var _Safety_SD_Out1, //0 = SD-Out1 output is set to ON state
+x01: out _,
+x02: out _,
+x03: out _,
+x04: out _,
+x05: out _,
+x06: out _,
+x07: out _,
+x08: out var _Safety_PS_AIS, //0 -&gt; 1 Activate restart acknowledgement.
+x09: out var _Safety_PS_AIE, //0 -&gt; 1 Activation of error acknowledgement
+x10: out _,
+x11: out _,
+x12: out _,
+x13: out _,
+x14: out _,
+x15: out var _Safety_SSE, //0 = function is activated
+x16: out var _Safety_SDIpos, //1 = ES function is active during special operation
+x17: out var _Safety_ES, //1 = ES function is active during special operation 
+x18: out _,
+x19: out var _Safety_OMS, //0 = Normal operation, 1 = Special operation
+x20: out _,
+x21: out _,
+x22: out _,
+x23: out _,
+x24: out var _Safety_STO, //0 =  function is active
+x25: out var _Safety_SS1, //0 =  function is active
+x26: out var _Safety_SS2, //0 =  function is active
+x27: out var _Safety_SLS1, //0 =  function is active
+x28: out var _Safety_SLS2, //0 =  function is active
+x29: out var _Safety_SLS3, //0 =  function is active
+x30: out var _Safety_SLS4, //0 =  function is active
+x31: out var _Safety_SDIneg); //0 = function is active
+
+
+_Safety_SS1_active = !_Safety_SS1;
+_Safety_SS2_active = !_Safety_SS2;
+_Safety_SLS1_active = !_Safety_SLS1;
+_Safety_SLS2_active = !_Safety_SLS2;
+_Safety_SLS3_active = !_Safety_SLS3;
+_Safety_SLS4_active = !_Safety_SLS4;
+_Safety_SDIneg_active = !_Safety_SDIneg;
+_Safety_SDIpos_active = !_Safety_SDIpos;
+_Safety_SSE_active = !_Safety_SSE;
+_Safety_OMS_active = _Safety_OMS;
+_Safety_ES_active = _Safety_ES;
+
+
+var safety_Error = enableSafeError;
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Enable movement
+///////////////////////////////////////////////////////////////////////////////////////////////
+_enableMovement = _PO1_enableOperation &amp;&amp; _Safety_SSE &amp;&amp; _Safety_STO &amp;&amp; _Safety_SS1 &amp;&amp; _Safety_SS2;
+O_PLC_24vDcMotorBreakRelease = _PO1_enableOperation &amp;&amp; _Safety_SSE &amp;&amp; _Safety_STO &amp;&amp; _Safety_SS1 &amp;&amp; _Safety_SS2;
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Command convertion
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+ConvertFunctions.BoolToByte(
+x0:_PO1_command1, 
+x1:_PO1_command2, 
+x2:_PO1_command4, 
+x3:_PO1_command8, 
+x4:_PO1_command16, 
+x5:false, 
+x6:false, 
+x7:false, 
+out _commandNr);
+
+//Command 00 | Positioning without HW-switch 
+//Command 01 | HTM stop with BG11
+//Command 02 | HTM stop with BG21
+//Command 03 | HTM stop with BG31
+//Command 04 | RF 2D1S
+//Command 05 | RF 1D2S
+//Command 06 | RF 2D2S
+//Command 07 | HTR 2D1S
+//Command 08 | HTR 1D2S
+//Command 09 | HTR 2D2S
+//Command 10 | HE stopp BG21
+//Command 11 | HE stopp BG31 or BG33
+//Command 12 | HE stopp BG41 or BG43
+//Command 13 | HE stopp BG51 or BG53
+//Command 14 | HE stopp BG11
+//Command 15 | no function
+//Command 16 | no function
+//Command 17 | no function
+//Command 18 | no function
+//Command 19 | no function
+//Command 20 | no function
+//Command 21 | no function
+//Command 22 | no function
+//Command 23 | no function
+//Command 24 | synchronization 01
+//Command 25 | synchronization 02
+//Command 26 | synchronization 03
+//Command 27 | synchronization 04
+//Command 28 | Torque mode 01
+//Command 29 | Torque mode breaktest 
+//Command 30 | no function
+//Command 31 | no function
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Error Number and Module
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+O_PLC_errorModule = 0;
+O_PLC_errorNumber = 0;
+
+if(WRN_Overload_Braking_resistance) //Warning - Overload braking resistance
+{
+    O_PLC_errorModule = 8201;
+    O_PLC_errorNumber = 65334;
+}
+else if( WRN_DeviceUtilizationHigh) //Device utilization (IxT) too high
+{
+    O_PLC_errorModule = 8201;
+    O_PLC_errorNumber = 9091;
+}
+else if( ERR_InvalidMotorControlMode) //Invalid motor control mode
+{
+    O_PLC_errorModule = 11264;
+    O_PLC_errorNumber = 19813;
+}
+else if( safety_Error) //failsafe Error
+{
+    O_PLC_errorModule = 10752;
+    O_PLC_errorNumber = 25483; //default safety error
+    
+    if(_Safety_SS1_active || _Safety_SS2_active)
+    {
+        O_PLC_errorNumber = 65416;
+    }
+    else if(_Safety_SLS1_active)
+    {
+        O_PLC_errorNumber = 65417;
+    }
+    else if(_Safety_SLS2_active)
+    {
+         O_PLC_errorNumber = 65418;
+    }
+    else if(_Safety_SLS3_active)
+    {
+         O_PLC_errorNumber = 65419;        
+    }
+    else if(_Safety_SLS4_active)
+    {
+        O_PLC_errorNumber = 65420;
+    }
+    else if(_Safety_SDIneg_active)
+    {
+        O_PLC_errorNumber = 65423;
+    }
+    else if(_Safety_SDIpos_active)
+    {
+        O_PLC_errorNumber = 65424;
+    }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Speed convertion
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+//I_PLC_extVelocityOverride = External Velocity Override (0.00%)
+//I_PLC_extSetVelocityOverride = External Set Velocity (0.0000 Units/s)
+
+var _speedPercentage = (float)I_PLC_extVelocityOverride / 100;
+if(I_PLC_extVelocityOverride == 0)
+{
+    _speedPercentage = 1;
+}
+var _speedMeterPerSeconds = I_PLC_extSetVelocityOverride / Para_Transmissionfactor_Speed;
+if(float.IsNaN(_speedMeterPerSeconds))
+{
+    _speedMeterPerSeconds = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Speed selection
+///////////////////////////////////////////////////////////////////////////////////////////////
+float _target_max_speed = 0;
+float _target_speed = 0;
+
+if((_PO1_posJog || _PO1_negJog || !_PO1_extVelocity) &amp;&amp; (!_PO1_fastSlow)) 
+{
+    _target_max_speed = (Para_Setpoint_Speed_Fast * (Para_Percent_Speed_Slow / 100));
+    _target_speed = _target_max_speed;
+}
+
+else if((_PO1_posJog || _PO1_negJog || !_PO1_extVelocity) &amp;&amp; (_PO1_fastSlow))
+{
+    _target_max_speed = Para_Setpoint_Speed_Fast;
+    _target_speed = _target_max_speed;
+}
+
+else if((_PO1_velOverride || _PO1_extVelocity) &amp;&amp; (!_PO1_fastSlow))
+{
+    _target_max_speed = _speedMeterPerSeconds * (Para_Percent_Speed_Slow / 100);
+    _target_speed = _target_max_speed *_speedPercentage;
+}
+
+else if((_PO1_velOverride || _PO1_extVelocity) &amp;&amp; (_PO1_fastSlow))
+{
+    _target_max_speed = _speedMeterPerSeconds;
+    _target_speed = _target_max_speed *_speedPercentage;
+}
+
+
+if(_PO1_invertDirection)
+{
+    _target_max_speed *= -1;
+    _target_speed *= -1;
+}
+
+O_TargetSpeed = _target_speed;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Target positon convertion
+///////////////////////////////////////////////////////////////////////////////////////////////
+var rampTimeUp = Para_Default_RampTimeUp;
+var rampTimeDown = Para_Default_RampTimeDown;
+if((_PO1_extAccDecJerk) &amp;&amp; !(_commandNr == 31 &amp;&amp; (_PO1_posJog || _PO1_negJog)))
+{
+    //rampTimeUp = I_PLC_extSetAcceleration / 100;
+    //rampTimeDown = I_PLC_extSetDeceleration / 100;
+    float acc = (float)I_PLC_extSetAcceleration;
+    float dec = (float)I_PLC_extSetDeceleration;
+    rampTimeUp = _target_speed/(acc / Para_Transmissionfactor_Acceleration);
+    rampTimeDown = _target_speed/(dec / Para_Transmissionfactor_Deceleration);
+}
+
+if(float.IsNaN(rampTimeUp))
+{
+    rampTimeUp = Para_Default_RampTimeUp;
+}
+
+if(float.IsNaN(rampTimeDown))
+{
+    rampTimeDown = Para_Default_RampTimeDown;
+}
+var positionRelativeCommand = _commandNr == 2 || _commandNr == 15;  
+var positionCommand = _commandNr &gt;= 1 &amp;&amp;_commandNr &lt;= 15 &amp;&amp; !positionRelativeCommand ;
+
+bool positioningModeActive = positionCommand;
+
+///////////////////////////////////////////////////////////////////
+
+var _targetSimPositionExt = GeneralFunctions.ConvertPlcToSimulationValue((float)I_PLC_extSetPosition, Para_PLC_Min_Position,Para_PLC_Max_Position,Para_SIM_Min_Position, Para_SIM_Max_Position);
+
+var flagStartOperation = _PO1_startOperation &amp;&amp; !flaghelp_StartOperation;
+flaghelp_StartOperation = _PO1_startOperation;
+
+if(flagStartOperation)
+{
+    _refPositionRelativeMovement = SIM_Current_Position;
+}
+
+
+if(_enableMovement)
+{
+    if(_PO1_posJog)
+    {
+        _targetSimPosition = 1000000;
+    }
+    else if(_PO1_negJog)
+    {
+        _targetSimPosition = -1000000;
+    }
+    else if(positionRelativeCommand)
+    {
+        _targetSimPosition = _refPositionRelativeMovement + _targetSimPositionExt;
+    }
+    else if((_PO1_extPosition) || (positionCommand))
+    {
+        _targetSimPosition = _targetSimPositionExt;
+    }
+    else if(_target_speed&gt;0) //if motion joint destination position is connected and velocity mode is enabled the motor is driving to a high target position like in jog mode
+    {
+        _targetSimPosition = 1000000;
+    }
+    else if(_target_speed&lt;0) //if motion joint destination position is connected and velocity mode is enabled the motor is driving to a high target position like in jog mode
+    {
+        _targetSimPosition = -1000000;
+    }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//control logic of frequency conveyor with ramp
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+SIM_DestinationPosition = 0;
+
+_motorRunning = _enableMovement &amp;&amp; (_PO1_startOperation &amp;&amp; _commandNr != 31) || (_commandNr == 31 &amp;&amp; (_PO1_posJog || _PO1_negJog));
+
+
+
+if(positioningModeActive)
+{
+    var cache = GetOrAddLocal&lt;Ramp.Cache&gt;("RampPosition");
+    Ramp.Position(
+    cache,
+    _motorRunning,
+    rampTimeUp,
+    rampTimeDown,
+    SIM_Current_Position,
+    _targetSimPosition,
+    Para_PLC_Max_Speed,
+    _target_speed,
+    out SIM_Velocity, 
+    out SIM_DestinationPosition);
+}
+else
+{
+    rampTimeDown = 0;
+
+    var cache = GetOrAddLocal&lt;Ramp.Cache&gt;("RampUpDown");
+    Ramp.UpDown(
+    cache,
+    _motorRunning,
+    rampTimeUp,
+    rampTimeDown,
+    Para_PLC_Max_Speed,
+    _target_speed,
+    out SIM_Velocity);    
+    SIM_DestinationPosition = _targetSimPosition;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Current positon convertion
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+var currentPlcValue = GeneralFunctions.ConvertSimulationToPlcValue(SIM_Current_Position, Para_PLC_Min_Position,Para_PLC_Max_Position,Para_SIM_Min_Position, Para_SIM_Max_Position);
+
+if((Para_PLC_Max_Position-Para_PLC_Min_Position)/(Para_SIM_Max_Position-Para_SIM_Min_Position)&gt;10000)
+{
+currentPlcValue=(float)Math.Round(currentPlcValue/1)*1;
+}
+
+O_PLC_Actual_Position = (int)Math.Round(currentPlcValue);
+
+O_PLC_Actual_Velocity = (int)Math.Round(SIM_Velocity * Para_Transmissionfactor_Speed);
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//SyncMode - Slave
+///////////////////////////////////////////////////////////////////////////////////////////////
+_Sync_active = ((_commandNr==24) &amp;&amp; I_PLC_SyncSelected_SlaveFGDB) &amp;&amp; Math.Abs(SIM_Current_Position-SIM_Current_Position_Master)&lt;0.020f;
+_FinishedSync = (!isMoving &amp;&amp; (Math.Abs(SIM_Current_Position-SIM_Current_Position_Master)&lt;0.001f));
+
+if (_Sync_active)
+{
+    SIM_DestinationPosition=SIM_Current_Position_Master;
+    SIM_Velocity=200000;
+    Logger.I("Sync Active!");
+}
+
+///////////////////////////////////////////////////////////////////
+_extSetPositionTol = 10;
+_extSetPositionTolMax = (I_PLC_extSetPosition + _extSetPositionTol);
+_extSetPositionTolMin = (I_PLC_extSetPosition - _extSetPositionTol);
+
+
+_inPos = (((O_PLC_Actual_Position &lt;= (_extSetPositionTolMax) &amp;&amp; (O_PLC_Actual_Position &gt;= (_extSetPositionTolMin))) &amp;&amp;  !_Sync_active) || ((SIM_Current_Position == (SIM_Current_Position_Master)) &amp;&amp; _Sync_active)); 
+_inPos1 = _inPos &amp;&amp;_PO1_command1;
+_inPos2 = _inPos &amp;&amp;_PO1_command2;
+_inPos4 = _inPos &amp;&amp;_PO1_command4;
+_inPos8 = _inPos &amp;&amp;_PO1_command8;
+_inPos16 = _inPos &amp;&amp;_PO1_command16;
+
+_enableOperation = _PO1_enableOperation &amp;&amp; _Safety_STO;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Current positon convertion
+///////////////////////////////////////////////////////////////////////////////////////////////
+var isMoving = Math.Abs(SIM_Current_Position - _OldPosition)&gt;0.0001f &amp;&amp; SIM_Velocity != 0;
+_OldPosition = SIM_Current_Position;
+
+var drivingNegative = SIM_Velocity &lt; 0 || (SIM_DestinationPosition &lt; SIM_Current_Position &amp;&amp; SIM_Velocity &gt; 0);
+
+
+
+////////// Sicherer Betriebshalt SOS+STO //////////
+_Safety_SOS_active = (_Safety_SS2_active &amp;&amp; !isMoving);
+_Safety_STO_active = ((!_Safety_STO) || (_Safety_SS1_active &amp;&amp; !isMoving));
+
+////////// Start Operation aktiv //////////
+_StartOperationActive = isMoving || I_PLC_BreaktestActive;
+
+////////// Bremsentest //////////
+
+_sumSetPointEmptyTorqueLimit = I_PLC_setPointEmptyTorqueLimitMax + I_PLC_setPointEmptyTorqueLimitMin;
+_setPointEmptyTorqueLimit = _sumSetPointEmptyTorqueLimit / 2;
+
+_sumSetPointCheckTorqueLimit = I_PLC_setPointCheckTorqueLimitMax + I_PLC_setPointCheckTorqueLimitMin;
+_setPointCheckTorqueLimit = _sumSetPointCheckTorqueLimit / 2;
+
+_sumSetPointCheck10TorqueLimit = I_PLC_setPointCheck10TorqueLimitMax + I_PLC_setPointCheck10TorqueLimitMin;
+_setPointCheck10TorqueLimit = _sumSetPointCheck10TorqueLimit / 2;
+
+if ((I_PLC_BreaktestActive) &amp;&amp; ((I_PLC_BreaktestStep == 4) ||(I_PLC_BreaktestStep == 5) || (I_PLC_BreaktestStep == 6) || (I_PLC_BreaktestStep == 27) || (I_PLC_BreaktestStep == 28)))
+{
+O_PLC_Actual_Torque = _setPointEmptyTorqueLimit;
+}
+
+else if ((I_PLC_BreaktestActive) &amp;&amp; ((I_PLC_BreaktestStep == 9) ||(I_PLC_BreaktestStep == 10) || (I_PLC_BreaktestStep == 19) || (I_PLC_BreaktestStep == 20)))
+{
+O_PLC_Actual_Torque = _setPointCheck10TorqueLimit;
+}
+
+else if ((I_PLC_BreaktestActive) &amp;&amp; ((I_PLC_BreaktestStep == 11) ||(I_PLC_BreaktestStep == 12) || (I_PLC_BreaktestStep == 21) || (I_PLC_BreaktestStep == 22)))
+{
+O_PLC_Actual_Torque = _setPointCheckTorqueLimit;
+}
+
+else if (!I_PLC_BreaktestActive)
+{
+O_PLC_Actual_Torque = _setPointEmptyTorqueLimit;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Status Dword 0-1
+///////////////////////////////////////////////////////////////////////////////////////////////
+O_PLC_Status_DWord_PI0_PI1 = ConvertFunctions.BoolToUint(
+x00: _PO1_lifeBit, //PI0 Bit0: Ready to switch on
+x01: false, //PI0 Bit1: Spare
+x02: _enableOperation, //PI0 Bit2: Operation Enabled
+x03: O_PLC_errorNumber != 0, //PI0 Bit3: Fault
+x04: _PO1_startOperation, //PI0 Bit4: Start Operation required
+x05: _PO1_activateQSP || O_PLC_errorNumber != 0, //PI0 Bit5: QSP active
+x06: _StartOperationActive, //PI0 Bit6: Start Operation active
+x07: false, //PI0 Bit7: Warning
+x08: true, //PI0 Bit8: Home Pos availible
+x09: false, //PI0 Bit9: Internal control active
+x10: false, //PI0 Bit10: Spare
+x11: false, //PI0 Bit11: Spare
+x12: !isMoving, //PI0 Bit12: Stand still
+x13: drivingNegative, //PI0 Bit13: Direction negative
+x14: isMoving || _PO1_manuelReleaseBrake, //PI0 Bit14: Brake released
+x15: _Safety_STO_active, //PI0 Bit15: STO active
+x16: _PO1_command1, //PI1 Bit0: Command 1 active
+x17: _PO1_command2, //PI1 Bit1: Command 2 active
+x18: _PO1_command4, //PI1 Bit2: Command 4 active
+x19: _PO1_command8, //PI1 Bit3: Command 8 active
+x20: _PO1_command16, //PI1 Bit4: Command 16 active
+x21: _PO1_activateCommand, //PI1 Bit5: Activate Command active
+x22: _PO1_velOverride, //PI1 Bit6: Vel override active
+x23: false, //PI1 Bit7: Homing within traveling done
+x24: false, //PI1 Bit8: Auto homing
+x25: _PO1_fastSlow, //PI1 Bit9: Fast slow active
+x26: _PO1_extTorque, //PI1 Bit10: Torque reduce active
+x27: _PO1_extPosition, //PI1 Bit11: Ext position active
+x28: _PO1_extVelocity, //PI1 Bit12: Ext Vel activ
+x29: _PO1_extAccDecJerk, //PI1 Bit13: Ext Acc Dec Jerk active
+x30: _PO1_remoteHT, //PI1 Bit14: Remote HT active
+x31: _PO1_extTorque //PI1 Bit15: Ext Torque active
+);
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Status Dword 2-3
+///////////////////////////////////////////////////////////////////////////////////////////////
+var syncModeActive = _commandNr == 24 || _commandNr == 25 || _commandNr == 26 || _commandNr == 27; 
+
+O_PLC_Status_DWord_PI2_PI3 = ConvertFunctions.BoolToUint(
+x00:  false, //PI2 Bit0: Manual movement active
+x01: _PO1_posJog, //PI2 Bit1: Jog postive active
+x02: _PO1_negJog, //PI2 Bit0: Jog negativ active
+x03: false, //PI2 Bit0: Homing active
+x04: false, //PI2 Bit4: Search homing sensor
+x05: false, //PI2 Bit5: Homing done
+x06: false, //PI2 Bit6: Free movement active
+x07: positioningModeActive, //PI2 Bit7: Positioning active
+x08:  false, //PI2 Bit8: TP Pos active
+x09: false, //PI2 Bit9: TP received
+x10: false, //PI2 Bit10: Step mode active
+x11: syncModeActive, //PI2 Bit11: Sync mode acitve
+x12: false, //PI2 Bit12: Phase start Sync
+x13: _Sync_active, //PI2 Bit13: Synchronized
+x14: false, //PI2 Bit14: Sync data ok
+x15: _FinishedSync, //PI2 Bit15: Sync move finished
+x16:  false, //PI3 Bit0: Switch off Pos active
+x17: false, //PI3 Bit1: Conveying through active
+x18: false, //PI3 Bit2: Torque control active
+x19: _inPos1, //PI3 Bit3: In Pos 1
+x20: _inPos2, //PI3 Bit4: In Pos 2
+x21: _inPos4, //PI3 Bit5: In Pos 4
+x22: _inPos8, //PI3 Bit6: In Pos 8
+x23: _inPos16, //PI3 Bit7: In Pos 16
+x24: false, //PI3 Bit8: Switing Cam 1
+x25: false, //PI3 Bit9: Switing Cam 2
+x26: false, //PI3 Bit10: Switing Cam 3
+x27: false, //PI3 Bit11: Switing Cam 4
+x28: false, //PI3 Bit12: Dig Input 1
+x29: false, //PI3 Bit13: Dig Input 2
+x30: false, //PI3 Bit14: Dig Input 3
+x31: false //PI3 Bit14: Dig Input 4
+);
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+//Safety StatusDword
+///////////////////////////////////////////////////////////////////////////////////////////////
+O_Safety_Status_DWord = ConvertFunctions.BoolToUint(
+x00: false, //1 = Sensor at I1A and I1B: Channels A and B are in ON state
+x01: false, //1 = Sensor at I2A and I2B: Channels A and B are in ON state
+x02: false, //1 = Sensor at I3A and I3B: Channels A and B are in ON state
+x03: false, //1 = Sensor at I4A and I4B: Channels A and B are in ON state
+x04: false, //spare
+x05: false, //1 = OMS function is active:
+x06: false, //spare
+x07: false, //1 = Error status is active (fault or warning).
+x08: _Safety_SOS_active, //1 =  SOS function is active
+x09: false, //1 =  speed 1 is monitored.limited
+x10: false, //1 =  speed 2 is monitored.limited
+x11: false, //1 =  speed 3 is monitored.limited
+x12: false,  //1 =  speed 4 is monitored.limited
+x13: false,  //1 =  safe direction SDIpos is monitored
+x14: false,  //1 =  safe direction SDIneg is monitored
+x15: _Safety_SSE_active, //1 = SSE function is active
+x16: _Safety_SDIneg_active, //1 =  SDIneg function is active
+x17: _Safety_ES_active, //1 = ES function is active during special operation
+x18: false, //1 =  SLI function is active
+x19: _Safety_OMS_active, //0 = Normal operation, 1 = Special operation
+x20: false, //spare
+x21: false, //spare
+x22: false, //spare
+x23: false, //spare
+x24: _Safety_STO_active, //1 =  STO function is active
+x25: _Safety_SS1_active, //1 =  SS1 function is active
+x26: _Safety_SS2_active, //1 =  SS2 function is active
+x27: _Safety_SLS1_active, //1 =  SLS1 function is active
+x28: _Safety_SLS2_active, //1 =  SLS2 function is active
+x29: _Safety_SLS3_active, //1 =  SLS3 function is active
+x30: _Safety_SLS4_active, //1 =  SLS4 function is active
+x31: _Safety_SDIpos_active //1 =  SDIpos function is active
+);</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="46" Patch="3" />
+	<InputSlots>
+		<LogicSlot>
+			<Name>enableSafeError</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ERR_InvalidMotorControlMode</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_Controlword_PO0_PO1</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extSetAcceleration</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extSetDeceleration</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extSetPosition</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extSetTorque</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extSetVelocityOverride</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_extVelocityOverride</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_Safety_Output_Dword</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_SyncSelected_SlaveFGDB</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Default_RampTimeDown</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Default_RampTimeUp</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_PLC_Max_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_PLC_Max_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_PLC_Min_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Percent_Speed_Slow</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Setpoint_Speed_Fast</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_SIM_Max_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_SIM_Min_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Transmissionfactor_Acceleration</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Transmissionfactor_Deceleration</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Transmissionfactor_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Current_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Current_Position_Master</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>WRN_DeviceUtilizationHigh</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>WRN_Overload_Braking_resistance</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_BreaktestActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_BreaktestStep</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointEmptyTorqueLimitMax</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointEmptyTorqueLimitMin</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointCheckTorqueLimitMax</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>105</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointCheckTorqueLimitMin</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>106</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointCheck10TorqueLimitMax</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>109</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_setPointCheck10TorqueLimitMin</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>110</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>_Sync_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_Actual_Position</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_Actual_Velocity</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_errorModule</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_errorNumber</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_Status_DWord_PI0_PI1</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_Status_DWord_PI2_PI3</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_Safety_Status_DWord</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_DestinationPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_24vDcMotorBreakRelease</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_Actual_Torque</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_setPointEmptyTorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_setPointCheckTorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>107</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_setPointCheck10TorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>111</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_commandNr</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_enableMovement</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_enableOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_FinishedSync</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_inPos8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_motorRunning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_OldPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_activateCommand</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_activateQSP</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_Bit0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_Bit1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_Bit10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_Bit9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_command1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_command16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_command2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_command4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_command8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_conveyerThrugh</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_enableOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_extAccDecJerk</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_extPosition</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_extTorque</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_extVelocity</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_fastSlow</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_homingWithinTraveling</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_invertDirection</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_lifeBit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_manuelReleaseBrake</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_negJog</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_outputA1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_posJog</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_reduceTorque</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_remoteHT</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_resetFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_setHomePos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_startOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_syncRestart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO1_velOverride</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_ES_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_OMS_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SDIneg_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SDIpos_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SLS1_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SLS2_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SLS3_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SLS4_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SS1_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SS2_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SSE_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_STO_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_targetSimPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_TargetSpeed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_Safety_SOS_active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_StartOperationActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_sumSetPointEmptyTorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_sumSetPointCheckTorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>108</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_sumSetPointCheck10TorqueLimit</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>112</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_extSetPositionTolMax</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>113</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_extSetPositionTolMin</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>114</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_extSetPositionTol</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>115</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_refPositionRelativeMovement</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>116</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>flaghelp_StartOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>117</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

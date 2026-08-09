@@ -1,0 +1,1499 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="5ea1fc79-aa97-46dd-9a89-4a78164b78d2" LogicName="Promess_SpindleUP" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Spindel Promess (UP Version)                                                         //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    01.08..2025      1.3.6          Egg              Ur-Version
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE                                              Promess Spindel in der Version "UP"
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik simuliert das Verhalten und die Schnittstelle einer Promess Spindel in der UP Verison
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//
+//    Output Slot Values
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Echo Part ID
+//============================================================================================================
+// E C H O   P A R T   I D
+//============================================================================================================
+
+PLC_IN_PartID_01 = PLC_OUT_PartID_01;
+PLC_IN_PartID_02 = PLC_OUT_PartID_02;
+PLC_IN_PartID_03 = PLC_OUT_PartID_03;
+PLC_IN_PartID_04 = PLC_OUT_PartID_04;
+PLC_IN_PartID_05 = PLC_OUT_PartID_05;
+PLC_IN_PartID_06 = PLC_OUT_PartID_06;
+PLC_IN_PartID_07 = PLC_OUT_PartID_07;
+PLC_IN_PartID_08 = PLC_OUT_PartID_08;
+PLC_IN_PartID_09 = PLC_OUT_PartID_09;
+PLC_IN_PartID_10 = PLC_OUT_PartID_10;
+PLC_IN_PartID_11 = PLC_OUT_PartID_11;
+PLC_IN_PartID_12 = PLC_OUT_PartID_12;
+PLC_IN_PartID_13 = PLC_OUT_PartID_13;
+PLC_IN_PartID_14 = PLC_OUT_PartID_14;
+PLC_IN_PartID_15 = PLC_OUT_PartID_15;
+PLC_IN_PartID_16 = PLC_OUT_PartID_16;
+PLC_IN_PartID_17 = PLC_OUT_PartID_17;
+PLC_IN_PartID_18 = PLC_OUT_PartID_18;
+PLC_IN_PartID_19 = PLC_OUT_PartID_19;
+PLC_IN_PartID_20 = PLC_OUT_PartID_20;
+PLC_IN_PartID_21 = PLC_OUT_PartID_21;
+PLC_IN_PartID_22 = PLC_OUT_PartID_22;
+PLC_IN_PartID_23 = PLC_OUT_PartID_23;
+PLC_IN_PartID_24 = PLC_OUT_PartID_24;
+PLC_IN_PartID_25 = PLC_OUT_PartID_25;
+PLC_IN_PartID_26 = PLC_OUT_PartID_26;
+PLC_IN_PartID_27 = PLC_OUT_PartID_27;
+PLC_IN_PartID_28 = PLC_OUT_PartID_28;
+PLC_IN_PartID_29 = PLC_OUT_PartID_29;
+PLC_IN_PartID_30 = PLC_OUT_PartID_30;
+PLC_IN_PartID_31 = PLC_OUT_PartID_31;
+PLC_IN_PartID_32 = PLC_OUT_PartID_32;
+PLC_IN_PartID_33 = PLC_OUT_PartID_33;
+PLC_IN_PartID_34 = PLC_OUT_PartID_34;
+PLC_IN_PartID_35 = PLC_OUT_PartID_35;
+PLC_IN_PartID_36 = PLC_OUT_PartID_36;
+PLC_IN_PartID_37 = PLC_OUT_PartID_37;
+PLC_IN_PartID_38 = PLC_OUT_PartID_38;
+PLC_IN_PartID_39 = PLC_OUT_PartID_39;
+PLC_IN_PartID_40 = PLC_OUT_PartID_40;
+PLC_IN_PartID_41 = PLC_OUT_PartID_41;
+PLC_IN_PartID_42 = PLC_OUT_PartID_42;
+PLC_IN_PartID_43 = PLC_OUT_PartID_43;
+PLC_IN_PartID_44 = PLC_OUT_PartID_44;
+PLC_IN_PartID_45 = PLC_OUT_PartID_45;
+PLC_IN_PartID_46 = PLC_OUT_PartID_46;
+PLC_IN_PartID_47 = PLC_OUT_PartID_47;
+PLC_IN_PartID_48 = PLC_OUT_PartID_48;
+PLC_IN_PartID_49 = PLC_OUT_PartID_49;
+PLC_IN_PartID_50 = PLC_OUT_PartID_50;
+PLC_IN_PartID_51 = PLC_OUT_PartID_51;
+PLC_IN_PartID_52 = PLC_OUT_PartID_52;
+
+#endregion
+
+
+#region Program Number
+//============================================================================================================
+// P R O G R A M   N U M B E R
+//============================================================================================================
+
+// Save Program Number
+if(PLC_OUT_ProgramNumberStrobe)
+{
+    _programNumber = GetIntFromBits(PLC_OUT_ProgramSelectBit0, PLC_OUT_ProgramSelectBit1, PLC_OUT_ProgramSelectBit2, PLC_OUT_ProgramSelectBit3, PLC_OUT_ProgramSelectBit4, PLC_OUT_ProgramSelectBit5);
+}
+
+// Echo Program Number
+PLC_IN_ProgramSelectEchoBit0 = PLC_OUT_ProgramSelectBit0;
+PLC_IN_ProgramSelectEchoBit1 = PLC_OUT_ProgramSelectBit1;
+PLC_IN_ProgramSelectEchoBit2 = PLC_OUT_ProgramSelectBit2;
+PLC_IN_ProgramSelectEchoBit3 = PLC_OUT_ProgramSelectBit3;
+PLC_IN_ProgramSelectEchoBit4 = PLC_OUT_ProgramSelectBit4;
+PLC_IN_ProgramSelectEchoBit5 = PLC_OUT_ProgramSelectBit5;
+
+#endregion
+
+
+#region 8.2 Homing
+//============================================================================================================
+// 8 . 2   H O M I N G
+//============================================================================================================
+
+// 8.2 Homing with the Require Sustained Home Signal Box Checked
+
+//if (PLC_OUT_Home)
+//{
+//    PLC_IN_Ready = false;       // The Ready signal is set low with the recognition of the Home command.
+
+//    if (SIM_MotionStopped)      // When the motion is completely stopped, the Cycle End, Cycle Start Release, and the Ready signal are set high again
+//                                // Wird von einer ZylinderLogik angesteuert, da hier die Fahrbewegung simuliert wird.
+//    {
+//        PLC_IN_CycleEnd = true; 
+//        PLC_IN_CycleStartRelease = true;
+
+//        if (PLC_IN_CycleEnd &amp;&amp; PLC_OUT_Home)    // The Ready signal is set high when the Homing routine is complete (Cycle End output is high) and the Home input is set low
+//        {
+//            PLC_IN_Ready = true;
+//            PLC_IN_CycleStartRelease = false; 
+//        }
+//    }
+//}
+
+#endregion
+
+
+#region 8.3 Cycle Start
+//============================================================================================================
+// 8 . 3   C Y C L E   S T A R T
+//============================================================================================================
+
+// Get Program Numbers 1 to 10
+string[] programNrPositionStrings = new string[10];
+float[] programNrPositions = new float[10];
+string[] tempArray = new string[10];
+
+if(String.IsNullOrWhiteSpace(PAR_ProgramNrPositions_1_10))
+{
+    tempArray[0] = "0";
+    tempArray[1] = "0";
+    tempArray[2] = "0";
+    tempArray[3] = "0";
+    tempArray[4] = "0";
+    tempArray[5] = "0";
+    tempArray[6] = "0";
+    tempArray[7] = "0";
+    tempArray[8] = "0";
+    tempArray[9] = "0";
+}
+else
+{
+    tempArray = PAR_ProgramNrPositions_1_10.Split(";");
+}
+
+if(tempArray.Length &gt; 10)
+{
+    tempArray = tempArray.Take(10).ToArray();
+}
+for (int i = 0; i &lt; tempArray.Length; i++)
+{
+    programNrPositionStrings[i] = tempArray[i];
+}
+for (int i = tempArray.Length; i &lt; 10; i++)
+{
+    programNrPositionStrings[i] = "0";
+}
+
+programNrPositions[0] = float.TryParse(programNrPositionStrings[0], out programNrPositions[0]) ? float.Parse(programNrPositionStrings[0]) : 0f;
+programNrPositions[1] = float.TryParse(programNrPositionStrings[1], out programNrPositions[1]) ? float.Parse(programNrPositionStrings[1]) : 0f;
+programNrPositions[2] = float.TryParse(programNrPositionStrings[2], out programNrPositions[2]) ? float.Parse(programNrPositionStrings[2]) : 0f;
+programNrPositions[3] = float.TryParse(programNrPositionStrings[3], out programNrPositions[3]) ? float.Parse(programNrPositionStrings[3]) : 0f;
+programNrPositions[4] = float.TryParse(programNrPositionStrings[4], out programNrPositions[4]) ? float.Parse(programNrPositionStrings[4]) : 0f;
+programNrPositions[5] = float.TryParse(programNrPositionStrings[5], out programNrPositions[5]) ? float.Parse(programNrPositionStrings[5]) : 0f;
+programNrPositions[6] = float.TryParse(programNrPositionStrings[6], out programNrPositions[6]) ? float.Parse(programNrPositionStrings[6]) : 0f;
+programNrPositions[7] = float.TryParse(programNrPositionStrings[7], out programNrPositions[7]) ? float.Parse(programNrPositionStrings[7]) : 0f;
+programNrPositions[8] = float.TryParse(programNrPositionStrings[8], out programNrPositions[8]) ? float.Parse(programNrPositionStrings[8]) : 0f;
+programNrPositions[9] = float.TryParse(programNrPositionStrings[9], out programNrPositions[9]) ? float.Parse(programNrPositionStrings[9]) : 0f;
+
+
+/* The Ready and Cycle End outputs are both set low with the recognition of the Cycle Start input. 
+There will be a slight delay (≈100ms) from the time the Cycle Start is set high until the event is recognized and the Cycle End and Ready outputs are set low.*/
+if (PLC_OUT_CycleStart) 
+{
+
+    PLC_IN_Pass = false;
+    PLC_IN_Fail = false;
+    PLC_IN_CycleEnd = false;
+    
+    _timer_100ms_CycleStart += SceneObject.DeltaTime;
+    if(_timer_100ms_CycleStart &gt;= 0.1f)
+    {
+
+        // Set target position depending on program number
+        switch (_programNumber)
+        {
+            case 1:
+                SIM_TargetPosition = programNrPositions[0];
+                break;
+            case 2:
+                SIM_TargetPosition = programNrPositions[1];
+                break;
+            case 3:
+                SIM_TargetPosition = programNrPositions[2];
+                break;
+            case 4:
+                SIM_TargetPosition = programNrPositions[3];
+                break;
+            case 5:
+                SIM_TargetPosition = programNrPositions[4];
+                break;
+            case 6:
+                SIM_TargetPosition = programNrPositions[5];
+                break;
+            case 7:
+                SIM_TargetPosition = programNrPositions[6];
+                break;
+            case 8:
+                SIM_TargetPosition = programNrPositions[7];
+                break;
+            case 9:
+                SIM_TargetPosition = programNrPositions[8];
+                break;
+            case 10:
+                SIM_TargetPosition = programNrPositions[9];
+                break;
+        }
+        
+        SIM_Velocity = PAR_Velocity;
+        
+        
+        // Target Position Reached
+        if((SIM_ActualPosition == programNrPositions[0] &amp;&amp; _programNumber == 1) || 
+           (SIM_ActualPosition == programNrPositions[1] &amp;&amp; _programNumber == 2) ||
+           (SIM_ActualPosition == programNrPositions[2] &amp;&amp; _programNumber == 3) ||
+           (SIM_ActualPosition == programNrPositions[3] &amp;&amp; _programNumber == 4) ||
+           (SIM_ActualPosition == programNrPositions[4] &amp;&amp; _programNumber == 5) ||
+           (SIM_ActualPosition == programNrPositions[5] &amp;&amp; _programNumber == 6) ||
+           (SIM_ActualPosition == programNrPositions[6] &amp;&amp; _programNumber == 7) ||
+           (SIM_ActualPosition == programNrPositions[7] &amp;&amp; _programNumber == 8) ||
+           (SIM_ActualPosition == programNrPositions[8] &amp;&amp; _programNumber == 9) ||
+           (SIM_ActualPosition == programNrPositions[9] &amp;&amp; _programNumber == 10))
+        {
+            PLC_IN_CycleEnd = true;
+            PLC_IN_CycleStartRelease = true;
+            
+            PLC_IN_Pass = !SIM_Result_NOK;
+            PLC_IN_Fail = SIM_Result_NOK;
+        }
+    }    
+}
+else
+{
+    PLC_IN_CycleStartRelease = false;
+    _timer_100ms_CycleStart = 0f;
+}
+
+#endregion
+
+
+
+// Ready
+PLC_IN_Ready = !PLC_OUT_ProgramNumberStrobe &amp;&amp; !PLC_OUT_SerialNumberStrobe &amp;&amp; !PLC_OUT_CycleStart;
+
+
+
+
+
+
+
+
+// Convert 8 Bits to an integer value
+private int GetIntFromBits(bool bit0 = false, bool bit1 = false, bool bit2 = false, bool bit3 = false, bool bit4 = false, bool bit5 = false, bool bit6 = false, bool bit7 = false)
+{
+    int value = 0;
+    
+    value += (bit0) ? 1 : 0;
+    value += (bit1) ? 2 : 0;
+    value += (bit2) ? 4 : 0;
+    value += (bit3) ? 8 : 0;
+    value += (bit4) ? 16 : 0;
+    value += (bit5) ? 32 : 0;
+    value += (bit6) ? 64 : 0;
+    value += (bit7) ? 128 : 0;
+    
+    return value;
+}</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="3" Patch="6" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_CycleStart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_MoveSelectZeroActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_DryCycle</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Home</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ResetPartStatus</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ResetDriveFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramSelectBit5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramNumberStrobe</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SerialNumberStrobe</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ExtendAxis1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_RetractAxis1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ExtendAxis2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_RetractAxis2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ExtendAxis3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_RetractAxis3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ExtendAxis4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_RetractAxis4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_2_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_2_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_User_3_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_MoveSelect</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Setpoint</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_01</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_02</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_03</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_04</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_05</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_06</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_07</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_08</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_09</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_10</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_11</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_12</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_13</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_14</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_15</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_16</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_17</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_18</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_19</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_20</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_21</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_22</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_23</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_24</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_25</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_26</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_27</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_28</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_29</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_30</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_31</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_32</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_33</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_34</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_35</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_36</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_37</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_38</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_39</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_40</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_41</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_42</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_43</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_44</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_45</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_46</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_47</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_48</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_49</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_50</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_51</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PartID_52</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ActualPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Result_NOK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ProgramNrPositions_1_10</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_Ready</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_CycleEnd</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Pass</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fail</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_CycleStop</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ErrorHomeReqd</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_CycleStartRelease</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_MoveComplete</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Press_Started</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DxD_BufferingDataWarning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DxD_NoCommWarning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DriveFault_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_OverloadFault_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>105</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>106</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>107</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fault_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>108</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>109</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>110</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>111</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>112</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>113</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramSelectEchoBit5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>114</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_MoveActive</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>129</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_01</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>141</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_02</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>142</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_03</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>143</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_04</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>144</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_05</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>145</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_06</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>146</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_07</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>147</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_08</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>148</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_09</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>149</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_10</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>150</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_11</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>151</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_12</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>152</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_13</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>153</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_14</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>154</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_15</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>155</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_16</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>156</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_17</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>157</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_18</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>158</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_19</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>159</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_20</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>160</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_21</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>161</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_22</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>162</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_23</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>163</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_24</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>164</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_25</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>165</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_26</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>166</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_27</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>167</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_28</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>168</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_29</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>169</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_30</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>170</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_31</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>171</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_32</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>172</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_33</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>173</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_34</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>174</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_35</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>175</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_36</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>176</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_37</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>177</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_38</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>178</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_39</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>179</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_40</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>180</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_41</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>181</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_42</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>182</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_43</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>183</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_44</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>184</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_45</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>185</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_46</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>186</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_47</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>187</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_48</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>188</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_49</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>189</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_50</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>190</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_51</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>191</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PartID_52</Name>
+			<IOSlotType>Char</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>192</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>193</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_TargetPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>194</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>115</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>116</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>117</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>118</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>119</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>120</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>121</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>122</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>123</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>124</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>125</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>126</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>127</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Spare_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>128</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_LiveData_Struct</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>130</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData_Struct</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>131</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_1</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>132</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_2</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>133</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_3</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>134</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_4</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>135</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_5</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>136</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_6</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>137</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_7</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>138</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_8</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>139</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SpareReal_9</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>140</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_programNumber</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>195</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timer_100ms_CycleStart</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>196</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

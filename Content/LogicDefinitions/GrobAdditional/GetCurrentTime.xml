@@ -1,0 +1,171 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="3bec0931-06f3-40d4-b66b-2837230cabc4" LogicName="GetCurrentTime" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           GetCurrentTime                                                                       //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    28.05.2025       1.4.4          Greif            Header integriert
+//    04.12.2025       1.4.6          Egg              Code optimiert    
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Ausgabe von Datum und Zeit in konfigurierbarem Format
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik gibt das aktuelle Datum und Zeit aus.
+//    Beides kann mit den Faktoren (AddX) addiert und ausgeben werden.
+//    Die Anzeige erfolgt im Format des Parameters (Format), ist darin nichts parametriert
+//    wird das Standardformat (z.B. 5/27/2025 3:25:35 PM) ausgegeben.
+//    Beispiel Format: dd-MM-yyyy HH:mm:ss
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Format darf nicht "0" sein!
+//    Beispiel Format: dd-MM-yyyy HH:mm:ss
+//
+//    Input Slot Values
+//    Format            =   String, Zeit Ausgabeformat
+//    AddYears          =   DInt, Anzahl Jahre
+//    AddMonths         =   DInt, Anzahl Monate
+//    AddDays           =   DInt, Anzahl Tage
+//    AddHours          =   DInt, Anzahl Stunden
+//    AddMinutes        =   DInt, Anzahl Minuten
+//    AddSeconds        =   DInt, Anzahl Sekunden 
+//
+//    Output Slot Values
+//    Time              =   String, Ausgabe von Datum und Zeit
+//    Time_Manipulated  =   String, verrechnete Ausgabe von Datum und Zeit 
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Variablen initialisieren
+//============================================================================================================
+// V A R I A B L E N    I N I T I A L I S I E R E N
+//============================================================================================================
+
+// Time Variablen initialisieren
+DateTime time = DateTime.Now;
+DateTime timeManipulated = time;
+
+#endregion
+
+#region Datum und Zeit manipulieren
+//============================================================================================================
+// D A T U M    U N D    Z E I T    M A N I P U L I E R E N
+//============================================================================================================
+
+timeManipulated = timeManipulated
+    .AddYears(AddYears)
+    .AddMonths(AddMonths)
+    .AddDays(AddDays)
+    .AddHours(AddHours)
+    .AddMinutes(AddMinutes)
+    .AddSeconds(AddSeconds);
+
+#endregion
+
+#region Datum und Zeit ausgeben
+//============================================================================================================
+// D A T U M    U N D    Z E I T    A U S G E B E N
+//============================================================================================================
+
+// Wenn kein Format angegebn, Standardformat verwenden
+if(String.IsNullOrWhiteSpace(Format))
+{
+    Time = time.ToString();
+    Time_Manipulated = timeManipulated.ToString();
+}
+else
+{
+    try
+    {
+        Time = time.ToString(Format);
+        Time_Manipulated = timeManipulated.ToString(Format);
+    }
+    catch
+    {
+        Time = "Invalid Format";
+        Time_Manipulated = "Invalid Format";
+    }
+    
+}
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="4" Patch="6" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>Format</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddYears</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddMonths</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddDays</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddHours</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddMinutes</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AddSeconds</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>Time</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Time_Manipulated</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

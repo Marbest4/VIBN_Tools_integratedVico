@@ -1,0 +1,1880 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="1d356237-b736-4d75-875c-fba170ea191c" LogicName="Grob_SafePnPn" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+
+/************************************************************************************
+* Logic for safe signals from another station (pnpn-coupler or I-Device)
+* Gaugler Frank
+* Write: Receive safe signals
+* V1.2.5: Gaugler - first edition
+* V1.3.0: Gaugler - every station is different --&gt; variable Inputs
+* V1.4.0: Heußler - set up FEE HMI
+* V1.5.0: Heußler - rework logic
+************************************************************************************/
+
+/*
++--------------------------------------------------------------------------------------------------------------------+
+¦ Auszug: SIMATIC Safety - Projektieren und Programmieren Programmier- und Bedienhandbuch, 11/2023, A5E02714439-AN   ¦
++--------------------------------------------------------------------------------------------------------------------+
+                                                                                                                      
+  Tabelle 10-1  Aufbau des relevanten Transferbereichs für Eingänge und des Simulationssteuerworts (Anweisung RCVDP)  
++----------+-----------------------------------+---------------------------------------------------------------+
+¦ Byte     ¦ Bedeutung                         ¦ Bemerkung                                                     ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 0        ¦ RD_BO_15 … RD_BO_08               ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 1        ¦ RD_BO_07 … RD_BO_00               ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 2        ¦ RD_I_00                           ¦ Word RD_I_00, MSB1) first                                     ¦
+¦ 3        ¦                                   ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 4        ¦ RD_I_01                           ¦ Word RD_I_01, MSB1) first                                     ¦
+¦ 5        ¦                                   ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 6        ¦ Simulationssteuerwort (High Byte) ¦ Bit 0…6: reserviert                                           ¦
+¦          ¦                                   ¦ Bit 7: SIMULATION: Simulation RCVDP aktivieren                ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 7        ¦ Simulationssteuerwort (Low Byte)  ¦ Bit 0: SEND_MODE: Ausgang SENDMODE setzen                     ¦
+¦          ¦                                   ¦ Bit 1…7: reserviert                                           ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 8 .. 11  ¦ reserviert                        ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------+
+  1) MSB: most significant bit                                                                                  
+                                                                                                                
+                                                                                                                
+  Tabelle 10-2 Aufbau des relevanten Transferbereichs für Eingänge und des Simulationssteuerworts (Anweisung SENDDP)
++----------+-----------------------------------+---------------------------------------------------------------+
+¦ Byte     ¦ Bedeutung                         ¦ Bemerkung                                                     ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 0        ¦ Simulationssteuerwort (High Byte) ¦ Bit 0: STATUS_SUBS: Ausgang SUBS_ON setzen                    ¦
+¦          ¦                                   ¦ Bit 1…6: reserviert                                           ¦
+¦          ¦                                   ¦ Bit 7: SIMULATION: Simulation SENDDP aktivieren               ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 1        ¦ Simulationssteuerwort (Low Byte)  ¦ Bit 0…7: reserviert                                           ¦
++----------+-----------------------------------+---------------------------------------------------------------¦
+¦ 2 .. 5   ¦ reserviert                        ¦                                                               ¦
++----------+-----------------------------------+---------------------------------------------------------------+
+*/
+
+
+using System;
+using System.Buffers.Binary;
+
+// Get name of the element for HMI
+
+HMI_LogicName = SceneObject.Name;
+
+// Get PLC Outputs and copy to slots + HMI
+
+//Byte 0
+BitArray PLC_SEND_BYTE00_BitArray = new BitArray (new int[] {PLC_OUT_SEND_BYTE00});
+
+HMI_Send_BO_00 = SIM_SD_BO_00 = PLC_SEND_BYTE00_BitArray[0];
+HMI_Send_BO_01 = SIM_SD_BO_01 = PLC_SEND_BYTE00_BitArray[1];
+HMI_Send_BO_02 = SIM_SD_BO_02 = PLC_SEND_BYTE00_BitArray[2];
+HMI_Send_BO_03 = SIM_SD_BO_03 = PLC_SEND_BYTE00_BitArray[3];
+HMI_Send_BO_04 = SIM_SD_BO_04 = PLC_SEND_BYTE00_BitArray[4];
+HMI_Send_BO_05 = SIM_SD_BO_05 = PLC_SEND_BYTE00_BitArray[5];
+HMI_Send_BO_06 = SIM_SD_BO_06 = PLC_SEND_BYTE00_BitArray[6];
+HMI_Send_BO_07 = SIM_SD_BO_07 = PLC_SEND_BYTE00_BitArray[7];
+
+
+//Byte 1
+BitArray PLC_SEND_BYTE01_BitArray = new BitArray (new int[] {PLC_OUT_SEND_BYTE01});
+
+HMI_Send_BO_08 = SIM_SD_BO_08 = PLC_SEND_BYTE01_BitArray[0];
+HMI_Send_BO_09 = SIM_SD_BO_09 = PLC_SEND_BYTE01_BitArray[1];
+HMI_Send_BO_10 = SIM_SD_BO_10 = PLC_SEND_BYTE01_BitArray[2];
+HMI_Send_BO_11 = SIM_SD_BO_11 = PLC_SEND_BYTE01_BitArray[3];
+HMI_Send_BO_12 = SIM_SD_BO_12 = PLC_SEND_BYTE01_BitArray[4];
+HMI_Send_BO_13 = SIM_SD_BO_13 = PLC_SEND_BYTE01_BitArray[5];
+HMI_Send_BO_14 = SIM_SD_BO_14 = PLC_SEND_BYTE01_BitArray[6];
+HMI_Send_BO_15 = SIM_SD_BO_15 = PLC_SEND_BYTE01_BitArray[7];
+
+// Int 1
+byte[] ByteToInt01 = new byte[2] {PLC_OUT_SEND_BYTE03, PLC_OUT_SEND_BYTE02};
+HMI_Send_I_00 = SIM_SD_I_00 = BitConverter.ToInt16(ByteToInt01);
+
+// Int 2
+byte[] ByteToInt02 = new byte[2] {PLC_OUT_SEND_BYTE05, PLC_OUT_SEND_BYTE04};
+HMI_Send_I_01 = SIM_SD_I_01 = BitConverter.ToInt16(ByteToInt02);
+
+
+// Set PLC Inputs
+
+// Use HMI values
+if(HMI_ReceiveValuesActive) {
+
+    // Byte 0
+    bool[] bitArrayByte0 = new bool [] {
+    HMI_Receive_BO_00,
+    HMI_Receive_BO_01,
+    HMI_Receive_BO_02,
+    HMI_Receive_BO_03,
+    HMI_Receive_BO_04,
+    HMI_Receive_BO_05,
+    HMI_Receive_BO_06,
+    HMI_Receive_BO_07,
+    };
+    
+    BitArray bitsByte0 = new BitArray(bitArrayByte0);
+    byte[] byteArrayByte0 = new byte[1];
+    bitsByte0.CopyTo(byteArrayByte0, 0);
+    
+    PLC_IN_RECV_BYTE00 = byteArrayByte0[0];
+    
+    // Byte 1
+    bool[] bitArrayByte1 = new bool [] {
+    HMI_Receive_BO_08,
+    HMI_Receive_BO_09,
+    HMI_Receive_BO_10,
+    HMI_Receive_BO_11,
+    HMI_Receive_BO_12,
+    HMI_Receive_BO_13,
+    HMI_Receive_BO_14,
+    HMI_Receive_BO_15,
+    };
+    
+    BitArray bitsByte1 = new BitArray(bitArrayByte1);
+    byte[] byteArrayByte1 = new byte[1];
+    bitsByte1.CopyTo(byteArrayByte1, 0);
+    
+    PLC_IN_RECV_BYTE01 = byteArrayByte1[0];
+    
+    // Int 1
+    byte[] byteHmiInt1 = BitConverter.GetBytes(HMI_Receive_I_00);
+    PLC_IN_RECV_BYTE02 = byteHmiInt1[1];
+    PLC_IN_RECV_BYTE03 = byteHmiInt1[0];
+    
+    // Int 2
+    byte[] byteHmiInt2 = BitConverter.GetBytes(HMI_Receive_I_01);
+    PLC_IN_RECV_BYTE02 = byteHmiInt2[1];
+    PLC_IN_RECV_BYTE03 = byteHmiInt2[0];
+}
+
+// Use SIM values
+else {
+
+
+    // Byte 0
+    bool[] bitArrayByte0 = new bool [] {
+    SIM_RD_BO_00,
+    SIM_RD_BO_01,
+    SIM_RD_BO_02,
+    SIM_RD_BO_03,
+    SIM_RD_BO_04,
+    SIM_RD_BO_05,
+    SIM_RD_BO_06,
+    SIM_RD_BO_07,
+    };
+    
+    BitArray bitsByte0 = new BitArray(bitArrayByte0);
+    byte[] byteArrayByte0 = new byte[1];
+    bitsByte0.CopyTo(byteArrayByte0, 0);
+    
+    PLC_IN_RECV_BYTE00 = byteArrayByte0[0];
+
+
+    // Byte 1
+    bool[] bitArrayByte1 = new bool [] {
+    SIM_RD_BO_08,
+    SIM_RD_BO_09,
+    SIM_RD_BO_10,
+    SIM_RD_BO_11,
+    SIM_RD_BO_12,
+    SIM_RD_BO_13,
+    SIM_RD_BO_14,
+    SIM_RD_BO_15,
+    };
+    
+    BitArray bitsByte1 = new BitArray(bitArrayByte1);
+    byte[] byteArrayByte1 = new byte[1];
+    bitsByte1.CopyTo(byteArrayByte1, 0);
+    
+    PLC_IN_RECV_BYTE01 = byteArrayByte1[0];
+
+    // Int 1
+    byte[] byteHmiInt1 = BitConverter.GetBytes(SIM_RD_I_00);
+    PLC_IN_RECV_BYTE02 = byteHmiInt1[1];
+    PLC_IN_RECV_BYTE03 = byteHmiInt1[0];
+    // Int 2
+    byte[] byteHmiInt2 = BitConverter.GetBytes(SIM_RD_I_01);
+    PLC_IN_RECV_BYTE02 = byteHmiInt2[1];
+    PLC_IN_RECV_BYTE03 = byteHmiInt2[0];
+
+
+
+    // Display SIM values on HMI
+    HMI_Receive_BO_00 = SIM_RD_BO_00;
+    HMI_Receive_BO_01 = SIM_RD_BO_01;
+    HMI_Receive_BO_02 = SIM_RD_BO_02;
+    HMI_Receive_BO_03 = SIM_RD_BO_03;
+    HMI_Receive_BO_04 = SIM_RD_BO_04;
+    HMI_Receive_BO_05 = SIM_RD_BO_05;
+    HMI_Receive_BO_06 = SIM_RD_BO_06;
+    HMI_Receive_BO_07 = SIM_RD_BO_07;
+    HMI_Receive_BO_08 = SIM_RD_BO_08;
+    HMI_Receive_BO_09 = SIM_RD_BO_09;
+    HMI_Receive_BO_10 = SIM_RD_BO_10;
+    HMI_Receive_BO_11 = SIM_RD_BO_11;
+    HMI_Receive_BO_12 = SIM_RD_BO_12;
+    HMI_Receive_BO_13 = SIM_RD_BO_13;
+    HMI_Receive_BO_14 = SIM_RD_BO_14;
+    HMI_Receive_BO_15 = SIM_RD_BO_15;
+    
+    HMI_Receive_I_00 = SIM_RD_I_00;
+    HMI_Receive_I_01 = SIM_RD_I_01;
+            
+}
+
+// Set RCVDP &amp; SENDDP to simulation mode
+if (HMI_SimCouplerActive) {
+
+    PLC_IN_RECV_BYTE06 = 128;
+    PLC_IN_SEND_BYTE00 = 128;
+}
+else {
+    PLC_IN_RECV_BYTE06 = 0;
+    PLC_IN_SEND_BYTE00 = 0;
+}
+/*
+// Handling CRC (only necessary for hardware in the loop)
+// RECVDP
+// Calculate
+
+ushort crcRecvdp = ProfinetFunctions.CalculateCRCForRCVDP(new byte[8] {
+PLC_IN_RECV_BYTE00,
+PLC_IN_RECV_BYTE01,
+PLC_IN_RECV_BYTE02,
+PLC_IN_RECV_BYTE03,
+PLC_IN_RECV_BYTE04,
+PLC_IN_RECV_BYTE05,
+PLC_IN_RECV_BYTE06,
+PLC_IN_RECV_BYTE07},
+HMI_RecvId);
+
+// Write values to PLC
+byte[] crcRecvdpBytes = BitConverter.GetBytes(crcRecvdp);
+PLC_IN_RECV_BYTE10 = crcRecvdpBytes[0];
+PLC_IN_RECV_BYTE11 = crcRecvdpBytes[1];
+
+
+// SENDDP
+// Calculate
+ushort crcSenddp = ProfinetFunctions.CalculateCRCForRCVDP(new byte[2] {
+PLC_IN_SEND_BYTE00,
+PLC_IN_SEND_BYTE01},
+HMI_SendId);
+
+// Write values to PLC
+byte[] crcSenddpBytes = BitConverter.GetBytes(crcSenddp);
+PLC_OUT_SEND_BYTE04 = crcSenddpBytes[0];
+PLC_OUT_SEND_BYTE05 = crcSenddpBytes[1];
+*/
+</ScriptText>
+	<HmiDefinition>
+		<XtraSerializer version="23.2.5.0">
+			<Items>
+				<Item1 ItemKind="DiagramRoot" CanvasSizeMode="Fill" ShowPageBreaks="false" SelectedStencils="feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi">
+					<Children>
+						<Item1 Position="200,100" Size="500,750" Background="#FFFFFFFF" Foreground="#FFFFFFFF" StrokeThickness="5" BackgroundId="White" BorderBrush="#FF004380" Shape="BasicShapes.Rectangle" ContentBackground="" CanChangeParameter="false" ItemKind="ShapeWidget" WidgetName="ShapeWidget_334" WidgetBackground="#FFFFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item1>
+						<Item2 Position="200,100" Size="500,30" Background="#FF004380" Foreground="#FFFFFFFF" StrokeThickness="0" Shape="BasicShapes.Rectangle" ContentBackground="" CanChangeParameter="false" ItemKind="ShapeWidget" WidgetName="ShapeWidget_335" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item2>
+						<Item3 Position="400,103" Size="191,24" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#FF004380" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" WidgetName="HMI_Header_Dynamic" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_LogicName</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item3>
+						<Item4 Position="204,103" Size="200,24" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="PNPN Coupler - Safe Signals" WidgetName="HMI_Header_Static" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item4>
+						<Item5 Position="210,140" Size="235,700" Background="#FF004380" Foreground="#FFFFFFFF" Shape="BasicShapes.Rectangle" ContentBackground="" CanChangeParameter="false" ItemKind="ShapeWidget" WidgetName="ShapeWidget_338" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item5>
+						<Item6 Position="455,140" Size="235,700" Background="#FF004380" Foreground="#FFFFFFFF" Shape="BasicShapes.Rectangle" ContentBackground="" CanChangeParameter="false" ItemKind="ShapeWidget" WidgetName="ShapeWidget_338_1" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item6>
+						<Item7 Position="210,150" Size="235,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="Receive" WidgetName="HMI_Header_Static_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item7>
+						<Item8 Position="455,150" Size="235,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="Send" WidgetName="HMI_Header_Static_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item8>
+						<Item9 Position="465,190" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations>
+									<WidgetAnimation>
+										<PropertyName>Visibility</PropertyName>
+										<Values>
+											<WidgetAnimationValue>
+												<Expression>true</Expression>
+												<Value>
+													<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+												</Value>
+											</WidgetAnimationValue>
+										</Values>
+									</WidgetAnimation>
+								</WidgetAnimations>
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_SendId</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item9>
+						<Item10 Position="220,190" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations>
+									<WidgetAnimation>
+										<PropertyName>Visibility</PropertyName>
+										<Values>
+											<WidgetAnimationValue>
+												<Expression>true</Expression>
+												<Value>
+													<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+												</Value>
+											</WidgetAnimationValue>
+										</Values>
+									</WidgetAnimation>
+								</WidgetAnimations>
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_RecvId</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item10>
+						<Item11 Position="320,190" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="DP_DP_ID" WidgetName="HMI_Header_Static_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations>
+									<WidgetAnimation>
+										<PropertyName>Visibility</PropertyName>
+										<Values>
+											<WidgetAnimationValue>
+												<Expression>true</Expression>
+												<Value>
+													<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+												</Value>
+											</WidgetAnimationValue>
+										</Values>
+									</WidgetAnimation>
+								</WidgetAnimations>
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item11>
+						<Item12 Position="565,190" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="DP_DP_ID" WidgetName="HMI_Header_Static_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations>
+									<WidgetAnimation>
+										<PropertyName>Visibility</PropertyName>
+										<Values>
+											<WidgetAnimationValue>
+												<Expression>true</Expression>
+												<Value>
+													<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+												</Value>
+											</WidgetAnimationValue>
+										</Values>
+									</WidgetAnimation>
+								</WidgetAnimations>
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item12>
+						<Item13 Position="240,270" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_00 = !HMI_Receive_BO_00</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_00</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item13>
+						<Item14 Position="240,300" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_2" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_01 = !HMI_Receive_BO_01</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_01</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item14>
+						<Item15 Position="240,330" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_3" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_02 = !HMI_Receive_BO_02</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_02</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item15>
+						<Item16 Position="240,360" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_4" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_03 = !HMI_Receive_BO_03</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_03</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item16>
+						<Item17 Position="240,390" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_5" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_04 = !HMI_Receive_BO_04</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_04</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item17>
+						<Item18 Position="240,420" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_6" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_05 = !HMI_Receive_BO_05</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_05</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item18>
+						<Item19 Position="240,450" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_7" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_06 = !HMI_Receive_BO_06</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_06</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item19>
+						<Item20 Position="240,480" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_8" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_07 = !HMI_Receive_BO_07</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_07</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item20>
+						<Item21 Position="240,510" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_9" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_08 = !HMI_Receive_BO_08</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_08</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item21>
+						<Item22 Position="240,540" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_10" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_09 = !HMI_Receive_BO_09</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_09</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item22>
+						<Item23 Position="240,570" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_11" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_10 = !HMI_Receive_BO_10</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_10</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item23>
+						<Item24 Position="240,600" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_12" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_11 = !HMI_Receive_BO_11</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_11</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item24>
+						<Item25 Position="240,630" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_13" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_12 = !HMI_Receive_BO_12</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_12</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item25>
+						<Item26 Position="240,660" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_14" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_13 = !HMI_Receive_BO_13</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_13</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item26>
+						<Item27 Position="240,690" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_15" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_14 = !HMI_Receive_BO_14</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_14</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item27>
+						<Item28 Position="240,720" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_16" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>Released</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression>HMI_Receive_BO_15 = !HMI_Receive_BO_15</Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Receive_BO_15</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item28>
+						<Item29 Position="220,750" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_Receive_I_00</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item29>
+						<Item30 Position="220,780" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342_1_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_Receive_I_01</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item30>
+						<Item31 Position="485,269.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_1_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_00</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item31>
+						<Item32 Position="485,299.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_2_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_01</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item32>
+						<Item33 Position="485,329.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_3_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_02</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item33>
+						<Item34 Position="485,359.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_4_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_03</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item34>
+						<Item35 Position="485,389.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_5_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_04</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item35>
+						<Item36 Position="485,419.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_6_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_05</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item36>
+						<Item37 Position="485,449.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_7_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_06</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item37>
+						<Item38 Position="485,479.99999999999994" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_8_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_07</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item38>
+						<Item39 Position="485,510" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_9_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_08</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item39>
+						<Item40 Position="485,540" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_10_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_09</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item40>
+						<Item41 Position="485,570" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_11_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_10</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item41>
+						<Item42 Position="485,600" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_12_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_11</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item42>
+						<Item43 Position="485,630" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_13_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_12</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item43>
+						<Item44 Position="485,660" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_14_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_13</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item44>
+						<Item45 Position="485,690" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_15_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_14</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item45>
+						<Item46 Position="485,720" Size="25,25" VerticalContentAlignment="Center" Background="#FF696969" Foreground="#FF000000" CornerRadius="40,40,40,40" BorderBrush="#FF000000" ItemKind="PushButtonWidget" OnBrush="#FF00FF00" UseDefaultStyle="false" WidgetName="PushButtonWidget_Receive_16_1" WidgetBackground="#FF696969" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsOnSlot</SlotName>
+										<LogicSlotName>HMI_Send_BO_15</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item46>
+						<Item47 Position="465,750" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342_1_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_Send_I_00</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item47>
+						<Item48 Position="465,780" TextAlignment="Center" FontFamily="Verdana" Background="#FFFFFFFF" Foreground="#FF000000" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_342_1_2_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>HMI_Send_I_01</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item48>
+						<Item49 Position="220,230" Size="80,30" Background="#FF004380" Foreground="#FFFFFFFF" StrokeThickness="0" ItemKind="ToggleSwitchWidget" Kind="Slider" WidgetName="ToggleSwitchWidget_437" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsCheckedSlot</SlotName>
+										<LogicSlotName>HMI_ReceiveValuesActive</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item49>
+						<Item50 Position="565,270" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_00" WidgetName="HMI_Header_Static_1_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item50>
+						<Item51 Position="565,300" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_01" WidgetName="HMI_Header_Static_1_1_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item51>
+						<Item52 Position="565,330" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_02" WidgetName="HMI_Header_Static_1_1_1_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item52>
+						<Item53 Position="565,360" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_03" WidgetName="HMI_Header_Static_1_1_1_1_3" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item53>
+						<Item54 Position="565,390" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_04" WidgetName="HMI_Header_Static_1_1_1_1_4" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item54>
+						<Item55 Position="565,420" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_05" WidgetName="HMI_Header_Static_1_1_1_1_5" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item55>
+						<Item56 Position="565,450" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_06" WidgetName="HMI_Header_Static_1_1_1_1_6" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item56>
+						<Item57 Position="565,480" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_07" WidgetName="HMI_Header_Static_1_1_1_1_7" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item57>
+						<Item58 Position="565,510" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_08" WidgetName="HMI_Header_Static_1_1_1_1_8" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item58>
+						<Item59 Position="565,540" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_09" WidgetName="HMI_Header_Static_1_1_1_1_9" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item59>
+						<Item60 Position="565,570" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_10" WidgetName="HMI_Header_Static_1_1_1_1_10" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item60>
+						<Item61 Position="565,600" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_11" WidgetName="HMI_Header_Static_1_1_1_1_11" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item61>
+						<Item62 Position="565,630" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_12" WidgetName="HMI_Header_Static_1_1_1_1_10_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item62>
+						<Item63 Position="565,660" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_13" WidgetName="HMI_Header_Static_1_1_1_1_11_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item63>
+						<Item64 Position="565,690" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_14" WidgetName="HMI_Header_Static_1_1_1_1_10_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item64>
+						<Item65 Position="565,720" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_BO_15" WidgetName="HMI_Header_Static_1_1_1_1_11_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item65>
+						<Item66 Position="565,750" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_I_00" WidgetName="HMI_Header_Static_1_1_1_1_10_3" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item66>
+						<Item67 Position="565,780" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="SD_I_01" WidgetName="HMI_Header_Static_1_1_1_1_11_3" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item67>
+						<Item68 Position="320,270" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_00" WidgetName="HMI_Header_Static_1_1_1_1_12" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item68>
+						<Item69 Position="320,300" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_01" WidgetName="HMI_Header_Static_1_1_1_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item69>
+						<Item70 Position="320,330" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_02" WidgetName="HMI_Header_Static_1_1_1_1_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item70>
+						<Item71 Position="320,360" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_03" WidgetName="HMI_Header_Static_1_1_1_1_3_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item71>
+						<Item72 Position="320,390" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_04" WidgetName="HMI_Header_Static_1_1_1_1_4_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item72>
+						<Item73 Position="320,420" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_05" WidgetName="HMI_Header_Static_1_1_1_1_5_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item73>
+						<Item74 Position="320,450" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_06" WidgetName="HMI_Header_Static_1_1_1_1_6_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item74>
+						<Item75 Position="320,480" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_07" WidgetName="HMI_Header_Static_1_1_1_1_7_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item75>
+						<Item76 Position="320,510" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_08" WidgetName="HMI_Header_Static_1_1_1_1_8_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item76>
+						<Item77 Position="320,540" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_09" WidgetName="HMI_Header_Static_1_1_1_1_9_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item77>
+						<Item78 Position="320,570" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_10" WidgetName="HMI_Header_Static_1_1_1_1_10_4" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item78>
+						<Item79 Position="320,600" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_11" WidgetName="HMI_Header_Static_1_1_1_1_11_4" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item79>
+						<Item80 Position="320,630" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_12" WidgetName="HMI_Header_Static_1_1_1_1_10_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item80>
+						<Item81 Position="320,660" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_13" WidgetName="HMI_Header_Static_1_1_1_1_11_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item81>
+						<Item82 Position="320,690" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_14" WidgetName="HMI_Header_Static_1_1_1_1_10_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item82>
+						<Item83 Position="320,720" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_BO_15" WidgetName="HMI_Header_Static_1_1_1_1_11_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item83>
+						<Item84 Position="320,750" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_I_00" WidgetName="HMI_Header_Static_1_1_1_1_10_3_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item84>
+						<Item85 Position="320,780" Size="100,24" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="RD_I_01" WidgetName="HMI_Header_Static_1_1_1_1_11_3_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item85>
+						<Item86 Position="320,230" Size="100,30" TextAlignment="Center" VerticalContentAlignment="Center" FontFamily="Verdana" Background="#00FFFFFF" Foreground="#FFFFFFFF" StrokeThickness="0" ForegroundId="White" ItemKind="LabelWidget" Text="Activate HMI Values" WidgetName="HMI_Header_Static_1_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item86>
+						<Item87 Position="610,100" Size="80,30" TextAlignment="Center" VerticalContentAlignment="Center" Background="#FF004380" Foreground="#FFFFFFFF" StrokeThickness="0" ItemKind="ToggleSwitchWidget" Kind="Slider" UncheckedContent="Inactive" CheckedContent="Active" WidgetName="ToggleSwitchWidget_436" WidgetBackground="#FF004380" WidgetForeground="#FFFFFFFF">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>IsCheckedSlot</SlotName>
+										<LogicSlotName>HMI_SimCouplerActive</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item87>
+					</Children>
+				</Item1>
+			</Items>
+			<HmiControlState>
+				<ZoomFactor>1.2</ZoomFactor>
+				<ScrollPoint _x="155.83333333333334" _y="27.5" />
+			</HmiControlState>
+		</XtraSerializer>
+	</HmiDefinition>
+	<HmiDefined>true</HmiDefined>
+	<Version Major="1" Minor="7" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE00</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE01</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE02</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE03</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE04</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SEND_BYTE05</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_02</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_08</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_09</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_BO_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_I_00</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RD_I_01</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE00</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE01</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE02</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE03</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE04</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE05</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE06</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE07</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE08</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE09</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE10</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_RECV_BYTE11</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_SEND_BYTE00</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_02</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_08</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_09</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_BO_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_I_00</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SD_I_01</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>HMI_LogicName</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_SendId</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_RecvId</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_ReceiveValuesActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_SimCouplerActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_02</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_08</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_09</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_BO_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_I_00</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Receive_I_01</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_02</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_08</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_09</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_BO_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_I_00</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HMI_Send_I_01</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

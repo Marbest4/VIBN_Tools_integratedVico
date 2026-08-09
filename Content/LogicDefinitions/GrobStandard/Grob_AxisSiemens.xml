@@ -1,0 +1,898 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="abc7867a-b3b9-4b1a-afec-f3e0fcee4153" LogicName="Grob_AxisSiemens" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Grob_AxisSiemens                                                                     //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    04.06.2025       1.10.0         Greif            Header integriert
+//    14.10.2025       1.10.1         Egg              Name geändert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE-Siemens      x              Greif            Konvertiert die Achsposition 
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik konvertiert die Achsposition am Eingang (PLC_OUT_AxisValue) von der Einheit Millimeter in Meter,
+//    wenn das Bit (PAR_AxisIsRotary=0) ist und gibt dies an (SIM_InValue_Joint) aus.
+//    Andernfalls wird am Ausgang die Position als Millimeter ausgegeben.
+//    Die Steuersignale (PLC_OUT_ALM_ControlWord und PLC_OUT_Axis_ControlWord) werden erfasst, beschrieben und 
+//    als Status (PLC_IN_ALM_StatusWord und PLC_IN_Axis_StatusWord) ausgegeben.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    PLC_OUT_ALM_ControlWord       =   Word, Alm Steuerungssignale erhalten
+//    PLC_OUT_Axis_ControlWord      =   DWord, Achse Steuerungssignale erhalten
+//    PLC_OUT_AxisValue             =   Real, Achsposition [mm]
+//    PAR_AxisIsRotary              =   Bool, Achse ist rotatorisch
+//
+//    Output Slot Values
+//    PLC_IN_ALM_StatusWord         =   Word, Alm Status ausgeben
+//    PLC_IN_Axis_StatusWord        =   DWord, Achse Status ausgeben
+//    PLC_IN_Axis_SafePosition      =   Dint, Achsposition [mm]
+//    SIM_InValue_Joint             =   Real, Achsposition [mm] oder [m]
+//    
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Achsposition konvertieren
+//============================================================================================================
+// A C H S P O S I T I O N    K O N V E R T I E R E N
+//============================================================================================================
+
+if(PLC_OUT_AxisValue != _lastAxisValue)
+{
+    // Axis Conversion mm -&gt; m on linear axes
+    if(!PAR_AxisIsRotary)
+    {
+        SIM_InValue_Joint = PLC_OUT_AxisValue * 0.001f;
+    }
+    else
+    {
+        SIM_InValue_Joint = PLC_OUT_AxisValue;
+    }
+    
+    // Set Safe Position
+    PLC_IN_Axis_SafePosition = Convert.ToInt32(PLC_OUT_AxisValue);
+}
+_lastAxisValue = PLC_OUT_AxisValue;
+
+
+
+
+#endregion
+
+
+
+#region ALM-Telegram 370
+//============================================================================================================
+// A L M - T E L E G R A M    3 7 0
+//============================================================================================================
+
+// Split ALM Word
+ConvertFunctions.UShortToBool(PLC_OUT_ALM_ControlWord,
+// Byte 1
+    x00: out alm_Q1_0,
+    x01: out alm_Q1_1,
+    x02: out alm_Q1_2,
+    x03: out alm_Q1_3__EnableOperation,
+    x04: out alm_Q1_4,
+    x05: out alm_Q1_5,
+    x06: out alm_Q1_6,
+    x07: out alm_Q1_7,
+// Byte 0    
+    x08: out alm_Q0_0,
+    x09: out alm_Q0_1,
+    x10: out alm_Q0_2,
+    x11: out alm_Q0_3,
+    x12: out alm_Q0_4,
+    x13: out alm_Q0_5,
+    x14: out alm_Q0_6,
+    x15: out alm_Q0_7);
+
+// Signals ALM
+alm_I1_2__OperationEnabled = alm_Q1_3__EnableOperation;
+
+// Write ALM Word
+PLC_IN_ALM_StatusWord = ConvertFunctions.BoolToUShort(
+                    // Byte 1
+                        x00: alm_I1_0,
+                        x01: alm_I1_1,
+                        x02: alm_I1_2__OperationEnabled,
+                        x03: alm_I1_3,
+                        x04: alm_I1_4,
+                        x05: alm_I1_5,
+                        x06: alm_I1_6,
+                        x07: alm_I1_7,
+                    // Byte 0
+                        x08: alm_I0_0,
+                        x09: alm_I0_1,
+                        x10: alm_I0_2,
+                        x11: alm_I0_3,
+                        x12: alm_I0_4,
+                        x13: alm_I0_5,
+                        x14: alm_I0_6,
+                        x15: alm_I0_7);
+
+# endregion   
+    
+    
+#region Axis Telegram 902
+//============================================================================================================
+// A C H S    T E L E G R A M    9 0 2
+//============================================================================================================    
+
+// Split Axis DWord
+ConvertFunctions.UIntToBool(PLC_OUT_Axis_ControlWord,
+// Byte 3
+    x00: out axis_Q3_0,
+    x01: out axis_Q3_1,
+    x02: out axis_Q3_2,
+    x03: out axis_Q3_3,
+    x04: out axis_Q3_4,
+    x05: out axis_Q3_5,
+    x06: out axis_Q3_6,
+    x07: out axis_Q3_7,
+// Byte 2 
+    x08: out axis_Q2_0,
+    x09: out axis_Q2_2,
+    x10: out axis_Q2_2,
+    x11: out axis_Q2_3,
+    x12: out axis_Q2_4,
+    x13: out axis_Q2_5,
+    x14: out axis_Q2_6,
+    x15: out axis_Q2_7,
+// Byte 1
+    x16: out axis_Q1_0__SLA,
+    x17: out axis_Q1_1__SelectSLSbit0,
+    x18: out axis_Q1_2__SelectSLSbit1,
+    x19: out axis_Q1_3,
+    x20: out axis_Q1_4,
+    x21: out axis_Q1_5,
+    x22: out axis_Q1_6,
+    x23: out axis_Q1_7,
+// Byte 0
+    x24: out axis_Q0_0__STO,
+    x25: out axis_Q0_1__SS1,
+    x26: out axis_Q0_2__SS2,
+    x27: out axis_Q0_3__SOS,
+    x28: out axis_Q0_4__SLS,
+    x29: out axis_Q0_5,
+    x30: out axis_Q0_6__SLP,
+    x31: out axis_Q0_7__internalEventAckn);
+
+
+// Signales Axis
+// Byte 0
+axis_I0_0__STOactive = axis_Q0_0__STO &amp;&amp; !axis_Q0_1__SS1;
+axis_I0_1__SS1active = !axis_Q0_1__SS1;
+axis_I0_2__SS2active = axis_Q0_2__SS2;
+axis_I0_3__SOSactive = axis_Q0_3__SOS;
+
+axis_I0_6__SPLactive = axis_Q0_6__SLP;
+
+// Byte 1
+axis_I1_0__SLAactive = axis_Q1_0__SLA;
+axis_I1_1__SLSbit0active = axis_Q1_1__SelectSLSbit0;
+axis_I1_2__SLSbit1active = axis_Q1_2__SelectSLSbit1;
+
+axis_I1_7__SSMactive = true;
+
+// Byte 2
+axis_I2_6__safePositionValid = true;
+axis_I2_7__safelyReferenced = true;
+
+// Write Axis DWord
+PLC_IN_Axis_StatusWord = ConvertFunctions.BoolToUint(
+// Byte 3
+    x00: axis_I3_0,
+    x01: axis_I3_1,
+    x02: axis_I3_2,
+    x03: axis_I3_3,
+    x04: axis_I3_4,
+    x05: axis_I3_5,
+    x06: axis_I3_6,
+    x07: axis_I3_7,
+// Byte 2
+    x08: axis_I2_0,
+    x09: axis_I2_1,
+    x10: axis_I2_2,
+    x11: axis_I2_3,
+    x12: axis_I2_4,
+    x13: axis_I2_5,
+    x14: axis_I2_6__safePositionValid,
+    x15: axis_I2_7__safelyReferenced,
+// Byte 1  
+    x16: axis_I1_0__SLAactive,
+    x17: axis_I1_1__SLSbit0active,
+    x18: axis_I1_2__SLSbit1active,
+    x19: axis_I1_3,
+    x20: axis_I1_4,
+    x21: axis_I1_5,
+    x22: axis_I1_6,
+    x23: axis_I1_7__SSMactive,
+// Byte 0    
+    x24: axis_I0_0__STOactive,
+    x25: axis_I0_1__SS1active,
+    x26: axis_I0_2__SS2active,
+    x27: axis_I0_3__SOSactive,
+    x28: axis_I0_4__SLSactive,
+    x29: axis_I0_5,
+    x30: axis_I0_6__SPLactive,
+    x31: axis_I0_7__internalEvent);
+
+#endregion
+
+  
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="10" Patch="2" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_ALM_ControlWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Axis_ControlWord</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_AxisValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_AxisIsRotary</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_ALM_StatusWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Axis_StatusWord</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Axis_SafePosition</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_InValue_Joint</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_lastAxisValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_0__STO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_1__SS1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_2__SS2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_3__SOS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_4__SLS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_6__SLP</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q0_7__internalEventAckn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_0__SLA</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_1__SelectSLSbit0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_2__SelectSLSbit1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q1_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q2_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_Q3_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_0__STOactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_1__SS1active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_2__SS2active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_3__SOSactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_4__SLSactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_6__SPLactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I0_7__internalEvent</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_0__SLAactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_1__SLSbit0active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_2__SLSbit1active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I1_7__SSMactive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_6__safePositionValid</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I2_7__safelyReferenced</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>axis_I3_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q0_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_3__EnableOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_Q1_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I0_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_2__OperationEnabled</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>alm_I1_7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

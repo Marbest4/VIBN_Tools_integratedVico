@@ -1,0 +1,200 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="18e7edcd-5903-4552-a176-eee1a58f9aec" LogicName="Timer_TON_TOF_Impuls" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Timer_TON_TOF_Impuls                                                                 //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    10.06.2025       1.2.0          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Greif            Timer (ein-, ausschaltverzögert, Impulse und zylischer Impulse)
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik wird über den Eingang (Enable=1) gestartet und gibt anhand der parametrierbaren Zeit (PAR_Time_Sec)
+//    die Timerfunktionen (TON, TOF, Impulse und cyclic Impulse) aus.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    Enable                =   Bool, Startet die Zeit
+//    PAR_Time_Sec          =   Real, Zeit [s]
+//    
+//    Output Slot Values
+//    OUT_TON               =   Bool, einschaltverzögerter Ausgang
+//    OUT_TOF               =   Bool, ausschaltverzögerter Ausgang
+//    OUT_Impulse           =   Bool, Impulse Ausgang
+//    OUT_CyclicImpulse     =   Bool, zyklischer Impuls Ausgang
+//    
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region TON Timer
+//============================================================================================================
+// T O N    T I M E R
+//============================================================================================================
+
+if(Enable)
+{
+    timer_TON += SceneObject.DeltaTime;
+    
+    if(timer_TON &gt;= PAR_Time_Sec)
+    {
+        OUT_TON = true;
+    }
+}
+else
+{
+    OUT_TON = false;
+    timer_TON = 0;
+}
+
+#endregion
+
+#region TOF Timer
+//============================================================================================================
+// T O F    T I M E R
+//============================================================================================================
+
+if(!Enable)
+{
+    timer_TOF += SceneObject.DeltaTime;
+    
+    if(timer_TOF &gt;= PAR_Time_Sec)
+    {
+        OUT_TOF = false;
+    }
+}
+else
+{
+    OUT_TOF = true;
+    timer_TOF = 0;
+}
+
+#endregion
+
+#region Impulse
+//============================================================================================================
+// I M P U L S E
+//============================================================================================================
+
+if(Enable)
+{
+    OUT_Impulse = true;
+    timer_Impulse += SceneObject.DeltaTime;
+    
+    if(timer_Impulse &gt;= PAR_Time_Sec)
+    {
+        OUT_Impulse = false;
+    }
+}
+else
+{
+    OUT_Impulse = false;
+    timer_Impulse = 0;
+}
+
+#endregion
+
+#region Cyclic Impulse
+//============================================================================================================
+// C Y C L I C    I M P U L S E
+//============================================================================================================
+
+timer_CyclicImpulse += SceneObject.DeltaTime;
+
+if(timer_CyclicImpulse &gt;= PAR_Time_Sec)
+{
+    if(!OUT_CyclicImpulse)
+    {
+        OUT_CyclicImpulse = true;
+    }
+    else
+    {
+        OUT_CyclicImpulse = false;
+    }
+    timer_CyclicImpulse = 0;
+}
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="2" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>Enable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Time_Sec</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>OUT_TON</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>OUT_TOF</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>OUT_Impulse</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>OUT_CyclicImpulse</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>timer_TON</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>timer_TOF</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>timer_Impulse</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>timer_CyclicImpulse</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

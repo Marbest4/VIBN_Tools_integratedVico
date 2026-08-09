@@ -1,0 +1,143 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="0f1b9b2d-875a-4734-bf56-5024c2963aa0" LogicName="ManipulateString" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System;
+using System.Text;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           ManipulateString                                                                     //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    02.06.2025       1.3.0          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Greif            Zeichenkette manipulieren                               
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik manipuliert eine Zeichenkette, indem sie eine weitere Zeichenkette an einer parametrierbarer
+//    Position einfügt.
+//    Sobald die Logik aktiviert (Enable=1) wurde, wird der String (StringReplace) an der Position (Offset)
+//    in der Ursprungs-Zeichenkette (InputString) eingefügt und überschreibt die Zeichen darin.
+//    Die Ausgabe des Strings erfolgt an (OutputString).  
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Input und StringReplace dürfen nicht "0" oder leer sein!
+//
+//    Input Slot Values
+//    InputString       =   String, unbearbeitete Zeichenkette
+//    Offset            =   Int, Versatz
+//    StringReplace     =   Real, Zeichen die eingefügt werden
+//    Enable            =   Bool, zum Starten der Logik
+//
+//    Output Slot Values
+//    OutputString      =   String, bearbeitete Zeichenkette
+//    
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N    P R U E F E N
+//============================================================================================================
+
+int errorNumber     = 999;
+OUT_ErrorMassage    = "";
+
+if (String.IsNullOrEmpty(InputString)) {return; }
+if (String.IsNullOrEmpty(StringReplace)) {return; }
+if (InputString.Length &lt; StringReplace.Length + Offset)
+{
+    OutputString        = errorNumber.ToString();
+    OUT_ErrorMassage    = "Die Zeichenkette am Eingang darf nicht weniger Zeichen als Offset + StringReplace besitzen";
+    return;
+}
+
+#endregion
+
+#region Zeichenkette manipulieren
+//============================================================================================================
+// Z E I C H E N K E T T E    M A N I P U L I E R E N
+//============================================================================================================
+
+if(Enable)
+{
+    byte[] inputString = new byte[InputString.Length];
+    inputString = Encoding.ASCII.GetBytes(InputString);
+
+    byte[] replaceString = new byte[StringReplace.Length];
+    replaceString = Encoding.ASCII.GetBytes(StringReplace);
+
+    byte[] outputString = new byte[InputString.Length];
+
+    outputString = inputString;
+    for (int i = 0; i &lt; StringReplace.Length; i++)
+    {
+        outputString[Offset + i] = replaceString[i];
+    }
+    
+    OutputString = Encoding.ASCII.GetString(outputString);
+}
+else
+{
+    OutputString = InputString;
+}
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="3" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>InputString</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Offset</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>StringReplace</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Enable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>OutputString</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>OUT_ErrorMassage</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

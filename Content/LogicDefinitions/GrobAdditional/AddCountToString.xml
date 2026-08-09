@@ -1,0 +1,142 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="1374ab54-392e-40ed-86d4-a23e7e50e756" LogicName="AddCountToString" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+
+using System;
+using System.Text;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           AddCountToString                                                                     //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    21.05.2025       1.3.0          Greif            Header integriert
+//    04.12.2025       1.4.4          Egg              Code optimiert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Egg              Fügt eine Zahl mit definierter Anzahl Digits an
+//                                                     einen String
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik fügt eine Zahl an einen String. Zusätzlich kann definiert werden, wie viele Stellen
+//    die Zahl hat
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+if(String.IsNullOrEmpty(Input))
+{
+    return;
+}
+
+
+
+if(Enable)
+{
+    Output = Input + _number.ToString("D" + NumberOfDigits);
+    
+    if(ResetCounter)
+    {
+        _number = NumberMin;
+    }
+    
+    if (TriggerCounter &amp;&amp; !_trigger)
+    {
+        _number++; 
+        
+        // Zähler zurücksetzen
+        if (_number &gt; NumberMax || _number &lt; NumberMin)
+        {
+            _number = NumberMin;        
+        }        
+        
+           
+    }    
+    _trigger = TriggerCounter;   
+
+}
+else
+{
+    Output = Input;
+}</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="4" Patch="4" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>Enable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Input</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>NumberMin</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>NumberMax</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>NumberOfDigits</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>TriggerCounter</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ResetCounter</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>Output</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_number</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

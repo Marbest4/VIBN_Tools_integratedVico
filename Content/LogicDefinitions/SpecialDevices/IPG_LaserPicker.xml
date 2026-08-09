@@ -1,0 +1,586 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="2efa3a3a-6e49-44bb-a406-42eca7abf97c" LogicName="IPG_LaserPicker" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System.Threading;
+
+//No_Error/Warnings-Bits setzen
+if(PLC_OUT_Reset)
+	NoErrors();
+
+//StatusWord2 = ControlWord2
+PLC_IN_ProgramNumber = PLC_OUT_ProgramNumber;
+ 
+//Betriebsart, Service Modus notwendig?
+PLC_IN_FB_Manual_Mode = PLC_OUT_Manual_Mode;
+PLC_IN_FB_Automatic_Mode = !PLC_OUT_Manual_Mode; //wenn nicht hand, dann automatik?
+
+//Strom an/aus
+PLC_IN_Power_Supply_On = PLC_OUT_Power_Supply_On;
+
+PLC_IN_With_Laser = !PLC_OUT_No_Laser;
+PLC_IN_With_Force = !PLC_OUT_No_Force;
+PLC_IN_With_Compensation = !PLC_OUT_No_Compensation;
+PLC_IN_With_Wobble = !PLC_OUT_No_Wobble;
+if(PLC_OUT_Fumator_Start)
+{
+    PLC_IN_Fumator_Working = true;
+}
+else if(PLC_OUT_Fumator_Stop)
+{
+    PLC_IN_Fumator_Working = false;
+}
+
+//Achse referenzieren
+PLC_IN_Seam_Drive_Referenced = PLC_OUT_Seam_Drive_Referencing;
+
+//Fahrt zur Schutzglaswechselposition
+PLC_IN_Seam_Drive_In_PGCP = PLC_OUT_Seam_Drive_To_PGCP;
+
+//Fahrt zur Startposition
+//PLC_IN_Seam_Drive_In_Start_Pos = PLC_OUT_Seam_Drive_To_Start_Pos;
+if(PLC_OUT_Seam_Drive_To_Start_Pos)
+{
+    PLC_IN_Seam_Drive_In_Start_Pos = true;
+}
+//Nahtantrieb in Mittelpos
+PLC_IN_Seam_Drive_in_Mid_Pos = PLC_OUT_Seam_Drive_To_Mid_Pos;
+
+//Nahtantrieb in Mittelpos
+PLC_IN_Seam_Drive_in_End_Pos = PLC_OUT_Seam_Drive_To_End_Pos;
+
+
+
+//Vorhub öffnen
+if(PLC_OUT_PS_Open)
+{
+	PLC_IN_PS_Is_Open = true;
+}
+
+//Arbeitshub öffnen
+if(PLC_OUT_WS_Open)
+{
+	PLC_IN_WS_Is_Open = true;
+	PLC_IN_WS_Is_Close = false;
+}
+
+//Arbeitshub schließen
+if(PLC_OUT_WS_closed)
+{
+	PLC_IN_WS_Is_Close = true;
+	PLC_IN_WS_Is_Open = false;
+}
+
+//Clean Sequence
+if((PLC_OUT_Initial_Pos_Clean_Upp | PLC_OUT_Initial_Pos_clean_Lpp) &amp;&amp; PLC_OUT_Cleansequence_Start)
+{
+		PLC_IN_Clean_Done = true;
+}
+
+//Sequence Start
+if(PLC_OUT_Sequence_Start_1 | PLC_OUT_Sequence_Start_2)
+{
+	PLC_IN_Welding_Cycle_Active = true;
+	PLC_IN_Program_Finish = true;
+	PLC_IN_Quality_Monitor_Data_ready = true;
+}
+else
+{
+	 PLC_IN_Welding_Cycle_Active = false;
+	 PLC_IN_Program_Finish = false;
+}
+
+if(PLC_OUT_setProgramNumber)
+{
+	PLC_IN_ProgramNrSelected = true;
+}
+
+
+//evtl nur bei zange nicht bei picker?
+
+//open gun
+if(PLC_OUT_ServoTeachUp)
+{
+
+}
+
+//close gun
+if(PLC_OUT_ServoTeachDown)
+{
+
+}
+
+//to do beim testen:
+//compensation?
+//Servo Teach Up?
+//clean done zurücksetzen
+
+
+//Hilfsmethoden
+void NoErrors()
+{
+	PLC_IN_No_Errors = true;
+	PLC_IN_No_Laser_Errors = true;
+	PLC_IN_No_Laser_Warnings = true;
+	PLC_IN_No_LSS_Errors = true;
+	PLC_IN_No_LSS_Warnings = true;
+	PLC_IN_No_Protection_Glass_Error = true;
+	PLC_IN_No_Protection_Glass_Warning = true;
+	PLC_IN_No_Chiller_Errors = true;
+	PLC_IN_No_Chiller_Warnings = true;
+	PLC_IN_No_Geometry_Check_Errors = true;
+	PLC_IN_No_Geometry_Check_Warnings = true;
+	PLC_IN_No_Process_Monitor_Errors = true;
+	PLC_IN_No_Process_Monitor_Warnings = true;
+	PLC_IN_No_Fumator_Errors = true;
+	PLC_IN_No_Fumator_Warnings = true;
+	PLC_IN_No_Quality_Monitor_Error = true;
+	PLC_IN_No_Quality_Monitor_Warnings = true;
+	PLC_IN_Clean_Error = false;
+	PLC_IN_GasSensorUppOK = true;
+	PLC_IN_GasSensorIppOK = true;
+	PLC_IN_CompensationInWorkPos = true;
+	PLC_IN_PPSensor1OK = true;
+	PLC_IN_PPSensor2OK = true;
+	
+	//ready to clean
+	PLC_IN_Clean_Station_Ready = true;
+}</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="6" Patch="0" />
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_Manual_Mode</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Reset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Power_Supply_On</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_No_Laser</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_No_Force</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_No_Compensation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_No_Wobble</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Seam_Drive_Referencing</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Seam_Drive_To_PGCP</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Seam_Drive_To_Start_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PS_Open</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_WS_Open</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_WS_closed</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_setProgramNumber</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Fumator_Start</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Fumator_Stop</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Initial_Pos_Clean_Upp</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Initial_Pos_clean_Lpp</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Cleansequence_Start</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Sequence_Start_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Sequence_Start_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ProgramNumber</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Seam_Drive_To_Mid_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Seam_Drive_To_End_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ServoTeachUp</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ServoTeachDown</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_FB_Manual_Mode</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_FB_Automatic_Mode</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Power_Supply_On</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_With_Laser</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_With_Force</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_With_Compensation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_With_Wobble</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Seam_Drive_Referenced</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Seam_Drive_In_PGCP</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Seam_Drive_In_Start_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PS_Is_Open</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_WS_Is_Open</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_WS_Is_Close</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramNrSelected</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Laser_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Laser_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_LSS_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_LSS_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Protection_Glass_Error</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Protection_Glass_Warning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_CompensationInWorkPos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Welding_Cycle_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Clean_Done</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Clean_Error</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Clean_Station_Ready</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Program_Finish</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ProgramNumber</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Seam_Drive_in_Mid_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Seam_Drive_in_End_Pos</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_GasSensorUppOK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_GasSensorIppOK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PPSensor1OK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_PPSensor2OK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Fumator_Working</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Chiller_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Chiller_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Geometry_Check_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Geometry_Check_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Process_Monitor_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Process_Monitor_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Fumator_Errors</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Fumator_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Quality_Monitor_Data_ready</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Quality_Monitor_Error</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_No_Quality_Monitor_Warnings</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

@@ -1,0 +1,147 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="33a9e195-8830-4607-9f84-9f11f2128896" LogicName="Template_SdkFunctions" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using FS.SDK;
+using FS.SDK.Components;
+using FS.SDK.Util;
+using FS.SDK.Utilities;
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Template_SdkFunctions                                                                //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    18.06.2025       1.0.1          Egg              Ur-Version
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              DW               Template Logik
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik beinhaltet Code Beispiele für verschiedene SDK Funktionen
+//
+//============================================================================================================
+
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+//============================================================================================================
+// Auslesen Parent Objekt (z.B. Sensor und Zugriff auf detektierte Objekt
+//============================================================================================================
+
+// Zugriff auf Parent oder Child, !Child mit First() oder FirstOrDefault abfragen, da mehrere Children möglich
+var parent = SceneObject.Parent;
+var children = SceneObject.Children;
+
+var firstChild = children.First();      // oder children.FirstOrDefault();
+var specificChild = children.Where(x =&gt; x.Name == "Name des speziellen Childs").First();;        // Linq Abfrage: "durchsuche alle children, speichere das erste mit Namen "..."
+
+
+// Zugriff auf Collider Eigenschaft des Objektes, bei z.B. Sensor
+var collision = parent.GetComponent&lt;ColliderComponent&gt;();
+
+// CollisionList enthält alle Objekte im Sensorbereich (live)
+var listcol = collision.CollisionList;
+
+
+// WICHTIG: Immer Prüfung der Objekte, z.B. "parent" auf NULL, sonst Exception:
+if(parent == null)
+{
+    return;     // Logik wird verlassen, wenn Objekt NULL ist
+}
+
+
+
+//============================================================================================================
+// Zugriff auf Eigenschaften
+//============================================================================================================
+
+// Position / Rotation
+_ = parent.Transform.Position.X;
+_ = parent.Transform.Rotation.X;
+
+// Mark
+_ = parent.MarkComponent.Mark;
+
+// Model Component
+var model = parent.GetComponent&lt;ModelComponent&gt;();
+var visible = model.IsComponentActive;
+var material = model.CurrentMaterial;       // Sowohl abrufen als auch schreiben
+
+// Reparent -&gt; firstChild (Sceneobject1) wird reparentet auf parent (Sceneobject2)
+firstChild.ReparentForceKeepWorldPosition(parent);
+
+
+
+
+//============================================================================================================
+// Replace SceneObject 
+// (kein richtiges replace, sondern erzeugen eines neuen Objekts mit Zieltyp mit allen Eigenschaften
+//============================================================================================================
+
+// Altes Object, das replaced werden soll
+var sourceDetectFlag = new DetectFlag();
+
+
+// Neues Objekt initialisieren
+var newPayload = new Payload();
+
+// Eigenschaften des ursprünglichen Objekts auf das neue schreiben
+newPayload.Name = sourceDetectFlag.Name;  
+newPayload.MarkComponent.Mark = sourceDetectFlag.MarkComponent.Mark;
+newPayload.Transform.Position = sourceDetectFlag.Transform.Position;
+newPayload.Transform.Rotation = sourceDetectFlag.Transform.Rotation;
+newPayload.Transform.Scale = sourceDetectFlag.Transform.Scale;
+newPayload.Model.ModelName = sourceDetectFlag.Model.ModelName;
+newPayload.Model.CurrentMaterials = sourceDetectFlag.Model.CurrentMaterials;
+
+// Neues Objekt an das ursprüngliche Parent reparenten (Hierarchie bleibt gleich)
+newPayload.ReparentKeepGlobalValues(sourceDetectFlag.Parent);
+
+// Neues Objekt Collider Parameter
+_ = newPayload.Collider.Bounciness;
+_ = newPayload.Collider.Mass;
+_ = newPayload.Collider.KineticFriction;
+_ = newPayload.Collider.StaticFriction; 
+_ = newPayload.Collider.IsKinematic; 
+
+// Neues Objekt zur Simulation hinzufügen
+newPayload.AddToWorld();
+
+// Children des ursprünglichen Objekts auslesen und an das neue reparenten
+foreach (var child in sourceDetectFlag.Children)
+{
+    child.ReparentKeepGlobalValues(newPayload);
+}
+
+// Ursprüngliches Objekt löschen
+sourceDetectFlag.Delete();    
+
+
+
+//============================================================================================================
+// Zugriff auf Simulation und alle Objekte selbst
+//============================================================================================================
+
+var simulation = PluginHost.Application.World;
+
+// Ab hier Methoden für unterschiedlichste Aufgaben, z.B. GetChildrenOfType&lt;&gt;
+var payloads = PluginHost.Application.World.GetAllChildrenOfType&lt;Payload&gt;;</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots />
+	<OutputSlots />
+	<LocalSlots />
+</LogicDefinition>

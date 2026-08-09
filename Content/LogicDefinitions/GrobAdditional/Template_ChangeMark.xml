@@ -1,0 +1,142 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="0ab9e4a0-ada7-4d8c-9e94-0f340d932dac" LogicName="Template_ChangeMark" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+using FS.SDK.Components;
+using FS.SDK.Util;
+using FS.SDK.Utilities;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Template_ChangeMark                                                                  //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    21.05.2025       1.2.2          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Wechselt das Mark
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik ändert das Mark eines oder mehrerer DetectionFlags im Sensorbereich und 
+//    wird durch (SIM_Trigger=1) aktiviert. 
+//    Sobald vom Sensor das Mark (PAR_OldMark) erkannt wird, wird das alte Mark durch das Mark
+//    von (PAR_NewMark) ausgetauscht. Bei erfolgreicher Ausführung wird das Bit (SIM_MarkChanged) gesetzt.
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Sensor wird zwingend als Parent benötigt!
+//    OldMark und NewMark dürfen nicht "0" oder leer sein!
+//
+//    Input Slot Values
+//    SIM_Trigger           =   Bool, zum Aktivieren der Logik
+//    PAR_OldMark           =   String, Mark muss vom Sensor erkannt werden
+//    PAR_NewMark           =   String, Mark auf welches umgeschrieben wird
+//
+//    Input Slot Values
+//    SIM_MarkChanged       =   Bool, Indikator für Wechsel des Marks
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N   P R U E F E N
+//============================================================================================================
+
+// Prüfung auf Mark vorhanden
+if (String.IsNullOrEmpty(PAR_NewMark)) { return; }
+if (String.IsNullOrEmpty(PAR_OldMark)) { return; }
+
+#endregion
+
+#region CollisionList auslesen
+//============================================================================================================
+// C O L L I S I O N L I S T   A U S L E S E N
+//============================================================================================================
+
+// Auf Parent-SceneObject zugreifern (=Sensor) und die CollisionList auslesen. Hier werden alle detektierten Objekte aufgeführt
+var sensor = SceneObject.Parent;
+var collision = sensor.GetComponent&lt;ColliderComponent&gt;();
+var listcol = collision.CollisionList;
+
+#endregion
+
+#region Mark umschreiben
+//============================================================================================================
+// M A R K   U M S C H R E I B E N
+//============================================================================================================
+
+// Objekte im Sensorbereich
+if (listcol.Any())
+{
+    // Alle Objekte mit definiertem Mark identifizieren
+    var objectWithMark = listcol.Where(x =&gt; x.MarkComponent.Mark == PAR_OldMark);
+
+    // Enable-Bit zum ändern des Mark
+    if (SIM_Trigger &amp;&amp; !stateTrigger)
+    {
+        foreach (var el in objectWithMark)
+        {
+            el.MarkComponent.Mark = PAR_NewMark;
+            SIM_MarkChanged = true;
+        }
+    }
+    else
+    {
+        SIM_MarkChanged = false;
+    }
+}
+stateTrigger = SIM_Trigger;
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="2" Patch="2" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NewMark</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_OldMark</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_MarkChanged</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>stateTrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

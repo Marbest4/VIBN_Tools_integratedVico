@@ -1,0 +1,629 @@
+﻿<UserControl x:Class="VIBN_Tools.Application.View.ModelControlPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ux="http://Grob.com/wpf.ux"
+             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             xmlns:sdk="clr-namespace:FS.SDK.Utilities;assembly=FS.SDK"
+             xmlns:g="clr-namespace:VIBN_Tools.GlobalClasses"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
+             xmlns:model="clr-namespace:VIBN_Tools.ModelControl"
+             mc:Ignorable="d" d:DesignHeight="1200" d:DesignWidth="1800">
+
+
+    <UserControl.DataContext>
+        <vm:ModelControlPageVM/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
+                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <g:InvertBoolConverter x:Key="InvertBoolConverter"/>
+            <g:MotionTypeToUnitConverter x:Key="MotionTypeToUnitConverter"/>
+
+            <!--Datatemplates for object control-->
+            <DataTemplate x:Key="ButtonControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <ToggleButton Margin="5,0,5,0" Height="25" MinWidth="125" IsChecked="{Binding IsPressed}" Command="{Binding DataContext.OnButtonPressRelease, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Content">
+                                        <Setter.Value>
+                                            <TextBlock Text="Press" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <TextBlock Text="Release" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="ConveyorControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <TextBlock Margin="5,0,0,0" Height="25" Width="60" Text="InValue:" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" VerticalAlignment="Center" Padding="0,3,0,0"/>
+                        <ux:TextBox Text="{Binding IsActualVelocityX}" Margin="5,0,5,0" Height="25" Width="100" uxb:ArithmeticCalculation.Enabled="True" Unit="m/s" FontSize="13" VerticalAlignment="Center" GotKeyboardFocus="SelectOnFocus"/>
+                        <Button Margin="5,0,5,0" Height="25" MinWidth="125" Command="{Binding DataContext.OnConveyorSetVelocity, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <TextBlock Text="Set Velocity" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="JointControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectInputColum"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <!--PositionValue (only None)-->
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ControlType}" Value="{x:Static sdk:MotionSource.None}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Margin="5,0,0,0" Height="25" Width="60" Text="InValue:" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" VerticalAlignment="Center" Padding="0,3,0,0"/>
+                            <ux:TextBox Text="{Binding PositionValue}" Margin="5,0,5,0" Height="25" Width="100" uxb:ArithmeticCalculation.Enabled="True" Unit="m" FontSize="13" VerticalAlignment="Center" GotKeyboardFocus="SelectOnFocus"/>
+                        </StackPanel>
+
+                        <!--VelocityValue (Velocity AND Position)-->
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ControlType}" Value="{x:Static sdk:MotionSource.Velocity}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ControlType}" Value="{x:Static sdk:MotionSource.Position}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Margin="5,0,0,0" Height="25" Width="60" Text="InVelocity:" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" VerticalAlignment="Center" Padding="0,3,0,0"/>
+                            <ux:TextBox Text="{Binding VelocityValue}" Margin="5,0,5,0" Height="25" Width="100"  Unit="{Binding JointType, Converter={StaticResource MotionTypeToUnitConverter}}" 
+                                        uxb:ArithmeticCalculation.Enabled="True" FontSize="13" VerticalAlignment="Center" GotKeyboardFocus="SelectOnFocus"/>
+                        </StackPanel>
+
+                        <!--TargetPositionValue (only Position)-->
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ControlType}" Value="{x:Static sdk:MotionSource.Position}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Margin="5,0,0,0" Height="25" Width="60" Text="InTarget:" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" VerticalAlignment="Center" Padding="0,3,0,0"/>
+                            <ux:TextBox Text="{Binding TargetPositionValue}" Margin="5,0,5,0" Height="25" Width="100" uxb:ArithmeticCalculation.Enabled="True" Unit="m" FontSize="13" VerticalAlignment="Center" GotKeyboardFocus="SelectOnFocus"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--Move Button-->
+                    <Button Grid.Column="3" Height="25" MinWidth="125" Margin="5,0,5,0" Command="{Binding DataContext.OnJointMoveToPosition, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                        <TextBlock Text="Move" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" />
+                    </Button>
+                    <!--ActualPosition Value-->
+                    <TextBlock Grid.Column="4" Margin="5,0,5,0" Height="25" MinWidth="100" Text="{Binding IsActualPosition, StringFormat='OutValue: {0:F2}'}" Style="{StaticResource TextRobotoLightStyle}" FontSize="13" VerticalAlignment="Center" Padding="0,3,0,0"/>
+
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="PickPlaceControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <ToggleButton Margin="5,0,5,0" Height="25" MinWidth="125" IsChecked="{Binding IsPick}" Command="{Binding DataContext.OnPickAndPlaceChange, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <TextBlock Text="Pick" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                        </ToggleButton>
+                        <ToggleButton Margin="5,0,5,0" Height="25" MinWidth="125" IsChecked="{Binding IsDrop}" Command="{Binding DataContext.OnPickAndPlaceChange, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <TextBlock Text="Drop" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="ReparenterControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <ToggleButton Margin="5,0,5,0" IsChecked="{Binding IsReparenting}" Height="25" MinWidth="125" Command="{Binding DataContext.OnReparent, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <TextBlock Text="Reparent" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>            
+
+            <DataTemplate x:Key="StopperControlTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ControlObjectNameColumn"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ux:CheckBox Grid.Column="0" Margin="25,0,5,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding IsSelected}"/>
+                    <TextBlock Grid.Column="1" Margin="5,0,50,0" Style="{StaticResource TextRobotoLightStyle}" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <ToggleButton Margin="5,0,5,0" IsChecked="{Binding IsCollisionActive, Converter={StaticResource InvertBoolConverter}}" Height="25" MinWidth="125" Command="{Binding DataContext.OnStopperOpenClose, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Content">
+                                        <Setter.Value>
+                                            <TextBlock Text="Closed" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <TextBlock Text="Opened" Style="{StaticResource TextRobotoLightStyle}" FontSize="13"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+
+
+            <!--Template selector-->
+            <model:ObjectControlTemplateSelector x:Key="ObjectControlTemplateSelector"
+                                                 ButtonControlTemplate="{StaticResource ButtonControlTemplate}" 
+                                                 ConveyorControlTemplate="{StaticResource ConveyorControlTemplate}"
+                                                 JointControlTemplate="{StaticResource JointControlTemplate}"
+                                                 PickAndPlaceControlTemplate="{StaticResource PickPlaceControlTemplate}"
+                                                 ReparentControlTemplate="{StaticResource ReparenterControlTemplate}"
+                                                 StopperControlTemplate="{StaticResource StopperControlTemplate}"/>
+
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="6*"/>
+            <ColumnDefinition Width="7*"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <GroupBox Grid.Row="0" Margin="10">
+                <GroupBox.Header>
+                    <TextBlock Style="{StaticResource H3Style}" Text="Robot Control"/>
+                </GroupBox.Header>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="29*"/>
+                        <ColumnDefinition Width="118*"/>
+                        <ColumnDefinition Width="147*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="100"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Grid.ColumnSpan="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ux:TextBox Grid.Column="0" Margin="5,5,5,25" Watermark="Path to Robot CSV File" Text="{Binding FileNameRobotCsv}" IsReadOnly="True"/>
+                        <ux:Button Grid.Column="1" Margin="5,5,5,25" Content="Open Robot CSV" Command="{Binding OpenRobotCsv}" IsEnabled="{Binding EnableOpenRobotCsv}" DebounceInterval="150"/>
+                    </Grid>
+
+                    <UniformGrid Grid.Row="1" Rows="2" Columns="2" Grid.ColumnSpan="3">
+                        <TextBlock Text="Select Robot:" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:ComboBox Watermark="Select Robot" Margin="5" ItemsSource="{Binding RobotsData}" DisplayMemberPath="RobotName" SelectedItem="{Binding SelectedRobot}"/>
+                        <TextBlock Text="Path:" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:ComboBox Watermark="Select Path" Margin="5" ItemsSource="{Binding SelectedRobot.Paths}" DisplayMemberPath="PathName" SelectedItem="{Binding SelectedPath}"/>
+                    </UniformGrid>
+
+                    <DataGrid Grid.Row="2" Margin="5,5,5,5" ItemsSource="{Binding SelectedPath.Positions}" MinHeight="300" AutoGenerateColumns="True" SelectedItem="{Binding SelectedPosition}" CanUserSortColumns="False" MinColumnWidth="90" GridLinesVisibility="All" BorderBrush="Black" BorderThickness="1" HeadersVisibility="Column" Grid.ColumnSpan="3">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#005aaa"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontSize" Value="13"/>
+                                <Setter Property="BorderBrush" Value="Black"/>
+                                <Setter Property="BorderThickness" Value="0,0.75,0.75,0.75"/>
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="{x:Null}"/>
+                                <Setter Property="FontWeight" Value="Normal"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding State}" Value="{x:Static model:PositionState.Active}">
+                                        <Setter Property="Background" Value="MistyRose"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+
+                                    <DataTrigger Binding="{Binding State}" Value="{x:Static model:PositionState.Done}">
+                                        <Setter Property="Background" Value="Azure"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding State}" Value="{x:Static model:PositionState.Pending}">
+                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                    </DataGrid>
+
+                    <UniformGrid Grid.Row="3" Rows="3" Columns="2" Grid.ColumnSpan="3">
+                        <TextBlock Text="Select Sim-Robot:" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal">
+                            <ux:ComboBox Watermark="Select Sim-Robot" Margin="5" ItemsSource="{Binding SimRobots}" SelectedItem="{Binding SelectedSimRobot}" VerticalAlignment="Center">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Frame.Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ux:ComboBox>
+                            <ux:Button Margin="5" VerticalAlignment="Center" ux:Icon.Kind="Restart" Command="{Binding UpdateSimRobotData}" IsBusy="{Binding IsBusyUpdatingFeeData}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Velocity [%]:" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:TextBox  Margin="5" Text="{Binding VelocityPercentageRobot}"/>
+
+                        <TextBlock Text="Single Position Mode" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:ToggleButton Margin="5" Style="{StaticResource RadToggleButtonStyle}" IsChecked="{Binding DriveSinglePosition}" HorizontalAlignment="Right"/>
+
+                    </UniformGrid>
+
+
+                    <ux:Button Grid.Row="4" Margin="5,0,0,0" VerticalAlignment="Center" Grid.ColumnSpan="3">
+                        <ux:Button.Style>
+                            <Style TargetType="ux:Button">
+                                <Setter Property="Content" Value="▶ Start"/>
+                                <Setter Property="Command" Value="{Binding MoveRobotToPosition}"/>
+
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRobotoving}" Value="True">
+                                        <Setter Property="Content" Value="⏹ Stopp"/>
+                                        <Setter Property="Command" Value="{Binding StopRobotMovement}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ux:Button.Style>
+                    </ux:Button>
+
+
+                </Grid>
+
+            </GroupBox>
+
+
+            <GroupBox Grid.Row="1" Margin="10">
+                <GroupBox.Header>
+                    <TextBlock Style="{StaticResource H3Style}" Text="Status Information"/>
+                </GroupBox.Header>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="50"/>
+                        <ColumnDefinition Width="2*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="5" Text="Actual Positions:" Style="{StaticResource TextRobotoRegularStyle}"/>
+                    <UniformGrid Grid.Row="1" Grid.Column="0" Columns="2" Rows="7" >
+                        <TextBlock Margin="5" Text="J1 / Axis 1:" Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ1}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J2 / Axis 2: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ2}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J3 / Axis 3: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ3}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J4 / Axis 4: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ4}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J5 / Axis 5: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ5}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J6 / Axis 6: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ6}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                        <TextBlock Margin="5" Text="J7: " Style="{StaticResource TextRobotoLightStyle}"/>
+                        <TextBlock Margin="5" Text="{Binding ActualPositionJ7}" Style="{StaticResource CheckBoxStyle}" TextAlignment="Right"/>
+                    </UniformGrid>
+
+
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Status:" Style="{StaticResource TextRobotoRegularStyle}" Margin="5"/>
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="5">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CheckBoxStyle}">
+                                <!--<Setter Property="FontSize" Value="14"/>-->
+                                <Setter Property="Foreground" Value="Gray"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="{x:Static g:Severity.Info}">
+                                        <Setter Property="Background" Value="White"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="{x:Static g:Severity.Warning}">
+                                        <Setter Property="Background" Value="LightYellow"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="{x:Static g:Severity.Error}">
+                                        <Setter Property="Background" Value="LightCoral"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+
+
+
+
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Margin="10" Grid.Row="0">
+                <GroupBox.Header>
+                    <TextBlock Style="{StaticResource H3Style}" Text="Axis Control"/>
+                </GroupBox.Header>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <!--Grid-Splitter-->
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!--File Open (Row 0, Column 0-2)-->
+                    <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ux:TextBox Grid.Column="0" Margin="5,5,5,25" Watermark="Path to Axis Composition File" Text="{Binding FileNameAxisCompositionCsv}" IsReadOnly="True"/>
+                        <ux:Button Grid.Column="1" Margin="5,5,5,25" Content="Open Axis File" Command="{Binding OpenAxisCompositionCsv}" IsEnabled="{Binding EnableOpenAxisCompositionCsv}" DebounceInterval="150"/>
+                    </Grid>
+
+                    <!--Axis Composition Selection (Row 1, Column 0)-->
+                    <Grid Grid.Row="1" Grid.Column="0" Grid.IsSharedSizeScope="True">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Select Axis Composition:" Margin="5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:ComboBox Grid.Column="1" Watermark="Select Axis Composition" Margin="5" Height="40" HorizontalContentAlignment="Right" 
+                                     ItemsSource="{Binding CompositionData}" DisplayMemberPath="CompositionName" SelectedItem="{Binding SelectedComposition}" />
+                    </Grid>
+
+                    <!--Select Sim-Axes & Refresh (Row 2, Column 0)-->
+                    <Grid Grid.Row="2" Grid.Column="0" Visibility="{Binding HasSelectedComposition, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Margin="5" Text="Select Sim-Axes:" Style="{StaticResource TextRobotoRegularStyle}" VerticalAlignment="Center"/>
+                        <ux:Button Grid.Column="1" Margin="5" VerticalAlignment="Center" ux:Icon.Kind="Restart" Command="{Binding UpdateSelectableJoints}" IsBusy="{Binding IsBusyUpdatingFeeData}"/>
+                    </Grid>
+
+                    <!--Joint Selection (Row 3, Column 0)-->
+                    <ItemsControl Grid.Row="3" Grid.Column="0" ItemsSource="{Binding AxisSelections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Margin="50,5,5,5" Text="{Binding DisplayName}" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                                    <ux:ComboBox Grid.Column="1" Margin="5" Watermark="Select MotionJoint" ItemsSource="{Binding Options}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedJoint, Mode=TwoWay}" 
+                                                 IsEditable="True" StaysOpenOnEdit="True" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False"/>
+
+
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+
+                    <!--Grid-Splitter (Row 1-3, Column 1)-->
+                    <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Margin="5" Width="5" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch" Visibility="{Binding HasSelectedComposition, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+
+                    <!--Datagrid (Row 1-2, Column 2)-->
+                    <DataGrid Grid.Row="1" Grid.RowSpan="2" Grid.Column="2" Margin="5" ColumnWidth="*" ItemsSource="{Binding CompositionPositions}" SelectedItem="{Binding SelectedCompositionPosition}" AutoGenerateColumns="False" 
+                              CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" IsReadOnly="True" Visibility="{Binding HasSelectedComposition, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Position" Binding="{Binding PositionName}" MinWidth="100" Width="2*"/>
+                            <DataGridTextColumn Header="J1" Binding="{Binding AxisValues[0]}" MinWidth="60" />
+                            <DataGridTextColumn Header="J2" Binding="{Binding AxisValues[1]}" MinWidth="60" />
+                            <DataGridTextColumn Header="J3" Binding="{Binding AxisValues[2]}" MinWidth="60" />
+                            <DataGridTextColumn Header="J4" Binding="{Binding AxisValues[3]}" MinWidth="60" />
+                            <DataGridTextColumn Header="J5" Binding="{Binding AxisValues[4]}" MinWidth="60" />
+                            <DataGridTextColumn Header="J6" Binding="{Binding AxisValues[5]}" MinWidth="60" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!--Velocity (Row 3, Column 2)-->
+                    <Grid Grid.Row="3" Grid.Column="2" >
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="Velocity [%]:" Margin="5,5,50,5" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                        <ux:TextBox Grid.Column="1" Margin="5" Text="{Binding VelocityPercentageAxisComposition}"/>
+                    </Grid>
+
+                    <!--Start Movement Button (Row 4, Column 0-2)-->
+                    <ux:Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="5,25,5,5" VerticalAlignment="Center">
+                        <ux:Button.Style>
+                            <Style TargetType="ux:Button">
+                                <Setter Property="Content" Value="▶ Start"/>
+                                <Setter Property="Command" Value="{Binding MoveAxisComposition}"/>
+
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAxisCompositionMoving}" Value="True">
+                                        <Setter Property="Content" Value="⏹ Stopp"/>
+                                        <Setter Property="Command" Value="{Binding StopAxisCompositionMovement}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ux:Button.Style>
+                    </ux:Button>
+
+
+                </Grid>
+
+            </GroupBox>
+
+            <GroupBox Margin="10" Grid.Row="1">
+                <GroupBox.Header>
+                    <TextBlock Style="{StaticResource H3Style}" Text="Sim-Object Control"/>
+                </GroupBox.Header>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                            <TextBlock Margin="5" Text="Filter Elements:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                            <ux:TextBox Margin="5" Text="{Binding ObjectControlFilterText, UpdateSourceTrigger=PropertyChanged}" Height="30" VerticalAlignment="Center" MinWidth="250"/>
+                            <ux:CheckBox Margin="25,5,5,5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding ShowOnlySelected}">
+                                <TextBlock Text="Show only selected" Style="{StaticResource TextRobotoLightStyle}"/>
+                            </ux:CheckBox>
+                            <ux:Button Margin="50,5,5,5" ux:Icon.Kind="Minimize" Click="ObjectControl_CollapseAll"/>
+                            <ux:Button Margin="5,5,5,5" ux:Icon.Kind="Maximize" Click="ObjectControl_ExpandAll"/>
+                            <ux:Button Margin="50,5,5,5" ux:Icon.Kind="Restart" Command="{Binding UpdateControllableObjects}" IsBusy="{Binding IsBusyUpdatingFeeData}"/>
+                        </StackPanel>
+
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding ExpanderView.Groups}" ItemTemplateSelector="{StaticResource ObjectControlTemplateSelector}" Grid.IsSharedSizeScope="True" >
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Expander Margin="5" IsExpanded="False" PreviewMouseWheel="Expander_PreviewMouseWheel">
+                                        <Expander.Header>
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource TextRobotoRegularStyle}"/>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Items}" ItemTemplateSelector="{StaticResource ObjectControlTemplateSelector}" />
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+
+                    </Grid>
+                </ScrollViewer>
+
+
+
+            </GroupBox>
+
+
+
+
+
+        </Grid>
+
+
+
+
+
+
+
+    </Grid>
+
+</UserControl>

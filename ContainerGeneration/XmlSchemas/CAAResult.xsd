@@ -1,0 +1,47 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<!-- Define the complex types separately -->
+	<xs:complexType name="EntryType">
+    <xs:sequence>
+        <xs:element name="ID" type="xs:string"/>
+        <xs:element name="Address" type="xs:string"/>
+        <xs:element name="DataType" type="xs:string"/>
+        <xs:element name="Signal" type="xs:string"/>
+        <xs:element name="Slot" type="xs:string"/>
+        <xs:element name="Note" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="ContainerType">
+		<xs:sequence>
+      <xs:element name="Component" type="xs:string" maxOccurs="unbounded"/>
+      <xs:element name="Type" type="xs:string" maxOccurs="unbounded"/>
+			<xs:element name="DataList">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Entry" type="EntryType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="id" type="xs:string" use="optional"/>
+	</xs:complexType>
+
+	<!-- Define the root element and reference the complex types -->
+	<xs:element name="CAAMergeResult">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="ContainerList">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Container" type="ContainerType" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="required"/>
+    <xs:attribute name="createdAt" type="xs:string" use="required"/>
+    <xs:attribute name="autoCreateFile" type="xs:string" use="required"/>
+    <xs:attribute name="zuli" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

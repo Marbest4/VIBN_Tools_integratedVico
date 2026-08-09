@@ -1,0 +1,286 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="51be1f60-defa-4d21-88f3-4c07bf3c52bb" LogicName="Process_Nok_Part" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using FS.SDK;
+using FS.SDK.Components;
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Processing iO / NiO Part                                                             //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    28.07.2025       1.5.3          Grob (CN)        Template erstellt
+//    08.08.2025       1.6.0          Grob (CN)        Steuerung über PLC und manueller Eingriff NiO
+//    04.12.2025       1.1.0          Egg              Überarbeitung und Code Optimierung
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//
+//    FEE              X              CN               
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik gibt anhand der Vorgabe "PAR_Percentage_Ok_Limit" (1-100%) per Zufall ein iO-String oder 
+//    NiO-String zurück.
+//    Zudem kann das Material und das Mark entsprechend der iO-/NiO-Bearbeitung geändert werden.
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//      
+//    PAR_ResultString_Ok: String für iO Bearbeitung
+//    PAR_ResultString_Nok: String für NiO Bearbeitung
+//    
+//
+//    PAR_Percentage_Ok_Limit: 1-100 %
+//    PAR_MarkToDetect: Logik sucht nach Mark. Wird dieses gefunden, wird das Mark des entsprechenden Objekts 
+//                      umbenannt oder das Material geändert.
+//
+//    PAR_UseChangeMark: Anwahl der Umbennung des Marks. Mark wird je nach iO oder NiO umbenannt
+//    PAR_NewMark_Ok: Neues Mark bei iO-Bearbeitung
+//    PAR_NewMark_Nok: Neues Mark bei NiO-Bearbeitung
+//
+//    PAR_UseChangeMaterial: Anwahl zum Ändern des Materials anhand einer iO- oder NiO-Bearbeitung
+//    PAR_NewMaterial_Ok: Neues Material bei iO-Bearbeitung
+//    PAR_NewMaterial_Nok: Neues Material bei NiO-Bearbeitung
+//    
+//    
+//    Output Slot Values
+//
+//    SIM_MarkChanged: Mark wurde geändert
+//    SIM_MaterialChanged: Material wurde geändert
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Check Mark-/Material-Strings not empty
+if(string.IsNullOrWhiteSpace(PAR_MarkToDetect)) return;
+if(string.IsNullOrWhiteSpace(PAR_NewMark_Ok)) return;
+if(string.IsNullOrWhiteSpace(PAR_NewMark_Nok)) return;
+if(string.IsNullOrWhiteSpace(PAR_NewMaterial_Ok)) return;
+if(string.IsNullOrWhiteSpace(PAR_NewMaterial_Nok)) return;
+
+// Default Fehler Meldung
+SIM_Fault = string.Empty;
+
+if (PAR_Percentage_Ok_Limit &lt; 0 || PAR_Percentage_Ok_Limit &gt; 100)
+{
+    SIM_Fault = "Percentage Ok Limit außerhalb Bereich (0% - 100%)";
+    return;
+}
+
+
+Random rand = new Random();
+
+
+// Get CollisionList of Parent
+var sensor = SceneObject.Parent;
+if(sensor == null) return;
+
+var collision = sensor.GetComponent&lt;ColliderComponent&gt;();
+if(collision == null) return;
+
+var listcol = collision.CollisionList;
+
+
+
+if (SIM_Trigger &amp;&amp; !_triggerState)
+{
+    
+    int randNumber = rand.Next(1,101);
+    
+    // Ergebnis iO
+    if(randNumber &gt;= 1 &amp;&amp; randNumber &lt;= PAR_Percentage_Ok_Limit || PAR_EnablePlcControl &amp;&amp; PLC_ControlState == 2)
+    {
+        SIM_Result_Ok = true;
+        SIM_Result_Nok = false;
+        SIM_ResultString = PAR_ResultString_Ok;
+    }
+    
+    // Ergebnis NiO
+    if(randNumber &gt;= 1 &amp;&amp; randNumber &lt;= PAR_Percentage_Ok_Limit || PAR_EnablePlcControl &amp;&amp; PLC_ControlState == 3 || PAR_SetManualNok)
+    {
+        SIM_Result_Ok = false;
+        SIM_Result_Nok = true;
+        SIM_ResultString = PAR_ResultString_Ok;
+    }
+
+
+    if(listcol.Any())
+    {
+        // Alle Objekte mit definiertem Mark identifizieren
+        var relevantObjects = listcol.Where(x =&gt; x.MarkComponent.Mark == PAR_MarkToDetect);    
+        
+        foreach (var el in relevantObjects)
+        {
+            // Change Mark
+            if (PAR_UseChangeMark)
+            {
+                el.MarkComponent.Mark = SIM_Result_Ok ? PAR_NewMark_Ok : PAR_NewMark_Nok;
+                SIM_MarkChanged = true;
+            }
+            else
+            {
+                SIM_MarkChanged = false;
+            }
+            // Change Material
+            if (PAR_UseChangeMaterial)
+            {
+                el.GetComponent&lt;ModelComponent&gt;().CurrentMaterial = SIM_Result_Ok ?  PAR_NewMaterial_Ok : PAR_NewMaterial_Nok;
+                SIM_MaterialChanged = true;
+            }
+            else
+            {
+                SIM_MaterialChanged = false;
+            }
+        }
+    }
+    
+        
+      
+}
+_triggerState = SIM_Trigger;</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="1" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_ControlState</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_EnablePlcControl</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_SetManualNok</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Percentage_Ok_Limit</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_MarkToDetect</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_UseChangeMark</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NewMark_Ok</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NewMark_Nok</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_UseChangeMaterial</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NewMaterial_Ok</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NewMaterial_Nok</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ResultString_Ok</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_Result_Ok</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Result_Nok</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ResultString</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_MarkChanged</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_MaterialChanged</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Fault</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>PAR_ResultString_Nok</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_triggerState</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

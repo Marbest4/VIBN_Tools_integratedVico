@@ -1,0 +1,525 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="1c5d731c-e12b-47f2-a4b8-b8132813b93d" LogicName="LENZE_8400_Motec" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+using System;
+using System.Collections;
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Application: Lenze 8400 Motec
+// Lenze 8400 Motec frequency converter
+// 
+// Created: 03.08.2022
+// By: F.EE (PS)
+//
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//controlword 0
+////////////////////////////////////////////////////////////////////////////////////////////////
+ConvertFunctions.UShortToBool(I_PLC_PO_0_Controlword,
+x00: out _PO_0_SwitchOn,        //Wechsel in Switch on
+x01: out _PO_0_DisableVoltage,  //Wechselrichteransteuerung sperren
+x02: out _PO_0_SetQuickStop,    //Schnellhalt
+x03: out _PO_0_EnableOperation, //Antriebsregler freigeben
+x04: out _PO_0_Reserve,
+x05: out _PO_0_JogCtrl_1,       //Modus Bit 1
+x06: out _PO_0_JogCtrl_2,       //Modus Bit 2
+x07: out _PO_0_ResetFault,     //Fehler zurücksetzen
+x08: out _PO_0_SetHalt,         //Abrampen des Sollwertgenerators
+x09: out _PO_0_reserved_1,
+x10: out _PO_0_reserved_2,
+x11: out _PO_0_BrakeRelease,    //Bremse öffnen
+x12: out _PO_0_JogSpeed1,       //Geschwindigkeit 1
+x13: out _PO_0_JogSpeed2,       //Geschwindigkeit 2    
+x14: out _PO_0_SetFail,         //Fehler setzen
+x15: out _PO_0_SetSpeedCcw);     //Sollwert invertiert
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Logic
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//Speed
+_reqSpeedPlcFloat = (float)I_PLC_PO_1_MainSetValue;
+
+_used_Speed_percent = 0;
+
+if (!_PO_0_JogSpeed1 &amp;&amp; _PO_0_JogSpeed2)
+{
+    _used_Speed_percent = Para_JogSpeed_1;
+}
+else if (_PO_0_JogSpeed1 &amp;&amp; _PO_0_JogSpeed2)
+{
+    _used_Speed_percent = Para_JogSpeed_2;
+}
+else
+{
+    _used_Speed_percent = _reqSpeedPlcFloat / Para_Transmissionfactor_Speed;
+}
+
+if (_PO_0_SetSpeedCcw)
+{
+    _used_Speed_percent *= -1;
+}
+
+
+
+//drive SIM
+var drive = !_PO_0_SetHalt &amp;&amp; _PO_0_SwitchOn &amp;&amp; !_PO_0_DisableVoltage &amp;&amp; !_PO_0_SetQuickStop &amp;&amp; _PO_0_EnableOperation &amp;&amp; I_PLC_PO_STO;
+
+SIM_Result_Speed_Percentage = 0;
+if (drive)
+{
+    SIM_Result_Speed_Percentage = _used_Speed_percent;
+}
+
+
+
+//signals
+if (!_PO_0_SetHalt)
+{
+    _PI_0_StatusCodeBit0=true;
+    _PI_0_StatusCodeBit1=false;
+    _PI_0_StatusCodeBit2=true;
+    _PI_0_StatusCodeBit3=false;
+    
+    _PI_0_DriveReady=true;
+}
+
+else if (!I_PLC_PO_STO)
+{
+    _PI_0_StatusCodeBit0=false;
+    _PI_0_StatusCodeBit1=true;
+    _PI_0_StatusCodeBit2=false;
+    _PI_0_StatusCodeBit3=true;
+    
+    _PI_0_DriveReady=true;
+
+}
+
+else if (_PO_0_SwitchOn)
+{
+    _PI_0_StatusCodeBit0=false;
+    _PI_0_StatusCodeBit1=false;
+    _PI_0_StatusCodeBit2=true;
+    _PI_0_StatusCodeBit3=false;
+    
+    _PI_0_DriveReady=true;
+}
+
+else
+{
+    _PI_0_StatusCodeBit0=true;
+    _PI_0_StatusCodeBit1=true;
+    _PI_0_StatusCodeBit2=false;
+    _PI_0_StatusCodeBit3=false;
+    
+    _PI_0_DriveReady=false;
+}
+_PI_0_SpeedCcw = (_used_Speed_percent &lt; 0.001f); //Drehrichtung
+
+_PI_0_QspIsActive = _PO_0_SetQuickStop; // Quickstop
+
+_PI_0_JogCtrlBit1active = _PO_0_JogCtrl_1;
+_PI_0_JogCtrlBit2active = _PO_0_JogCtrl_2;
+
+_PI_0_BrkReleased = _PO_0_BrakeRelease &amp;&amp; I_PLC_PO_STO; //Bremse gelüftet
+
+
+_PI_0_ActSpeedIsZero = Math.Abs(SIM_Result_Speed_Percentage) &lt; 0.001f;
+_PI_0_ControllerInhibit = _PO_0_SetHalt; //!_PO_0_EnableOperation; //Antrieb ist gesperrt
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Statusword 0
+////////////////////////////////////////////////////////////////////////////////////////////////
+O_PLC_PI_0_Statusword = ConvertFunctions.BoolToUShort(
+
+x00: _PI_0_DriveFail,
+x01: _PI_0_PowerDisabled,       //Wechselrichter ist freigegeben
+x02: _PI_0_DriveReady,          //Antrieb ist betriebsbereit
+x03: _PI_0_SpeedCcw,            //Drehrichtung
+x04: _PI_0_QspIsActive,         //Quickstopp ist aktiv, Antrieb wird geführt runtergefahren
+x05: _PI_0_BrkReleased,         //Bremse ist gelüftet
+x06: _PI_0_ActSpeedIsZero,      // aktuelle Drehzahl ist 0
+x07: _PI_0_ControllerInhibit,  //Antrieb ist gesperrt
+x08: _PI_0_StatusCodeBit0,     //Statuscode Wetigkeit 1
+x09: _PI_0_StatusCodeBit1,     //Statuscode Wetigkeit 2
+x10: _PI_0_StatusCodeBit2,     //Statuscode Wetigkeit 4
+x11: _PI_0_StatusCodeBit3,     //Statuscode Wetigkeit 8
+x12: _PI_0_Warning,             //Warnung
+x13: _PI_0_Trouble,             //Antrieb ist im Zustand Trouble
+x14: _PI_0_JogCtrlBit1active,   //Spiegelung Steuerword Bit 5 - InputSel1
+x15: _PI_0_JogCtrlBit2active);   //Spiegelung Steuerword Bit 5 - InputSel2
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Status speed
+////////////////////////////////////////////////////////////////////////////////////////////////
+O_PLC_PI_1_Speed = 0;
+if (drive)
+{
+ _used_Speed = _used_Speed_percent * Para_Transmissionfactor_Speed /100;
+O_PLC_PI_1_Speed = (short)_used_Speed;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//Statusword 4-5
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+O_PLC_PI_4_IO_Stat_1 = true;
+O_PLC_PI_4_AN_Stat_1 = true;
+O_PLC_PI_5_IO_Stat2 = true;
+O_PLC_PI_5_AN_Stat_2 = true;
+O_PLC_PI_5_RFR = _PO_0_SwitchOn &amp;&amp; !_PO_0_DisableVoltage &amp;&amp; !_PO_0_SetQuickStop &amp;&amp; I_PLC_PO_STO;
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Result Speed Real
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+SIM_Result_Speed = (SIM_Result_Speed_Percentage / 100) * SIM_MaxSpeed;
+
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<Version Major="1" Minor="8" Patch="0" />
+	<InputSlots>
+		<LogicSlot>
+			<Name>I_PLC_PO_0_Controlword</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_PO_1_MainSetValue</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_Transmissionfactor_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_JogSpeed_1</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Para_JogSpeed_2</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>I_PLC_PO_STO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_MaxSpeed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>O_PLC_PI_0_Statusword</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_1_Speed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_2_FailNoHigh</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_3_FailNoLow</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_4_IO_Stat_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_4_AN_Stat_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_5_AN_Stat_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_5_RFR</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Result_Speed_Percentage</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>O_PLC_PI_5_IO_Stat2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Result_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_PO_0_DisableVoltage</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_SetQuickStop</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_EnableOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_Reserve</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_JogCtrl_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_JogCtrl_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_ResetFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_StatusCodeBit0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_StatusCodeBit1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_StatusCodeBit2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_SwitchOn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_StatusCodeBit3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_Trouble</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_JogCtrlBit1active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_JogCtrlBit2active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_DriveFail</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_PowerDisabled</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_DriveReady</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_SpeedCcw</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_QspIsActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_BrkReleased</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_ActSpeedIsZero</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_Warning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PI_0_ControllerInhibit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_SetSpeedCcw</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_JogSpeed2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_SetFail</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_used_Speed_percent</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_used_Speed</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_SetHalt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_reserved_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_reserved_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_BrakeRelease</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_PO_0_JogSpeed1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_reqSpeedPlcFloat</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

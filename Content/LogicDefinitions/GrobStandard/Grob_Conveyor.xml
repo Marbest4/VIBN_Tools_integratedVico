@@ -1,0 +1,2436 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="abc8152d-40e0-4e70-a679-56e24f881b0b" LogicName="Grob_Conveyor" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+using FS.SDK.Components;
+using System;
+using System.Threading;
+using System.Text;
+using FS.SDK.Extensibility;
+using FS.SDK.Util;
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Grob_Conveyor                                                                        //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    16.06.2025       1.1.0          Egg              Neue Logik für Grob Bänder
+//    16.06.2025       1.3.2          Egg              Slots für Warnung/Fehler
+//    09.09.2025       1.3.6          CN               PLC_OUT_PowerSupplyTurnedOn und _powerSupply integriert
+//    23.02.2026       1.3.44         Greif            HMI integriert
+//    19.03.2026       1.4.0          Greif            Feedback HMI Aktiv integriert
+//    19.03.2026       1.5.15         Egg              Logik Integration Tool
+//    03.06.2026       1.6.0          Egg              Fault Sim integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Greif            Bandansteuerung über Rechts-/Linkslauf oder Movifit
+//
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik steuert ein Band an, entsprechend Ausführung über Rechtslauf und Linkslauf oder über 
+//    Control- und Statusword bei Movifit Ausführung.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    PLC_OUT_ControlWord           =   Word, ControlWord der Steuerung
+//    PLC_OUT_Clockwise             =   Bool, Rechtslauf für Bewegung
+//    PLC_OUT_CounterClockwise      =   Bool, Linkslauf für Bewegung
+//    PLC_OUT_Speed                 =   Int,  PLC Geschwindigkeit als INT, muss umgerechnet werden
+//    PLC_OUT_SlowSpeed             =   Bool, Langsame Drehzahl aktivieren
+//    PLC_OUT_PowerSupplyTurnedOn   =   Bool, Antrieb Versorgung EIN
+//    PLC_OUT_TurnOff               =   Bool, Antrieb ausschalten
+//    PAR_Velocity                  =   Real, Antrieb Geschwindigkeit
+//    PAR_ReverseDirection          =   Bool, Bewegungsrichtung umkehren
+//
+//    Output Slot Values
+//    PLC_IN_StatusWord             =   Bool, StatusWord an die Steuerung
+//    PLC_IN_ReadyForOperation      =   Bool, Antrieb betriebsbereit
+//    PLC_IN_ConveyorActive         =   Bool, Band aktiv (in Bewegung)
+//    PLC_IN_ConveyorOk             =   Bool, Band IO
+//    SIM_Velocity                  =   Real, Geschwindkeit des Simulationsbandes
+//
+//============================================================================================================
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region HMI
+//============================================================================================================
+// H M I
+//============================================================================================================
+
+// HMI Init
+if (_hmi_hmiActive &amp;&amp; !_hmi_init)
+{
+    _hmi_controlWord = PLC_OUT_ControlWord;
+    _hmi_clockwise = PLC_OUT_Clockwise;
+    _hmi_counterClockwise = PLC_OUT_CounterClockwise;
+    _hmi_speed = PLC_OUT_Speed;
+    _hmi_slowSpeed = PLC_OUT_SlowSpeed;
+    _hmi_powerSupplyTurnedOn = PLC_OUT_PowerSupplyTurnedOn;
+    _hmi_turnOff = PLC_OUT_TurnOff;
+    _hmi_acknowledgeFault = PLC_OUT_AcknowledgeFault;
+    _hmi_velocity = PAR_Velocity;
+    _hmi_reverseDirection = PAR_ReverseDirection;
+}
+
+// Name der Logik ausgeben
+_hmi_name = SceneObject.Name;
+
+// Parameter übernehmen
+_controlWord            = _hmi_hmiActive ? _hmi_controlWord            : PLC_OUT_ControlWord;
+_clockwise              = _hmi_hmiActive ? _hmi_clockwise              : PLC_OUT_Clockwise;
+_counterClockwise       = _hmi_hmiActive ? _hmi_counterClockwise       : PLC_OUT_CounterClockwise;
+_speed                  = _hmi_hmiActive ? _hmi_speed                  : PLC_OUT_Speed;
+_slowSpeed              = _hmi_hmiActive ? _hmi_slowSpeed              : PLC_OUT_SlowSpeed;
+_powerSupplyTurnedOn    = _hmi_hmiActive ? _hmi_powerSupplyTurnedOn    : PLC_OUT_PowerSupplyTurnedOn;
+_turnOff                = _hmi_hmiActive ? _hmi_turnOff                : PLC_OUT_TurnOff;
+_acknowledgeFault       = _hmi_hmiActive ? _hmi_acknowledgeFault       : PLC_OUT_AcknowledgeFault;
+_velocity               = _hmi_hmiActive ? _hmi_velocity               : PAR_Velocity;
+_reverseDirection       = _hmi_hmiActive ? _hmi_reverseDirection       : PAR_ReverseDirection;
+
+// Init-Flag setzen
+_hmi_init = _hmi_hmiActive;
+
+
+#endregion
+
+#region Lokale Variablen setzen
+//============================================================================================================
+// L O K A L E    V A R I A B L E N    S E T Z E N
+//============================================================================================================
+
+var slotComponent = SceneObject.GetComponent&lt;IOSlotContainerComponent&gt;();
+
+// Ansteuerung Enable Move
+if( (slotComponent.VariableAssignments.Where(x =&gt; x.SlotName == "PLC_OUT_ControlWord" &amp;&amp; x.AssignedGuid != Guid.Empty).ToList().Count &gt; 0) || 
+    (slotComponent.VariableAssignments.Where(x =&gt; x.SlotName == "PLC_IN_StatusWord" &amp;&amp; x.AssignedGuid != Guid.Empty).ToList().Count &gt; 0))
+{
+    _conveyorTypeMovifit = true;
+}
+else
+{
+    _conveyorTypeMovifit = false;
+}
+if (slotComponent.VariableAssignments.Where(x =&gt; x.SlotName == "PLC_OUT_PowerSupplyTurnedOn" &amp;&amp; x.AssignedGuid != Guid.Empty).ToList().Count &gt; 0)
+{
+    _powerSupply = _powerSupplyTurnedOn;
+}
+else
+{
+    _powerSupply = true;
+}
+
+#endregion
+
+//============================================================================================================
+// S T A N D A R D   C O N V E Y O R
+//============================================================================================================
+if(!_conveyorTypeMovifit)
+{
+    #region Vor- / Abbruchbedingungen
+    //============================================================================================================
+    // V O R -   /   A B B R U C H B E D I N G U N G E N
+    //============================================================================================================
+    
+    PLC_IN_ReadyForOperation = !_faultSim_ReadyForOperation;    // true;
+    PLC_IN_ConveyorOk = !_faultSim_ConveyorOk;                  // true;
+    
+    if(_turnOff)
+    {
+        SIM_Velocity = 0.0f;
+    }
+    
+    if(_clockwise &amp;&amp; _counterClockwise &amp;&amp; _powerSupply)
+    {
+        PLC_IN_ConveyorActive = false;
+        SIM_Velocity = 0.0f;
+        return;
+    }
+    
+    #endregion
+    
+    #region Bewegung
+    //============================================================================================================
+    // B E W E G U N G
+    //============================================================================================================
+    
+    if(_counterClockwise &amp;&amp; !_turnOff &amp;&amp; _powerSupply)
+    {
+        SIM_Velocity = _velocity * -1.0f;
+    }
+    else if(_clockwise &amp;&amp; !_turnOff &amp;&amp; _powerSupply)
+    {
+        SIM_Velocity = _velocity;
+    }
+    else
+    {
+        SIM_Velocity = 0.0f;
+    }
+    
+    PLC_IN_ConveyorActive = (_counterClockwise ^ _clockwise) &amp;&amp; (SIM_Velocity != 0) &amp;&amp; !_faultSim_ConveyorActive;
+    #endregion
+    
+    #region Langsame / Umgekehrte Drehzahl
+    //============================================================================================================
+    // L A N G S A M E   /   U M G E K E H R T E   D R E H Z A H L
+    //============================================================================================================
+    
+    if(_slowSpeed)
+    {
+        SIM_Velocity *= 0.5f;
+    }
+    
+    if(_reverseDirection)
+    {
+        SIM_Velocity *= -1.0f;
+    }
+    
+    #endregion
+    
+    #region Warnung Fehler
+    //============================================================================================================
+    // W A R N U N G   /   F E H L E R
+    //============================================================================================================
+    
+    if(_acknowledgeFault)
+    {
+        PLC_IN_Error = false;
+    }
+    
+    #endregion
+}
+//============================================================================================================
+// M O V I F I T   C O N V E Y O R
+//============================================================================================================
+else
+{
+    #region ControlWord aufsplitten
+    //============================================================================================================
+    // C O N T R O L W O R D   /   S T A T U S W O R D
+    //============================================================================================================
+    
+    ConvertFunctions.UShortToBool(_controlWord,
+        out _controlbit_00,
+        out _controlbit_01,
+        out _controlbit_02,
+        out _controlbit_03,
+        out _controlbit_04,
+        out _controlbit_05,
+        out _controlbit_06,
+        out _controlbit_07,
+        out _controlbit_10,
+        out _controlbit_11_Release,
+        out _controlbit_12_DriveCommand,
+        out _controlbit_13,
+        out _controlbit_14,
+        out _controlbit_15,
+        out _controlbit_16,
+        out _controlbit_17);
+        
+    PLC_IN_StatusWord = ConvertFunctions.BoolToUShort(
+        _statuslbit_00,
+        _statuslbit_01,
+        _statuslbit_02_ConveyorActive,
+        _statuslbit_03,
+        _statuslbit_04,
+        _statuslbit_05,
+        _statuslbit_06,
+        _statuslbit_07,
+        _statuslbit_10_EnableAmplifier,
+        _statuslbit_11_InverterReadyForOperation,
+        _statuslbit_12_PODataReady,
+        _statuslbit_13,
+        _statuslbit_14,
+        _statuslbit_15,
+        _statuslbit_16,
+        _statuslbit_17);
+            
+    #endregion
+    
+    #region Bewegung
+    //============================================================================================================
+    // B E W E G U N G
+    //============================================================================================================
+    
+    // Int-Wert in Prozentwert für die Geschwindigkeit umrechnen (16384 = 100%)
+    _velocityPercentage = (float) _speed / (float) 16384;     // Vorzeichenbehafteter INT = +/-16384
+    
+    if(_controlbit_11_Release &amp;&amp; _controlbit_12_DriveCommand)
+    {
+        SIM_Velocity = _velocity * _velocityPercentage;
+        PLC_IN_ConveyorActive = _statuslbit_02_ConveyorActive = !_faultSim_ConveyorActive;
+    }
+    else
+    {
+        SIM_Velocity = 0.0f;
+        PLC_IN_ConveyorActive = _statuslbit_02_ConveyorActive = false;
+    }
+    
+    if(_reverseDirection)
+    {
+        SIM_Velocity *= -1.0f;
+    }
+    
+    #endregion
+}
+
+
+#region Feedback
+//============================================================================================================
+// F E E D B A C K    
+//============================================================================================================
+
+Feedback_HMI_Active = _hmi_hmiActive;
+Feedback_FaultSim_Active = _faultSim_ConveyorActive || _faultSim_ReadyForOperation || _faultSim_ConveyorOk;
+
+
+#endregion
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefinition>
+		<XtraSerializer version="24.1.6.0">
+			<Items>
+				<Item1 ItemKind="DiagramRoot" CanvasSizeMode="Fill" ShowPageBreaks="false" SelectedStencils="feeHmi, feeHmi, feeHmi, feeHmi, feeHmi, feeHmi">
+					<Children>
+						<Item1 Size="640,857.5" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+							<Children>
+								<Item1 Position="570,815" Size="60,32.5" TextAlignment="Center" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ForegroundId="Accent3" BorderBrush="#FFFFFFFF" ItemKind="LabelWidget" Text="by GROB" WidgetName="LabelWidget_415" WidgetBackground="#00FFFFFF" WidgetForeground="#FF41719C">
+									<HmiBehavior>
+										<WidgetEvents />
+										<WidgetAnimations />
+										<WidgetSlots />
+									</HmiBehavior>
+								</Item1>
+								<Item2 Position="0,65" Size="630,740" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+									<Children>
+										<Item1 Position="0,470" Size="618.9805825242718,170" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+											<Children>
+												<Item1 Position="5,40" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Velocity" WidgetName="LabelWidget_1104_1_2_4" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item1>
+												<Item2 Position="260,40" Size="100,30" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="1" ForegroundId="Black" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_531" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_hmi_velocity</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item2>
+												<Item3 Position="5,10" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Movement" WidgetName="LabelWidget_1104_1_2_4_3_2_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item3>
+												<Item4 Position="5,80" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Label" WidgetName="LabelWidget_1104_1_2_4_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">SlowSpeed</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">Speed [+- 16384]</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item4>
+												<Item5 Position="260,80" Size="100,30" BackgroundId="Accent3" ItemKind="ToggleSwitchWidget" Kind="Standard" WidgetName="ToggleSwitchWidget_780_1_1_1" WidgetBackground="#FF41719C" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_hmi_slowSpeed</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item5>
+												<Item6 Position="370,40" Size="40,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="[m/s]" WidgetName="LabelWidget_1104_1_2_4_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item6>
+												<Item7 Position="5,120" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Reverse Direction" WidgetName="LabelWidget_1104_1_2_4_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item7>
+												<Item8 Position="260,120" Size="100,30" BackgroundId="Accent3" ItemKind="ToggleSwitchWidget" Kind="Standard" WidgetName="ToggleSwitchWidget_780_1_1_1_1_1_1" WidgetBackground="#FF41719C" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_hmi_reverseDirection</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item8>
+												<Item9 Position="260,80" Size="100,30" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="1" ForegroundId="Black" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_531_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_hmi_speed</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item9>
+												<Item10 Position="370,80" Size="40,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="[Digits]" WidgetName="LabelWidget_1104_1_2_4_1_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item10>
+												<Item11 Position="1.0194174757281758,0" Size="607.9611650485436,160" VerticalContentAlignment="Center" StrokeThickness="0" BackgroundId="White_1" ItemKind="LabelWidget" Text="HMI control deactivated" WidgetName="LabelWidget_421" WidgetBackground="#FFF2F2F2" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Collapsed}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item11>
+											</Children>
+										</Item1>
+										<Item2 Position="0,645" Size="620,80" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+											<Children>
+												<Item1 Position="5,0" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Drive" WidgetName="LabelWidget_1104_1_2_4_5_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item1>
+												<Item2 Position="130,30" Size="100,30" VerticalContentAlignment="Center" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextButtonWidget" Text="CounterClockwise" WidgetName="TextButtonWidget_671_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents>
+															<WidgetEvent>
+																<EventName>Pressed</EventName>
+																<Actions>
+																	<WidgetEventAction>
+																		<Expression>_hmi_clockwise = false;
+_hmi_counterClockwise = true;
+_hmi_turnOff = false;</Expression>
+																	</WidgetEventAction>
+																</Actions>
+															</WidgetEvent>
+														</WidgetEvents>
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_counterClockwise == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_counterClockwise == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF41719C</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Foreground</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_counterClockwise == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_counterClockwise == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item2>
+												<Item3 Position="390,30" Size="100,30" VerticalContentAlignment="Center" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextButtonWidget" Text="Clockwise" WidgetName="TextButtonWidget_671_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents>
+															<WidgetEvent>
+																<EventName>Pressed</EventName>
+																<Actions>
+																	<WidgetEventAction>
+																		<Expression>_hmi_clockwise = true;
+_hmi_counterClockwise = false;
+_hmi_turnOff = false;</Expression>
+																	</WidgetEventAction>
+																</Actions>
+															</WidgetEvent>
+														</WidgetEvents>
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_clockwise == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_clockwise == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF41719C</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Foreground</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_clockwise == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_clockwise == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item3>
+												<Item4 Position="260,30" Size="100,30" VerticalContentAlignment="Center" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextButtonWidget" Text="Stopp" WidgetName="TextButtonWidget_671_2_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents>
+															<WidgetEvent>
+																<EventName>Pressed</EventName>
+																<Actions>
+																	<WidgetEventAction>
+																		<Expression>_hmi_counterClockwise = false;
+_hmi_clockwise = false;
+_hmi_turnOff = true;</Expression>
+																	</WidgetEventAction>
+																</Actions>
+															</WidgetEvent>
+														</WidgetEvents>
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_turnOff == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_turnOff == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF41719C</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Foreground</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_turnOff == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FF000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_turnOff == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#FFFFFFFF</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item4>
+												<Item5 Position="5,30" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Control Word Movifit" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_1_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="true">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item5>
+												<Item6 Position="260,30" Size="100,30" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="1" ForegroundId="Black" BackgroundId="White" BorderBrush="#FF000000" ItemKind="TextInputWidget" MaskType="Numeric" WidgetName="TextInputWidget_531_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000" IsHidden="true">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Hidden}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_hmi_controlWord</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item6>
+												<Item7 Size="610,70" VerticalContentAlignment="Center" StrokeThickness="0" BackgroundId="White_1" ItemKind="LabelWidget" Text="HMI control deactivated" WidgetName="LabelWidget_424" WidgetBackground="#FFF2F2F2" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Collapsed}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item7>
+											</Children>
+										</Item2>
+										<Item3 Size="620,350" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+											<Children>
+												<Item1 Position="210,155" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_clockwise</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item1>
+												<Item2 Position="5,150" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_clockwise</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_Clockwise</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item2>
+												<Item3 Position="265,0" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Outputs" WidgetName="LabelWidget_1104_1_2_4_3_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item3>
+												<Item4 Position="5,0" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Inputs" WidgetName="LabelWidget_1104_1_2_4_3_2_2_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item4>
+												<Item5 Position="5,90" Size="150,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_controlWord</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_ControlWord</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item5>
+												<Item6 Position="265,120" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_ConveyorActive" WidgetName="LabelWidget_1104_1_2_4_5_2_4" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item6>
+												<Item7 Position="265,150" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_ReadyForOperation" WidgetName="LabelWidget_1104_1_2_4_5_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item7>
+												<Item8 Position="470,155" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_ReadyForOperation</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item8>
+												<Item9 Position="265,90" Size="150,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_StatusWord" WidgetName="LabelWidget_1104_1_2_4_5_2_2_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item9>
+												<Item10 Position="470,125" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_2_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_ConveyorActive</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item10>
+												<Item11 Position="265,180" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_ConveyorOk" WidgetName="LabelWidget_1104_1_2_4_5_2_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item11>
+												<Item12 Position="470,185" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_2_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_ConveyorOk</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item12>
+												<Item13 Position="5,180" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_counterClockwise</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_CounterClockwise</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item13>
+												<Item14 Position="210,185" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_counterClockwise</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item14>
+												<Item15 Position="265,210" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_Warning" WidgetName="LabelWidget_1104_1_2_4_5_2_2_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item15>
+												<Item16 Position="265,240" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PLC_IN_Error" WidgetName="LabelWidget_1104_1_2_4_5_2_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item16>
+												<Item17 Position="470,245" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_1_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_Error</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item17>
+												<Item18 Position="470,215" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_4_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_Warning</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item18>
+												<Item19 Position="5,120" Size="150,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_speed</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_Speed</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item19>
+												<Item20 Position="5,210" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_slowSpeed</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_SlowSpeed</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item20>
+												<Item21 Position="5,240" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_powerSupplyTurnedOn</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_PowerSupplyTurnedOn</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item21>
+												<Item22 Position="210,215" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_slowSpeed</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item22>
+												<Item23 Position="210,245" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_1_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_powerSupplyTurnedOn</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item23>
+												<Item24 Position="5,270" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_3" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_turnOff</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_TurnOff</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item24>
+												<Item25 Position="5,300" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" WidgetName="LabelWidget_1104_1_2_4_5_2_3_1_1_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_acknowledgeFault</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PLC_OUT_AcknowledgeFault</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item25>
+												<Item26 Position="210,275" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_3" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_turnOff</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item26>
+												<Item27 Position="210,305" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_1_2" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_acknowledgeFault</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item27>
+												<Item28 Position="155,90" Size="75,30" TextAlignment="Right" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" MaskType="Numeric" WidgetName="ValueDisplayWidget_1951" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_controlWord</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item28>
+												<Item29 Position="155,120" Size="75,30" TextAlignment="Right" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" MaskType="Numeric" WidgetName="ValueDisplayWidget_1951_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_speed</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item29>
+												<Item30 Position="415,90" Size="75,30" TextAlignment="Right" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" MaskType="Numeric" WidgetName="ValueDisplayWidget_1951_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>!_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>PLC_IN_StatusWord</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item30>
+												<Item31 Position="5,30" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Label" WidgetName="LabelWidget_1104_1_2_4_5_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_velocity</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PAR_Velocity</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item31>
+												<Item32 Position="5,60" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Label" WidgetName="LabelWidget_1104_1_2_4_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Text</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == true</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">hmi_reverseDirection</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive == false</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">PAR_ReverseDirection</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item32>
+												<Item33 Position="265,30" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="SIM_Velocity" WidgetName="LabelWidget_1104_1_2_4_5_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item33>
+												<Item34 Position="415,30" Size="75,30" TextAlignment="Right" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" MaskType="Numeric" WidgetName="ValueDisplayWidget_1951_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>SIM_Velocity</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item34>
+												<Item35 Position="155,30" Size="75,30" TextAlignment="Right" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" BorderBrush="#FFFFFFFF" ItemKind="ValueDisplayWidget" MaskType="Numeric" WidgetName="ValueDisplayWidget_1951_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_velocity</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item35>
+												<Item36 Position="210,65" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_3_1_1_4" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_reverseDirection</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item36>
+												<Item37 Position="535,122.5" Size="75,25" ItemKind="ToggleSwitchWidget" WidgetName="ToggleSwitchWidget_118" WidgetBackground="#FF5B9BD5" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_faultSim_ConveyorActive</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item37>
+												<Item38 Position="535,152.5" Size="75,25" ItemKind="ToggleSwitchWidget" WidgetName="ToggleSwitchWidget_118_1" WidgetBackground="#FF5B9BD5" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_faultSim_ReadyForOperation</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item38>
+												<Item39 Position="535,182.5" Size="75,25" ItemKind="ToggleSwitchWidget" WidgetName="ToggleSwitchWidget_118_1_1" WidgetBackground="#FF5B9BD5" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_faultSim_ConveyorOk</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item39>
+											</Children>
+										</Item3>
+										<Item4 Position="0,350" Size="620,115" Padding="5,5,5,5" ForegroundId="Accent3" Header="Heading" HeaderPadding="5,5,5,5" ItemKind="DiagramContainerEx" ContainerBackground="#FFFFFFFF" ContainerForeground="#FF41719C">
+											<Children>
+												<Item1 Position="5,35" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="PowerSupply" WidgetName="LabelWidget_1104_1_2_4_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item1>
+												<Item2 Position="5,5" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Power Supply" WidgetName="LabelWidget_1104_1_2_4_3_2_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations />
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item2>
+												<Item3 Position="390,35" Size="100,30" BackgroundId="Accent3" ItemKind="ToggleSwitchWidget" Kind="Standard" WidgetName="ToggleSwitchWidget_780_1_1_1_1" WidgetBackground="#FF41719C" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_hmi_powerSupplyTurnedOn</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item3>
+												<Item4 Position="210,40" Size="20,20" StrokeThickness="1" ForegroundId="Accent6" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_143_3_2_1_1_1_1_1_2_1" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF70AD47">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>ValueSlot</SlotName>
+																<LogicSlotName>_powerSupply</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item4>
+												<Item5 Position="5,75" Size="200,30" TextAlignment="Left" VerticalContentAlignment="Center" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Acknowledge Fault" WidgetName="LabelWidget_1104_1_2_4_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item5>
+												<Item6 Position="390,75" Size="100,30" BackgroundId="Accent3" ItemKind="ToggleSwitchWidget" Kind="Standard" WidgetName="ToggleSwitchWidget_780_1_1_1_1_1" WidgetBackground="#FF41719C" WidgetForeground="#FFFFFFFF">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Background</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_conveyorTypeMovifit</Expression>
+																		<Value>
+																			<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+																				<SolidColorBrush>#15000000</SolidColorBrush>
+																			</ContentControl>
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots>
+															<WidgetSlot>
+																<SlotName>IsCheckedSlot</SlotName>
+																<LogicSlotName>_hmi_acknowledgeFault</LogicSlotName>
+															</WidgetSlot>
+														</WidgetSlots>
+													</HmiBehavior>
+												</Item6>
+												<Item7 Size="610,105" VerticalContentAlignment="Center" StrokeThickness="0" BackgroundId="White_1" ItemKind="LabelWidget" Text="HMI control deactivated" WidgetName="LabelWidget_421_1" WidgetBackground="#FFF2F2F2" WidgetForeground="#FF000000" IsHidden="false">
+													<HmiBehavior>
+														<WidgetEvents />
+														<WidgetAnimations>
+															<WidgetAnimation>
+																<PropertyName>Visibility</PropertyName>
+																<Values>
+																	<WidgetAnimationValue>
+																		<Expression>_hmi_hmiActive</Expression>
+																		<Value>
+																			<ContentControl Content="{x:Static Visibility.Collapsed}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+																		</Value>
+																	</WidgetAnimationValue>
+																</Values>
+															</WidgetAnimation>
+														</WidgetAnimations>
+														<WidgetSlots />
+													</HmiBehavior>
+												</Item7>
+											</Children>
+										</Item4>
+									</Children>
+								</Item2>
+								<Item3 Position="5,30" Size="510,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="12" StrokeThickness="0" ForegroundId="Accent3" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_82" WidgetBackground="#00FFFFFF" WidgetForeground="#FF41719C">
+									<HmiBehavior>
+										<WidgetEvents />
+										<WidgetAnimations />
+										<WidgetSlots />
+									</HmiBehavior>
+								</Item3>
+								<Item4 Position="5,0" Size="400,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="12" StrokeThickness="0" ForegroundId="Accent3" ItemKind="LabelWidget" Text="Grob Conveyor" WidgetName="LabelWidget_1104_1_2_4_3_2_2_3" WidgetBackground="#00FFFFFF" WidgetForeground="#FF41719C">
+									<HmiBehavior>
+										<WidgetEvents />
+										<WidgetAnimations />
+										<WidgetSlots />
+									</HmiBehavior>
+								</Item4>
+								<Item5 Position="515,0" Size="100,30" BackgroundId="Accent3" ItemKind="ToggleSwitchWidget" Kind="Standard" WidgetName="ToggleSwitchWidget_780_1_1" WidgetBackground="#FF41719C" WidgetForeground="#FFFFFFFF">
+									<HmiBehavior>
+										<WidgetEvents />
+										<WidgetAnimations>
+											<WidgetAnimation>
+												<PropertyName>Visibility</PropertyName>
+												<Values>
+													<WidgetAnimationValue>
+														<Expression>true</Expression>
+														<Value>
+															<ContentControl Content="{x:Static Visibility.Visible}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+														</Value>
+													</WidgetAnimationValue>
+												</Values>
+											</WidgetAnimation>
+										</WidgetAnimations>
+										<WidgetSlots>
+											<WidgetSlot>
+												<SlotName>IsCheckedSlot</SlotName>
+												<LogicSlotName>_hmi_hmiActive</LogicSlotName>
+											</WidgetSlot>
+										</WidgetSlots>
+									</HmiBehavior>
+								</Item5>
+								<Item6 Position="0,815" Size="105,32.5" StretchMode="Stretch" ItemKind="DiagramImage" ImageKind="ByteArray" Image="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" />
+								<Item7 Position="545,75" Size="60,30" TextAlignment="Left" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="10" StrokeThickness="0" ItemKind="LabelWidget" Text="Fault Sim" WidgetName="LabelWidget_1104_1_2_4_3_2_1_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+									<HmiBehavior>
+										<WidgetEvents />
+										<WidgetAnimations />
+										<WidgetSlots />
+									</HmiBehavior>
+								</Item7>
+							</Children>
+						</Item1>
+					</Children>
+				</Item1>
+			</Items>
+			<HmiControlState>
+				<ZoomFactor>1</ZoomFactor>
+				<ScrollPoint _x="-218" _y="-117" />
+			</HmiControlState>
+		</XtraSerializer>
+	</HmiDefinition>
+	<HmiDefined>true</HmiDefined>
+	<Version Major="1" Minor="6" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_ControlWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Clockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_CounterClockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Speed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_SlowSpeed</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_PowerSupplyTurnedOn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_TurnOff</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_AcknowledgeFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ReverseDirection</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_StatusWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ReadyForOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ConveyorActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ConveyorOk</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Warning</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Error</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Feedback_HMI_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Feedback_FaultSim_Active</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_velocityPercentage</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_conveyorTypeMovifit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_powerSupply</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_02</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_11_Release</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_12_DriveCommand</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlbit_17</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_00</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_01</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_02_ConveyorActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_03</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_04</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_05</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_06</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_07</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_10_EnableAmplifier</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_11_InverterReadyForOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_12_PODataReady</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statuslbit_17</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_controlWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_clockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_counterClockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_speed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_slowSpeed</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_powerSupplyTurnedOn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_turnOff</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_acknowledgeFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_reverseDirection</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_name</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_hmiActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_init</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_controlWord</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_clockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_counterClockwise</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_speed</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_slowSpeed</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_powerSupplyTurnedOn</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_turnOff</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_acknowledgeFault</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_reverseDirection</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_faultSim_ConveyorActive</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_faultSim_ReadyForOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_faultSim_ConveyorOk</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

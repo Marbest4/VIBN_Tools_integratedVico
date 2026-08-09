@@ -1,0 +1,80 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="abc65c60-b8e5-4ed5-8967-e4f4ed1aa528" LogicName="Grob_AxisBeckhoff" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Grob_AxisBeckhoff                                                                       //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    14.10.2025       1.2.1          Egg              Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE                                              Achsansteuerung Beckhoff
+//
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik steuert eine Beckhoff Achse
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    PLC_OUT_AxisValue             =   Real, Achswert der PLC
+//
+//    Output Slot Values
+//
+//============================================================================================================
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Achsumrechnung
+//============================================================================================================
+// A C H S U M R E C H N U N G 
+//============================================================================================================
+
+// Axis Conversion mm -&gt; m on linear axes
+if(!PARA_AxisIsRotary)
+{
+    SIM_InValue_Joint = (float)PLC_OUT_AxisValue * 0.001f;   
+}
+else
+{
+    SIM_InValue_Joint = (float)PLC_OUT_AxisValue;
+}
+#endregion
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="2" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PARA_AxisIsRotary</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_AxisValue</Name>
+			<IOSlotType>Double</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_InValue_Joint</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

@@ -1,0 +1,175 @@
+﻿<UserControl x:Class="VIBN_Tools.Application.View.ContainerToFeePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ux="http://Grob.com/wpf.ux"
+             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             xmlns:g="clr-namespace:VIBN_Tools.GlobalClasses"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
+             mc:Ignorable="d" d:DesignHeight="1000" d:DesignWidth="1600">
+
+    <UserControl.DataContext>
+        <vm:ContainerToFeePageVM/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
+                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <g:AssignedSimObjectConverter x:Key="AssignedSimObjectConverter"/>
+            <g:AssignedSimObjectToVisibilityConverter x:Key="AssignedSimObjectToVisibilityConverter"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <GroupBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="10">
+            <GroupBox.Header>
+                <TextBlock Style="{StaticResource H3Style}" Text="Read-In Data (Container XML &amp; SimulationObjects)"/>
+            </GroupBox.Header>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ux:TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="5,10,5,10"
+                        Watermark="Path to Container XML" Text="{Binding FileNameContainerXml}" IsReadOnly="True"/>
+                <UniformGrid Columns="2" Grid.Row="0" Grid.Column="2">
+                    <ux:Button Margin="5" Content="Open Container XML" Command="{Binding OpenContainerXml}" IsEnabled="{Binding EnableOpenContainerXml}" DebounceInterval="150"/>
+                    <ux:Button Margin="5" Content="Search SimObjects" Command="{Binding SearchSimObjects}" IsEnabled="{Binding CanExecuteSearchSimObjects}" DebounceInterval="150"/>
+                </UniformGrid>
+            </Grid>
+
+
+        </GroupBox>
+
+        <GroupBox Grid.Row="1" Grid.Column="0" Margin="10" IsEnabled="{Binding EnableFindAssignSimObjects}">
+            <GroupBox.Header>
+                <TextBlock Style="{StaticResource H3Style}" Text="Find &amp; Assign SimObject"/>
+            </GroupBox.Header>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="133*"/>
+                    <ColumnDefinition Width="493*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Margin="5,20,5,20" Text="{Binding SelectionInfoText}" Style="{StaticResource TextRobotoBoldStyle}" FontSize="16" Grid.ColumnSpan="2"/>
+
+                <Grid Grid.Row="1" Margin="5,5,5,5" Grid.ColumnSpan="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <ux:TextBox Grid.Column="0" Width="300" Watermark="Filter SimObjects" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                    <ux:CheckBox Grid.Column="1" Margin="25,0,10,0" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding CheckboxShowAssigned}">
+                        <TextBlock Text="Show Assigned" Style="{StaticResource TextRobotoLightStyle}"/>
+                    </ux:CheckBox>
+                    <ux:Button Grid.Column="3" ux:Icon.Kind="Restart" Command="{Binding RefreshSimObjectList}" DebounceInterval="150"/>
+                </Grid>
+
+                <ListBox Grid.Row="2" Margin="5,5,5,5" x:Name="ListBoxSelectSimObjects" ItemsSource="{Binding SelectableSimObjectsView}" SelectionMode="Extended" Grid.ColumnSpan="2">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="White"/>
+                            <Style.Triggers>
+                                <!--Background LightGreen, if IsAssignedToContainer-->
+                                <DataTrigger Binding="{Binding ., Converter={StaticResource AssignedSimObjectConverter}}" Value="True">
+                                    <Setter Property="Background" Value="LightGreen"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Vertical" Margin="5">
+                                <TextBlock Style="{StaticResource DescriptionStyle}">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} ({1})">
+                                            <Binding Path="Name"/>
+                                            <Binding Path="FeeType"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <TextBlock Text="SimObject is already assigned!" Style="{StaticResource TextBlockBaseStyle}" FontSize="12" Visibility="{Binding .,Converter={StaticResource AssignedSimObjectToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <UniformGrid Columns="5" Grid.Row="3" Margin="5,5,5,5" Grid.ColumnSpan="2">
+                    <ux:Button Margin="0,0,10,0" Content="Create" Command="{Binding CreateSimObject}" DebounceInterval="150"/>
+                    <ux:Button Margin="0,0,10,0" Content="Select" Command="{Binding SelectSimObjects}" CommandParameter="{Binding SelectedItems, ElementName=ListBoxSelectSimObjects}" DebounceInterval="150"/>
+                    <ux:Button Margin="0,0,10,0" Content="Back" Command="{Binding GoBackToLastSelection}" DebounceInterval="150" IsEnabled="{Binding EnableGoBackToLast}"/>
+                    <ux:Button Margin="0,0,10,0" Content="Skip" Command="{Binding SkipSimObjectSelection}" DebounceInterval="150"/>
+                    <ux:Button Margin="0,0,0,0" Content="Skip All / Cancel" Command="{Binding CancelSimObjectSelection}" DebounceInterval="150"/>
+                </UniformGrid>
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="1" Grid.Column="1" Margin="10">
+            <GroupBox.Header>
+                <TextBlock Style="{StaticResource H3Style}" Text="Status Information"/>
+            </GroupBox.Header>
+
+            <Grid Grid.IsSharedSizeScope="True">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ItemsControl Grid.Row="0" ItemsSource="{Binding StatusInfoCollection}" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelColumn"/>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Margin="5,5,20,5" Text="{Binding Label}" Style="{StaticResource TextRobotoLightStyle}"/>
+                                <TextBlock Grid.Column="1" Margin="5" Text="{Binding Value}" TextAlignment="Right" HorizontalAlignment="Right" Style="{StaticResource TextRobotoRegularStyle}" />
+
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ux:LoadingThreeDots Grid.Row="1" Visibility="Hidden"/>
+                <ux:Button Grid.Row="2" Margin="5" Content="Start Generation" MinWidth="300" Command="{Binding StartGeneration}" DebounceInterval="150" IsEnabled="{Binding CanExecuteGeneration}" IsBusy="{Binding IsBusyStartGeneration}"/>
+            </Grid>
+
+
+        </GroupBox>
+
+
+    </Grid>
+
+</UserControl>

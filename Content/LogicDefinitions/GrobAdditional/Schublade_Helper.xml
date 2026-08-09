@@ -1,0 +1,192 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="fa7616ac-e9f9-4440-888f-e21c9e451f25" LogicName="Schublade_Helper" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using FS.SDK.Components;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Schublade_Helper                                                                     //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    18.06.2025       1.4             DW              Durchschleifen von Limits
+//    18.06.2025       1.2             DW              Header integriert, Logik erstellt
+//    05.12.2025       1.5.0           Egg             Code optimiert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              DW            Verhaltensmodell für Fio geprüft
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik dient als Rubberbandingfunktion für Schubladen, Schieber oder ähnliche Komponenten die per Roboter
+//    oder andersweitig gezogen oder geschoben werden
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    Trigger_Sensor                    =   Bool, Sensor zur Überwachung (Pin an Position)
+//    Release_Clamping                  =   Bool, Sensor zur Drucküberwachung
+//    Actual_Position                   =   Real, Überwachung der aktuellen Position
+//    Limit_Min_Value                   =   Real, Setzen des unteren Limits der Achse
+//    Limit_Max_Value                   =   Real, Setzen des oberen Limits der Achse
+//
+//    Output Slot Values
+//    SIM_TargetPosition                =   Real, Errechneter Übergabewert für Motionjoint
+//    Limit_Min_Position                =   Real, Übergabewert des unteren Limits
+//    Limit_Max_Position                =   Real, Übergabewert des oberen Limits
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//============================================================================================================
+// Auslesen der Initial Positionen
+//============================================================================================================
+
+
+
+
+
+var parent = SceneObject.Parent;
+if(parent == null) return;
+
+var collider = parent.GetComponent&lt;ColliderComponent&gt;();
+if(collider == null) return;
+
+var collisionList = collider.CollisionList;
+
+//Limit_Min_Position = Limit_Min_Value;
+//Limit_Max_Position = Limit_Max_Value;
+
+if(Trigger_Sensor &amp;&amp; collisionList.Any() &amp;&amp; Release_Clamping)
+{
+
+    if(!_positionSaved)
+    {
+        _basePosition_X = collisionList.FirstOrDefault().Transform.Position.X;
+        _basePosition_Y = collisionList.FirstOrDefault().Transform.Position.Y;
+        _basePosition_Z = collisionList.FirstOrDefault().Transform.Position.Z;
+        _positionSaved = true;
+        Actual_PositionSaved = Actual_Position;
+    }
+    
+    SIM_TargetPosition =  collisionList.FirstOrDefault().Transform.Position.X  - _basePosition_X + Actual_PositionSaved;
+    SIM_Velocity = 100000f;
+    
+    
+    
+
+}
+else
+{
+    _positionSaved = false;
+    Release_Clamping = false;
+}
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="5" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>Trigger_Sensor</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Release_Clamping</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Actual_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_Velocity</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_TargetPosition</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>Limit_Min_Value</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Limit_Max_Value</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Limit_Min_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Limit_Max_Position</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_basePosition_X</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_basePosition_Y</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_basePosition_Z</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_positionSaved</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Actual_PositionSaved</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

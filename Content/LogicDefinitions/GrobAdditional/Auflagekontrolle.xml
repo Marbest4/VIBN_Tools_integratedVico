@@ -1,0 +1,203 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="eb3c4aa9-8517-4713-88bc-0574905a5095" LogicName="Auflagekontrolle" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Auflagekontrolle                                                                     //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    N.N.             1.1.0          Nusser           Urversion ohne Differenzdruckschalter
+//    N.N.             1.3.1          Gaugler          Funktion für Differenzdruckschalter und Parameternamen angepasst
+//    N.N.             1.3.2          Egg              Logik vereinfacht
+//    N.N.             1.5.1          Gaugler          NIO-Fall ergänzt
+//    N.N.             1.5.2          Nusser           Differenzdruck = false bei ausgeschalteter Versorgung
+//    23.05.2025       1.6.0          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Verhaltensmodell für 4 Auflagenkontrollen mit Differenzdruckschalter
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik dient als Druckkontrolle, sie überwacht bis zu 4 Drucksensoren.
+//    Über den Eingang (PLC_EinspeisungEinschalten=1) wird die Logik aktiviert und
+//    das Bit (PLC_IN_EinspeisedruckOk_X) gesetzt.
+//    Nur wenn die Sensoren (SIM_Sensor_X=1) und (SIM_AuflagenkontrolleNio_X=0) schalten, 
+//    wird der Diffferenzdruck Ok ausgegeben.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    PLC_EinspeisungEinschalten        =   Bool, zum Einschalten der Logik
+//    SIM_Sensor_1-4                    =   Bool, Sensor zur Drucküberwachung
+//    SIM_AuflagenkontrolleNio_1-4      =   Bool, Auflagekontrolle Nio
+//
+//    Output Slot Values
+//    PLC_DifferenzdruckOk_1-4          =   Bool, Ausgabe Differenzdruck Ok
+//    PLC_EinspeisedruckOk_1-4          =   Bool, Ausgabe Einspeisedruck Ok
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Einspeisedruck/ Differenzdruck setzen
+//============================================================================================================
+// E I N S P E I S E D R U C K  /  D I F F E R E N Z D R U C K    S E T Z E N
+//============================================================================================================
+
+if (PLC_EinspeisungEinschalten)
+{
+    // Einspeisedruck Ok setzen
+    PLC_IN_EinspeisedruckOk_1 = true;
+    PLC_IN_EinspeisedruckOk_2 = true;
+    PLC_IN_EinspeisedruckOk_3 = true;
+    PLC_IN_EinspeisedruckOk_4 = true;
+    
+    // Differenzdruck Ok 
+    PLC_IN_DifferenzdruckOk_1 = SIM_Sensor_1 &amp;&amp; !SIM_AuflagenkontrolleNio_1;    
+    PLC_IN_DifferenzdruckOk_2 = SIM_Sensor_2 &amp;&amp; !SIM_AuflagenkontrolleNio_2;
+    PLC_IN_DifferenzdruckOk_3 = SIM_Sensor_3 &amp;&amp; !SIM_AuflagenkontrolleNio_3;
+    PLC_IN_DifferenzdruckOk_4 = SIM_Sensor_4 &amp;&amp; !SIM_AuflagenkontrolleNio_4;
+}
+
+else
+{
+    // Einspeisedruck Ok zurücksetzen
+    PLC_IN_EinspeisedruckOk_1 = false;
+    PLC_IN_EinspeisedruckOk_2 = false;
+    PLC_IN_EinspeisedruckOk_3 = false;
+    PLC_IN_EinspeisedruckOk_4 = false;
+        
+    // Differenzdruck Ok zurücksetzen  
+    PLC_IN_DifferenzdruckOk_1 = false;
+    PLC_IN_DifferenzdruckOk_2 = false; 
+    PLC_IN_DifferenzdruckOk_3 = false;
+    PLC_IN_DifferenzdruckOk_4 = false;
+}
+#endregion
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="6" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_EinspeisungEinschalten</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Sensor_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Sensor_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Sensor_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Sensor_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_AuflagenkontrolleNio_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_AuflagenkontrolleNio_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_AuflagenkontrolleNio_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_AuflagenkontrolleNio_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_DifferenzdruckOk_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DifferenzdruckOk_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DifferenzdruckOk_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DifferenzdruckOk_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_EinspeisedruckOk_1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_EinspeisedruckOk_2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_EinspeisedruckOk_3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_EinspeisedruckOk_4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

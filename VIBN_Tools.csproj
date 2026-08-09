@@ -1,0 +1,258 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+	<BaseOutputPath>C:\_Projekt\CodingBuild\VibnTools\Build</BaseOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="ContainerToFee\General\SensorFaultSim_Container.cs" />
+    <Compile Remove="ContainerToFee\General\Sensor_Container.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Content\LogicDefinitions\GrobStandard\Grob_AxisBeckhoff.xml" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Content Include="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="ContainerGeneration\XmlSchemas\AutoCreate.xsd" />
+    <EmbeddedResource Include="ContainerGeneration\XmlSchemas\CAAResult.xsd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Content\LogicDefinitions\CustomerSpecific\BMW\" />
+    <Folder Include="Content\LogicDefinitions\CustomerSpecific\Ford\" />
+    <Folder Include="Content\LogicDefinitions\CustomerSpecific\Mercedes\" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="ClosedXML" Version="0.105.0" />
+	<PackageReference Include="Grob.UX" Version="1.8.93" />
+	<PackageReference Include="Microsoft.ML" Version="5.0.0" />
+	<PackageReference Include="Microsoft.ML.LightGbm" Version="5.0.0" />
+	<PackageReference Include="NLog.Extensions.Logging" Version="6.1.0" />
+    <PackageReference Include="NPOI" Version="2.7.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="FS.API">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.API.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.Components">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Components.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.Content">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Content.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Hmi">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Hmi.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Mathematics">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Mathematics.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Network">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Network.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Packets">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Packets.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Util">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.SDK.Wpf">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Wpf.dll</HintPath>
+    </Reference>
+    <Reference Include="FS.Util">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="ReadingUnitPlugin">
+      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\Plugins\ReadingUnitPlugin\ReadingUnitPlugin.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Content\CabinetDefinitions\Grob_2PositionSwitch.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\CabinetDefinitions\Grob_3PositionSwitch.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\CabinetDefinitions\Grob_Button.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\CabinetDefinitions\Grob_NotAus.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Absaugung.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\AddCountToString.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Analogsensor_Skalierung.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\AnalogValueSwitch.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\AsciiToUnicode.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Auflagekontrolle.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\AutoInsert.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Beckhoff_RfidSearchIndex.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Beckhoff_SearchIndex_ChangeMaterial.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\DMC_WT-Helper.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\GetCurrentTime.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Grob_ExternalStop.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\KalteSchnittstelleBand.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Kurvenscheibe.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\ManipulateString.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Process_Nok_Part.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\RenameLabelGlobal.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\SafetyDoorAsi.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Schublade_Helper.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Template_ChangeMark.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Template_ChangeMaterial.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Template_Reparenter.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Template_SdkFunctions.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\Timer_TON_TOF_Impuls.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAdditional\TurnDirectionHelper.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAddOns\Grob_GripperAddOn_AnalogValues.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobAddOns\Grob_GripperAddOn_MultiplePartTypes.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_AxisBeckhoff.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_AxisSiemens.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_BeltControl.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_Clamping.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_Conveyor.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_Cylinder.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_GripperBasic.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_GripperVacuum.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_LiftUnit.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_PneumaticSupply.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_SafePnPn.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_SafetyDoor.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_Sensor.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_SimModeSiemens.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\GrobStandard\Grob_Stop.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\AtlasCopco_SYS_6000_%28BMW%29.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\AtlasCopco_SYS_6000_%28VASS%29.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\Cognex_DataMan_DMR.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\IPG_LaserPicker.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\KeyenceBarcodeSR2000.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\KukaSafety.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\LENZE_8400_Motec.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\LENZE_8400_Protec.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\Lenze_i950.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\LogicDefinitions\SpecialDevices\Promess_SpindleUP.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

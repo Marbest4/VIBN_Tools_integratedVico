@@ -1,0 +1,194 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="48d3b210-b6c2-4525-9eb8-d634c648d3b5" LogicName="Analogsensor_Skalierung" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Analogsensor_Skalierung                                                              //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    06.02.2024       N.N.           Gaugler          add SIM_ValueLinearAxis
+//    02.06.2025       N.N.           Nusser           add 'greater or smaller limits' and SIM_deativateSimLimits
+//    02.06.2025       N.N.           Nusser           bugfix: delete return when SIM_Value = 0
+//    02.06.2025       1.6.2          Greif            Header integriert
+//    03.06.2025       1.7.2          Greif            Ausgabe von Fehlermeldetext eingefügt
+//    04.12.2025       1.9.0          Egg              Code Optimierung, Slot Syntax
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Skalieren eines positiven Analogwertes
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik skaliert einen positiven Analogwert innerhalb von Grenzwerten und gibt ihn als Int und Word aus.
+//    Am Eingang (SIM_Value) wird der Analogwert angelegt und auf die Grenzwerte (SIM_SimMinValue und SIM_SimMaxValue)
+//    begrenzt, wenn dies eingeschalten (SIM_deativateSimLimits=0) wurde.
+//    Der Analogwert wird als Int (PLC_AnalogValue_Int) begrenzt auf 32767 und als Word (PLC_AnalogValue_Word)
+//    begrenzt auf 65535 ausgegeben.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    SIM_SimMinValue           =   Real, minimaler Grenzwert Simulation
+//    SIM_SimMaxValue           =   Real, maximaler Grenzwert Simulation
+//    SIM_PlcMinValue           =   Real, minimaler Grenzwert Plc
+//    SIM_PlcMaxValue           =   Real, maximaler Grenzwert Plc
+//    SIM_Value                 =   Real, Analogwert
+//    SIM_deativateSimLimits    =   Real, Deaktivieren Grenzwerte Simulation
+//
+//    Output Slot Values
+//    PLC_AnalogValue_Int       =   Int, skalierter Analogwert
+//    PLC_AnalogValue_Word      =   Word, skalierter Analogwert
+//    OUT_ErrorMassage          =   String, Fehlermeldetext
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N   P R U E F E N
+//============================================================================================================
+
+int errorNumber     = 999;
+SIM_ErrorMassage    = "";
+
+if(PAR_SimMaxValue &lt;= PAR_SimMinValue)
+{
+    PLC_IN_AnalogValue_Int = (short)Convert.ToUInt16(errorNumber);
+    PLC_IN_AnalogValue_Word = Convert.ToUInt16(errorNumber);
+    SIM_ErrorMassage    = "PAR_SimMaxValue must be greater than PAR_SimMinValue";
+    return;
+}
+if(PAR_PlcMaxValue &lt;= PAR_PlcMinValue)
+{
+    PLC_IN_AnalogValue_Int = (short)Convert.ToUInt16(errorNumber);
+    PLC_IN_AnalogValue_Word = Convert.ToUInt16(errorNumber);
+    SIM_ErrorMassage    = "PAR_PlcMaxValue must be greater than PAR_PlcMinValue";
+    return;
+}
+if(!PAR_DeativateSimLimits &amp;&amp; ((SIM_SensorValue &lt; PAR_SimMinValue) || (SIM_SensorValue &gt; PAR_SimMaxValue)))
+{
+    PLC_IN_AnalogValue_Int = (short)Convert.ToUInt16(errorNumber);
+    PLC_IN_AnalogValue_Word = Convert.ToUInt16(errorNumber);
+    SIM_ErrorMassage    = "SIM_SensorValue must be between PAR_SimMinValue and PAR_SimMaxValue";
+    return;
+}
+#endregion
+
+#region Grenzwerte prüfen
+//============================================================================================================
+// G R E N Z W E R T E   P R U E F E N
+//============================================================================================================
+
+// Check Sim value greater or smaller limits
+if(SIM_SensorValue &gt; PAR_SimMaxValue &amp;&amp; !PAR_DeativateSimLimits)
+{
+    _sensorValue = PAR_SimMaxValue;
+}
+else if(SIM_SensorValue &lt; PAR_SimMinValue &amp;&amp; !PAR_DeativateSimLimits)
+{
+    _sensorValue = PAR_SimMinValue;
+}
+else
+{
+    _sensorValue = SIM_SensorValue;
+}
+
+#endregion
+
+#region Analogwert skalieren
+//============================================================================================================
+// A N A L O G W E R T   S K A L I E R E N
+//============================================================================================================
+
+// Scaling factor
+float factor = _sensorValue / (PAR_SimMaxValue - PAR_SimMinValue);
+
+// calculate temp_value
+float temp_value = (PAR_PlcMaxValue - PAR_PlcMinValue) * factor;
+
+
+// Output Word
+PLC_IN_AnalogValue_Word = (temp_value &gt; 65535) ? Convert.ToUInt16(65535) : Convert.ToUInt16(temp_value);
+
+// Output Int
+PLC_IN_AnalogValue_Int = (temp_value &gt; 32767) ? Convert.ToInt16(32767) : Convert.ToInt16(temp_value);
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="9" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_SensorValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_SimMinValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_SimMaxValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_PlcMinValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_PlcMaxValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_DeativateSimLimits</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_AnalogValue_Int</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_AnalogValue_Word</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ErrorMassage</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_sensorValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

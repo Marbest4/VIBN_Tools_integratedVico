@@ -1,0 +1,2280 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="df92cef4-b1b1-494a-bc67-96246de6c414" LogicName="AtlasCopco_SYS_6000_(BMW)" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System.Collections;
+using System.Text;
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Application: AtlasCopco Kleben (SYS 6000) - BMW Standard
+
+// TIA Hardware Name / Version:
+// KUKA Software Version:
+// 
+// Created: 14.06.2023
+// By: Grob (NE)
+//
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+#region Umwandlung binäre Ein-/Ausgänge
+//============================================================================================================
+// U M W A N D L U N G   B I N Ä R E   E I N - / A U S G Ä N G E
+//============================================================================================================
+
+// Programmanwahl
+ConvertFunctions.BoolToByte(
+    x0: ROB_OUT_Programmanwahl_B0,
+    x1: ROB_OUT_Programmanwahl_B1,
+    x2: ROB_OUT_Programmanwahl_B2,
+    x3: ROB_OUT_Programmanwahl_B3,
+    x4: ROB_OUT_Programmanwahl_B4,
+    x5: ROB_OUT_Programmanwahl_B5,
+    x6: ROB_OUT_Programmanwahl_B6,
+    x7: ROB_OUT_Programmanwahl_B7,
+    out _ROB_OUT_Programmanwahl);
+    
+ConvertFunctions.ByteToBool(_ROB_IN_ProgrammQuittiert,
+    out ROB_IN_Quittierung_Programm_B0,
+    out ROB_IN_Quittierung_Programm_B1,
+    out ROB_IN_Quittierung_Programm_B2,
+    out ROB_IN_Quittierung_Programm_B3,
+    out ROB_IN_Quittierung_Programm_B4,
+    out ROB_IN_Quittierung_Programm_B5,
+    out ROB_IN_Quittierung_Programm_B6,
+    out ROB_IN_Quittierung_Programm_B7);
+    
+
+// Parameteranwahl
+ConvertFunctions.BoolToByte(
+    x0: ROB_OUT_Parameteranwahl_B0,
+    x1: ROB_OUT_Parameteranwahl_B1,
+    x2: ROB_OUT_Parameteranwahl_B2,
+    x3: ROB_OUT_Parameteranwahl_B3,
+    x4: ROB_OUT_Parameteranwahl_B4,
+    x5: ROB_OUT_Parameteranwahl_B5,
+    x6: ROB_OUT_Parameteranwahl_B6,
+    x7: ROB_OUT_Parameteranwahl_B7,
+    out _ROBT_OUT_Parameteranwahl);
+    
+ConvertFunctions.ByteToBool(_ROB_IN_ParameterQuittiert,
+    out ROB_IN_Quittierung_Parameter_B0,
+    out ROB_IN_Quittierung_Parameter_B1,
+    out ROB_IN_Quittierung_Parameter_B2,
+    out ROB_IN_Quittierung_Parameter_B3,
+    out ROB_IN_Quittierung_Parameter_B4,
+    out ROB_IN_Quittierung_Parameter_B5,
+    out ROB_IN_Quittierung_Parameter_B6,
+    out ROB_IN_Quittierung_Parameter_B7);
+
+
+// Analogwertvorgabe Material
+_ROB_OUT_Analogwertvorgabe_Material = ConvertFunctions.BoolToUShort(
+    x00: ROB_OUT_Analogwertvorgabe_Material_B0,
+    x01: ROB_OUT_Analogwertvorgabe_Material_B1,
+    x02: ROB_OUT_Analogwertvorgabe_Material_B2,
+    x03: ROB_OUT_Analogwertvorgabe_Material_B3,
+    x04: ROB_OUT_Analogwertvorgabe_Material_B4,
+    x05: ROB_OUT_Analogwertvorgabe_Material_B5,
+    x06: ROB_OUT_Analogwertvorgabe_Material_B6,
+    x07: ROB_OUT_Analogwertvorgabe_Material_B7,
+    x08: ROB_OUT_Analogwertvorgabe_Material_B8,
+    x09: ROB_OUT_Analogwertvorgabe_Material_B9,
+    x10: ROB_OUT_Analogwertvorgabe_Material_B10,
+    x11: ROB_OUT_Analogwertvorgabe_Material_B11,
+    x12: ROB_OUT_Analogwertvorgabe_Material_B12,
+    x13: ROB_OUT_Analogwertvorgabe_Material_B13,
+    x14: ROB_OUT_Analogwertvorgabe_Material_B14,
+    x15: ROB_OUT_Analogwertvorgabe_Material_B15);
+    
+    
+// Analogwertvorgabe Swirl (Sprühluft)
+_ROB_OUT_Analogwertvorgabe_Swirl = ConvertFunctions.BoolToUShort(
+    x00: ROB_OUT_Analogwertvorgabe_Swirl_B0,
+    x01: ROB_OUT_Analogwertvorgabe_Swirl_B1,
+    x02: ROB_OUT_Analogwertvorgabe_Swirl_B2,
+    x03: ROB_OUT_Analogwertvorgabe_Swirl_B3,
+    x04: ROB_OUT_Analogwertvorgabe_Swirl_B4,
+    x05: ROB_OUT_Analogwertvorgabe_Swirl_B5,
+    x06: ROB_OUT_Analogwertvorgabe_Swirl_B6,
+    x07: ROB_OUT_Analogwertvorgabe_Swirl_B7,
+    x08: ROB_OUT_Analogwertvorgabe_Swirl_B8,
+    x09: ROB_OUT_Analogwertvorgabe_Swirl_B9,
+    x10: ROB_OUT_Analogwertvorgabe_Swirl_B10,
+    x11: ROB_OUT_Analogwertvorgabe_Swirl_B11,
+    x12: ROB_OUT_Analogwertvorgabe_Swirl_B12,
+    x13: ROB_OUT_Analogwertvorgabe_Swirl_B13,
+    x14: ROB_OUT_Analogwertvorgabe_Swirl_B14,
+    x15: ROB_OUT_Analogwertvorgabe_Swirl_B15);
+    
+    
+// Multiplex Adresse
+_ROB_OUT_MultiplexAdresse = ConvertFunctions.BoolToUShort(
+    x00: ROB_OUT_MultiplexAdresse_B0,
+    x01: ROB_OUT_MultiplexAdresse_B1,
+    x02: ROB_OUT_MultiplexAdresse_B2,
+    x03: ROB_OUT_MultiplexAdresse_B3,
+    x04: ROB_OUT_MultiplexAdresse_B4,
+    x05: ROB_OUT_MultiplexAdresse_B5,
+    x06: ROB_OUT_MultiplexAdresse_B6,
+    x07: ROB_OUT_MultiplexAdresse_B7,
+    x08: ROB_OUT_MultiplexAdresse_B8,
+    x09: ROB_OUT_MultiplexAdresse_B9,
+    x10: ROB_OUT_MultiplexAdresse_B10,
+    x11: ROB_OUT_MultiplexAdresse_B11,
+    x12: ROB_OUT_MultiplexAdresse_B12,
+    x13: ROB_OUT_MultiplexAdresse_B13,
+    x14: ROB_OUT_MultiplexAdresse_B14,
+    x15: ROB_OUT_MultiplexAdresse_B15);
+
+ConvertFunctions.UShortToBool(_ROB_IN_Multiplex_Adressquittierung,
+    out ROB_IN_Multiplex_Adressquittierung_B0,
+    out ROB_IN_Multiplex_Adressquittierung_B1,
+    out ROB_IN_Multiplex_Adressquittierung_B2,
+    out ROB_IN_Multiplex_Adressquittierung_B3,
+    out ROB_IN_Multiplex_Adressquittierung_B4,
+    out ROB_IN_Multiplex_Adressquittierung_B5,
+    out ROB_IN_Multiplex_Adressquittierung_B6,
+    out ROB_IN_Multiplex_Adressquittierung_B7,
+    out ROB_IN_Multiplex_Adressquittierung_B8,
+    out ROB_IN_Multiplex_Adressquittierung_B9,
+    out ROB_IN_Multiplex_Adressquittierung_B10,
+    out ROB_IN_Multiplex_Adressquittierung_B11,
+    out ROB_IN_Multiplex_Adressquittierung_B12,
+    out ROB_IN_Multiplex_Adressquittierung_B13,
+    out ROB_IN_Multiplex_Adressquittierung_B14,
+    out ROB_IN_Multiplex_Fehlerbit);
+
+
+// Multiplex Daten
+ConvertFunctions.UIntToBool(_ROB_IN_MultiplexDaten,
+    out ROB_IN_MultiplexDaten_B0,
+    out ROB_IN_MultiplexDaten_B1,
+    out ROB_IN_MultiplexDaten_B2,
+    out ROB_IN_MultiplexDaten_B3,
+    out ROB_IN_MultiplexDaten_B4,
+    out ROB_IN_MultiplexDaten_B5,
+    out ROB_IN_MultiplexDaten_B6,
+    out ROB_IN_MultiplexDaten_B7,
+    out ROB_IN_MultiplexDaten_B8,
+    out ROB_IN_MultiplexDaten_B9,
+    out ROB_IN_MultiplexDaten_B10,
+    out ROB_IN_MultiplexDaten_B11,
+    out ROB_IN_MultiplexDaten_B12,
+    out ROB_IN_MultiplexDaten_B13,
+    out ROB_IN_MultiplexDaten_B14,
+    out ROB_IN_MultiplexDaten_B15,
+    out ROB_IN_MultiplexDaten_B16,
+    out ROB_IN_MultiplexDaten_B17,
+    out ROB_IN_MultiplexDaten_B18,
+    out ROB_IN_MultiplexDaten_B19,
+    out ROB_IN_MultiplexDaten_B20,
+    out ROB_IN_MultiplexDaten_B21,
+    out ROB_IN_MultiplexDaten_B22,
+    out ROB_IN_MultiplexDaten_B23,
+    out ROB_IN_MultiplexDaten_B24,
+    out ROB_IN_MultiplexDaten_B25,
+    out ROB_IN_MultiplexDaten_B26,
+    out ROB_IN_MultiplexDaten_B27,
+    out ROB_IN_MultiplexDaten_B28,
+    out ROB_IN_MultiplexDaten_B29,
+    out ROB_IN_MultiplexDaten_B30,
+    out ROB_IN_MultiplexDaten_B31);
+
+// Multiplex Index
+ConvertFunctions.BoolToByte(
+    x0: ROB_OUT_MultiplexIndex_B0,
+    x1: ROB_OUT_MultiplexIndex_B1,
+    x2: ROB_OUT_MultiplexIndex_B2,
+    x3: ROB_OUT_MultiplexIndex_B3,
+    x4: ROB_OUT_MultiplexIndex_B4,
+    x5: ROB_OUT_MultiplexIndex_B5,
+    x6: ROB_OUT_MultiplexIndex_B6,
+    x7: ROB_OUT_MultiplexIndex_B7,
+    out _ROB_OUT_MultiplexIndex);
+    
+ConvertFunctions.ByteToBool(_ROB_IN_Multiplex_Indexquittierung,
+    out ROB_IN_Multiplex_Indexquittierung_B0,
+    out ROB_IN_Multiplex_Indexquittierung_B1,
+    out ROB_IN_Multiplex_Indexquittierung_B2,
+    out ROB_IN_Multiplex_Indexquittierung_B3,
+    out ROB_IN_Multiplex_Indexquittierung_B4,
+    out ROB_IN_Multiplex_Indexquittierung_B5,
+    out ROB_IN_Multiplex_Indexquittierung_B6,
+    out ROB_IN_Multiplex_Indexquittierung_B7);
+
+#endregion
+
+
+
+//============================================================================================================
+// S T A R T   D E S   S Y S T E M S   ( A L L G E M E I N )
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    // Betriebsbereit, wenn System EIN und BEtriebsfreigabe
+    ROB_IN_Betriebsbereit = true;
+    
+    // Trigger Heizung Ein
+    if(ROB_OUT_Heizung_Retrigger &amp;&amp; !_stateHeizungRetrigger)
+    {
+        ROB_IN_Heizung_EIN = true;
+    }
+    _stateHeizungRetrigger = ROB_OUT_Heizung_Retrigger;
+    
+    // Trigger Pumpe Ein
+    if(ROB_OUT_Pumpe_Retrigger &amp;&amp; !_statePumpeRetrigger)
+    {
+        ROB_IN_Pumpe_EIN = true;
+    }
+    _statePumpeRetrigger = ROB_OUT_Pumpe_Retrigger;
+    
+    
+    // Timer Heizung und Pumpe starten
+    if(ROB_IN_Heizung_EIN)
+    {
+        _timerHeizung += SceneObject.DeltaTime;
+    }
+    
+    if(ROB_IN_Pumpe_EIN)
+    {
+        _timerPumpe += SceneObject.DeltaTime;
+    }
+    
+    // Heizung und Pumpe hochgelaufen
+    if(_timerHeizung &gt;= SIM_Time_Heizung_sec &amp;&amp; _timerPumpe &gt;= SIM_Time_Pumpe_sec)
+    {
+        ROB_IN_Fehler_PumpeHeizung = true;
+        ROB_IN_Sammelstoerung = true;
+    }
+}
+else
+{
+    ROB_IN_Betriebsbereit = false;
+    
+    _timerHeizung = 0;
+    _timerPumpe = 0;
+}
+
+
+
+
+
+
+
+
+//============================================================================================================
+// S P Ü L E N
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl an Roboter quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+    }
+    
+    
+    // Dosierer Voll nach Zeit x -&gt; Muss zum Spülen fahren
+    if(!ROB_OUT_Pistole1_Oeffnen)
+    {
+        _timerAnforderungSpuelen += SceneObject.DeltaTime;
+    }
+    else
+    {
+    _timerAnforderungSpuelen = 0;
+    }
+    
+    if(_timerAnforderungSpuelen &gt;= SIM_Time_AnforderungSpuelen)
+    {
+        // Anforderung Spülen setzen
+        _anforderungSpuelen = true;
+    }
+    
+    
+    // Roboter fährt in Spülposition -&gt; Spülvorgang
+    if(ROB_OUT_Freigabe_Spuelen &amp;&amp; ROB_OUT_Spuelen)
+    {
+        _timerSpuelen += SceneObject.DeltaTime;
+        if(_timerSpuelen &gt;= SIM_Time_Spuelen_Sec)
+        {
+            ROB_IN_Spuelen_Beendet = true;
+            _anforderungSpuelen = false;
+            _timerAnforderungSpuelen = 0;
+        }
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = false;
+    }
+    if(!ROB_OUT_Spuelen)
+    {
+        ROB_IN_Spuelen_Beendet = false;
+        _timerSpuelen = 0;
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = true;
+    }
+    
+    ROB_IN_Spuelanforderung = _anforderungSpuelen;  
+        
+}
+
+
+
+//============================================================================================================
+// A N S P Ü L E N   ( V O R D R U C K E I N M E S S U N G )
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl an Roboter quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+        _anforderungAnspuelen = true;
+    }
+    
+    // Roboter fährt in Spülposition -&gt; Spülvorgang
+    if(ROB_OUT_Freigabe_Spuelen &amp;&amp; ROB_OUT_Spuelen)
+    {
+        _timerSpuelen += SceneObject.DeltaTime;
+        if(_timerSpuelen &gt;= SIM_Time_Spuelen_Sec)
+        {
+            ROB_IN_Spuelen_Beendet = true;
+            _anforderungAnspuelen = false;
+        }
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = false;
+    }
+    if(!ROB_OUT_Spuelen)
+    {
+        ROB_IN_Spuelen_Beendet = false;
+        _timerSpuelen = 0;
+        
+        // Dosierer
+        ROB_IN_Dosierer_Voll = true;
+    }
+    
+    
+    ROB_IN_Anforderung_Anspuelen = _anforderungAnspuelen;
+}
+
+
+
+//============================================================================================================
+// A P P L I K A T I O N S Z Y K L U S
+//============================================================================================================
+
+// System ein und Betriebsfreigabe
+if(ROB_OUT_System_EIN &amp;&amp; ROB_OUT_Betriebsfreigabe)
+{
+
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Programmanwahl quittieren, wenn Programm ansteht
+        _ROB_IN_ProgrammQuittiert = _ROB_OUT_Programmanwahl;
+    }
+    
+    if(_ROB_OUT_Programmanwahl &gt; 0)
+    {
+        // Parameteranwahl quittieren, wenn Programm ansteht
+        _ROB_IN_ParameterQuittiert = _ROBT_OUT_Parameteranwahl;
+    }
+    
+    
+    
+    // Start
+    if(ROB_OUT_Start &amp;&amp; ROB_IN_Fehler_PumpeHeizung)  //&amp;&amp; _ROB_OUT_Analogwertvorgabe_Material &gt; 0 &amp;&amp; _ROB_OUT_Analogwertvorgabe_Swirl &gt; 0)
+    {
+        ROB_IN_Bereit_Fuer_Applikation = !ROB_OUT_Pistole1_Oeffnen;
+    }
+    else
+    {
+        ROB_IN_Bereit_Fuer_Applikation = false;
+    }
+    
+    // Zyklus Ende
+    if(ROB_OUT_Zyklus_Ende)
+    {
+        ROB_IN_Zyklus_Beendet = true;
+        
+        // Kein Fehler -&gt; Materialauftrag OK
+        if(!SIM_Fehler_ObereGrenze &amp;&amp; !SIM_Fehler_UntereGrenze &amp;&amp; !SIM_Fehler_Material &amp;&amp; !SIM_Fehler_System)
+        {
+            ROB_IN_Materialauftrag_OK = true;
+        }
+        // Fehler Obere Grenze
+        if(SIM_Fehler_ObereGrenze)
+        {
+            ROB_IN_Fehler_Einzelnaht_ObereGrenze = false;
+            ROB_IN_Oberer_Grenzwert = false;
+        }
+        // Fehler Untere Grenze
+        if(SIM_Fehler_UntereGrenze)
+        {
+            ROB_IN_Fehler_Einzelnaht_UntereGrenze = false;
+            ROB_IN_Unterer_Grenzwert = false;
+        }
+        // Fehler Material
+        if(SIM_Fehler_Material)
+        {
+            ROB_IN_Fehler_Material = false;
+        }
+        // Fehler System
+        if(SIM_Fehler_System)
+        {
+            ROB_IN_Fehler_System = false;
+        }      
+        
+    }
+    else
+    {
+        ROB_IN_Zyklus_Beendet = false;
+        ROB_IN_Materialauftrag_OK = false;
+    }
+    
+    // Fehler quittieren
+    if(ROB_OUT_Fehler_Quittieren)
+    {
+        ROB_IN_Fehler_Einzelnaht_ObereGrenze = true;
+        ROB_IN_Fehler_Einzelnaht_UntereGrenze = true;
+        ROB_IN_Fehler_Material = true;
+        ROB_IN_Fehler_System = true;
+        ROB_IN_Oberer_Grenzwert = true;
+        ROB_IN_Unterer_Grenzwert = true;
+    }
+   
+}
+
+
+
+
+
+//============================================================================================================
+// M U L T I P L E X
+//============================================================================================================
+
+// Multiplex ID und Index umwandeln
+
+
+
+// Multiplex Daten zuweisen
+
+switch(_ROB_OUT_MultiplexIndex)
+// Ein projektabhängiger String (Input), evtl. durch Logik erzeugen
+// String aufsplitten in DWord (Array?) für Schnittstelle zum Roboter
+// 
+
+{
+	case 1:  //16#18
+	         
+	break;   
+	case 2:  //16#19
+	         
+	break;	 
+	case 3:  //16#1A
+	         
+	break;	 
+	case 4:  //16#1B
+	         
+	break;	 
+	case 5:  //16#1C
+	         
+	break;	 
+	case 6:  //16#1D
+	         
+	break;	 
+	case 7:  //16#1E
+	         
+	break;	 
+	case 8:  //16#1F
+	         
+	break;	 
+	case 9:  //16#24
+	
+	break;	
+	case 10: //16#25
+	
+	break;	
+	case 11: //16#26
+	
+	break;	
+	case 12: //16#27
+	
+	break;	
+	case 13: //16#78
+	
+	break;	
+	case 14: //16#79
+	
+	break;	
+	
+}
+
+
+
+// Multiplex Adresse und Index quittieren
+_ROB_IN_Multiplex_Adressquittierung = _ROB_OUT_MultiplexAdresse;
+_ROB_IN_Multiplex_Indexquittierung = _ROB_OUT_MultiplexIndex;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="11" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>ROB_OUT_Start</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistole1_Oeffnen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistole2_Oeffnen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistole3_Oeffnen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Fuellen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Swirl</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Vordruck_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Betriebsfreigabe</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Anspuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Freigabe_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Zyklus_Ende</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Fehler_Quittieren</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_System_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Heizung_Retrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pumpe_Retrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Programmanwahl_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Parameteranwahl_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Simulationsmodus</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Energiesparmodus</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Laser_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Laser_Messen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Laser_SollwertLernen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Pistole4_Oeffnen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Steppnaht_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Zirkulation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_1K_Spuelen_Komponente1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_1K_Spuelen_Komponente2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_2K_Spuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Komponente2_Ausschalten</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Nahtreparatur</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_DosiererInNachfuellstationBereit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_DosiererAnRoboterGedockt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Mischer_Wechsel</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Material_B15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Analogwertvorgabe_Swirl_B15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Anfoderung_FahrenZuDockingStation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Anfoderung_FahrenAusDockingStation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Anfoderung_Simulation_Vision</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_Vision_Abgewaehlt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexAdresse_B15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>105</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>106</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>107</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>108</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>109</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>110</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>111</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_OUT_MultiplexIndex_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>112</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Time_Heizung_sec</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>269</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Time_Pumpe_sec</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>270</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Time_Spuelen_Sec</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>271</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Time_AnforderungSpuelen</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>272</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Fehler_ObereGrenze</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>273</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Fehler_UntereGrenze</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>274</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Fehler_Material</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>275</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Fehler_System</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>276</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>ROB_IN_Sammelstoerung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>114</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Oberer_Grenzwert</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>115</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Unterer_Grenzwert</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>116</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_Material</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>117</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_System</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>118</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Simulation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>119</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Materialauftrag_OK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>120</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Betriebsbereit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>121</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Fuellen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>122</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelanforderung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>123</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Anspuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>124</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Live_Bit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>125</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Dosierer_Voll</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>126</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelen_Beendet</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>127</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Zyklus_Beendet</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>128</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Bereit_Fuer_Applikation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>129</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>130</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>131</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>132</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>133</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>134</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>135</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>136</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Programm_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>137</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>139</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>140</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>141</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>142</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>143</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>144</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>145</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Parameter_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>146</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Automatik</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>148</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Pumpe_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>149</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Schmierung_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>150</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Heizung_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>151</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Heizung_Bereit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>152</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Sicherungsfall</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>153</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fass_Warnung_Unter10Prozent</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>154</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_PumpeHeizung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>155</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS1_Fass1_Warnung_Unter10Prozenz</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>156</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS1_Fass1_Leer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>157</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS1_Fass2_Warnung_Unter10Prozenz</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>158</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS1_Fass2_Leer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>159</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS2_Fass1_Warnung_Unter10Prozenz</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>160</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS2_Fass1_Leer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>161</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS2_Fass2_Warnung_Unter10Prozenz</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>162</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_HPS2_Fass2_Leer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>163</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_2K_ImMischer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>164</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_1K_Komponente1_ImMischer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>165</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_1K_Komponente2_ImMischer</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>166</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Komponente1_Ueberschuss</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>167</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Komponente2_Ueberschuss</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>168</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Mischung_Undefiniert</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>169</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelanforderung_1K</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>170</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelanforderung_2K</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>171</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_Mischung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>172</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_Einzelnaht_ObereGrenze</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>173</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_Einzelnaht_UntereGrenze</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>174</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Spuelen_Aktiv</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>175</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_LaserUeberwachung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>176</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fehler_Vision</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>177</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Mischer_Vorhanden</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>178</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Anforderung_Mischerwechsel</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>179</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_Nachfuellstation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>180</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Quittierung_RoboterAngedockt</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>181</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Vision_Naht_Reparierbar</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>182</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Dosierer_MitDockingStationVerbunden</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>183</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_NOT_HALT_Aktiv</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>184</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Fuellventil_Nachfuellstation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>185</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>186</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>187</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>188</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>189</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>190</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>191</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>192</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>193</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>194</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>195</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>196</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>197</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>198</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>199</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>200</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_FehlerCode_B15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>201</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionErgebnis_OK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>202</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionErgebnis_Warnung</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>203</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionErgebnis_NOK</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>204</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionErgebnis_Fehler</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>205</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionSystem_EIN</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>206</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Vision_Automatik</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>207</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_VisionErgebnis_Verfuegbar</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>208</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_KeinDockingFehler</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>209</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>210</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>211</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>212</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>213</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>214</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>215</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>216</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>217</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>218</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>219</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>220</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>221</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>222</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>223</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Adressquittierung_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>224</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Fehlerbit</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>225</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>227</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>228</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>229</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>230</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>231</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>232</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>233</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_Multiplex_Indexquittierung_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>234</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>236</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>237</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>238</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>239</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>240</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>241</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>242</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>243</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>244</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>245</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>246</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>247</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>248</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>249</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>250</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>251</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>252</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B17</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>253</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B18</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>254</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B19</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>255</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B20</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>256</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B21</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>257</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B22</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>258</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B23</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>259</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B24</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>260</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B25</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>261</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B26</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>262</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B27</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>263</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B28</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>264</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B29</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>265</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B30</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>266</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ROB_IN_MultiplexDaten_B31</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>267</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_ROB_OUT_Programmanwahl</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROBT_OUT_Parameteranwahl</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_OUT_Analogwertvorgabe_Material</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_OUT_Analogwertvorgabe_Swirl</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_OUT_MultiplexAdresse</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_OUT_MultiplexIndex</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>113</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_ProgrammQuittiert</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>138</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_ParameterQuittiert</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>147</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_Multiplex_Adressquittierung</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>226</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_Multiplex_Indexquittierung</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>235</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_ROB_IN_MultiplexDaten</Name>
+			<IOSlotType>DWord</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>268</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_stateHeizungRetrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>277</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statePumpeRetrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>278</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timerHeizung</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>279</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timerPumpe</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>280</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timerSpuelen</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>281</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_timerAnforderungSpuelen</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>282</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_anforderungSpuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>283</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_anforderungAnspuelen</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>284</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_multiplex_index</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>285</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_multiplex_data</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>286</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

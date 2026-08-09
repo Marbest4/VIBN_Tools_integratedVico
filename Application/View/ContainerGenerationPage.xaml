@@ -1,0 +1,861 @@
+﻿<UserControl x:Class="VIBN_Tools.Application.View.ContainerGenerationPage"
+             x:Name="RootControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:ux="http://Grob.com/wpf.ux"
+             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
+             xmlns:converter="clr-namespace:VIBN_Tools.GlobalClasses" 
+             xmlns:settings="clr-namespace:VIBN_Tools.ContainerGeneration.Models"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"   
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             mc:Ignorable="d" 
+             d:DesignHeight="1000" d:DesignWidth="1600">
+
+    <UserControl.InputBindings>
+        <KeyBinding Key="Z"
+                    Modifiers="Control"
+                    Command="{Binding UndoLastAction}"/>
+        <KeyBinding Key="Y"
+                    Modifiers="Control"
+                    Command="{Binding RedoLastAction}"/>
+        <KeyBinding Key="Z"
+                    Modifiers="Control+Shift"
+                    Command="{Binding RedoLastAction}"/>
+    </UserControl.InputBindings>
+
+    <UserControl.DataContext>
+        <vm:ContainerGenerationPageVM/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
+                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="RedXButtonStyle" TargetType="Button">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Ellipse Fill="Tomato" Width="16" Height="16" />
+                                <TextBlock Text="X" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Width" Value="20" />
+                <Setter Property="Height" Value="20" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Cursor" Value="Hand" />
+            </Style>
+
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+            <Style x:Key="ReviewEntryTextBoxStyle" TargetType="TextBox">
+                <Setter Property="BorderBrush" Value="White"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="MinHeight" Value="21"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding ReviewState}" Value="NeedsReview">
+                        <Setter Property="Background" Value="#FFFFE0B2"/>
+                        <Setter Property="BorderBrush" Value="#FFF39C12"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ReviewState}" Value="NewFromSource">
+                        <Setter Property="Background" Value="#FFE8F5E9"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ReviewState}" Value="SourceChanged">
+                        <Setter Property="Background" Value="#FFFFE0B2"/>
+                        <Setter Property="BorderBrush" Value="#FFEF6C00"/>
+                        <Setter Property="BorderThickness" Value="2"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ReviewState}" Value="NewlyRecognized">
+                        <Setter Property="Background" Value="#FFE3F2FD"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ReviewState}" Value="ManuallyEdited">
+                        <Setter Property="Background" Value="#FFFFF8E1"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+
+            <converter:EqualityConverter x:Key="EqualityConverter"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- row 1 - Input Zuli Excel -->
+        <ux:Button Margin="5" Grid.Row="0" Grid.Column="0" Content="Open Interface File" DebounceInterval="150" Command="{Binding OpenInterfaceFile}"/>
+        <ux:TextBox Margin="5" Grid.Row="0" Grid.Column="1" IsReadOnly="True" MinWidth="160"  VerticalContentAlignment="Center" Text="{Binding Settings.PathZuli}" Watermark="Path to Interface-File (.xlsx)"/>
+
+        <!-- row 2 - Input Requirements XML -->
+        <ux:Button Margin="5" Grid.Row="1" Grid.Column="0" Content="Open Req. XML" DebounceInterval="150" Command="{Binding OpenRequirementsXml}"/>
+        <ux:TextBox Margin="5" Grid.Row="1" Grid.Column="1" IsReadOnly="True" MinWidth="160" VerticalContentAlignment="Center" Text="{Binding Settings.PathRequirementsXml}" Watermark="Path to Requirements-File (.xml)"/>
+
+
+
+        <!--Grid for all data and control elements-->
+        <Grid Grid.Row="2" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!--row 1 - Component Grouping & Substitute Component-->
+            <Expander Margin="5,5,5,35" Grid.Row="0"  IsExpanded="False">
+                <Expander.Header>
+                    <TextBlock Style="{StaticResource H3Style}" Text="Grouping Settings"/>
+                </Expander.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Settings - Grouping -->
+                    <GroupBox Margin="5" Grid.Column="0" VerticalAlignment="Stretch">
+                        <GroupBox.Header>
+                            <TextBlock Style="{StaticResource H3Style}" Text="Grouping"/>
+                        </GroupBox.Header>
+
+                        <WrapPanel Orientation="Horizontal">
+                            <ux:CheckBox Margin="5,5,10,5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding Settings.GroupByComponent}">
+                                <TextBlock Text="Component" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:CheckBox>
+
+                            <ux:CheckBox Margin="5,5,10,5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding Settings.GroupByType}">
+                                <TextBlock Text="Type" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:CheckBox>
+
+                            <ux:CheckBox Margin="5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding Settings.GroupById}">
+                                <TextBlock Text="Regex ID:" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:CheckBox>
+                            <ux:TextBox Margin="5,5,10,5" VerticalContentAlignment="Center" MinWidth="200" Text="{Binding Settings.RegexId}"/>
+
+                            <ux:CheckBox Margin="5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding Settings.GroupByAddress}">
+                                <TextBlock Text="Regex Address:" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:CheckBox>
+                            <ux:TextBox Margin="5" VerticalContentAlignment="Center" MinWidth="200" Text="{Binding Settings.RegexAddress}"/>
+                        </WrapPanel>
+                    </GroupBox>
+
+                    <!-- Settings - Substitution -->
+                    <GroupBox Margin="5" Grid.Column="1">
+                        <GroupBox.Header>
+                            <TextBlock Style="{StaticResource H3Style}" Text="Substitute Component"/>
+                        </GroupBox.Header>
+
+                        <StackPanel Orientation="Horizontal">
+                            <ux:RadioButton Margin="5,5,25,5" Style="{StaticResource RadioButtonSmallStyle}" IsChecked="{Binding Settings.SelectedOption, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static settings:ContainerGenerationSettings.ComponentOption}}">
+                                <TextBlock Text="Component" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:RadioButton>
+                            <ux:RadioButton Margin="5,5,25,5" Style="{StaticResource RadioButtonSmallStyle}" IsChecked="{Binding Settings.SelectedOption, Converter={StaticResource EqualityConverter}, ConverterParameter={x:Static settings:ContainerGenerationSettings.IdOption}}">
+                                <TextBlock Text="ID" Style="{StaticResource TextRobotoLightStyle}" />
+                            </ux:RadioButton>
+                            <ux:TextBox Margin="5" VerticalContentAlignment="Center" MinWidth="275" Text="{Binding Settings.RegexSubstitution}"/>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+            </Expander>
+
+            <!-- Row 2 - Search panel container -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Margin="5,5,10,5" Text="Filter:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center" />
+                <ux:TextBox Grid.Column="1" MinWidth="400" Height="30" VerticalContentAlignment="Center" Text="{Binding SearchTextContainer, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0">
+                    <TextBlock Text="Prüfstatus:"
+                               Margin="0,0,5,0"
+                               VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding ReviewFilterOptions}"
+                              SelectedItem="{Binding SelectedReviewFilter}"
+                              DisplayMemberPath="DisplayName"
+                              MinWidth="145"
+                              Height="28"
+                              VerticalContentAlignment="Center"/>
+                    <Button Content="↶ Rückgängig"
+                            Command="{Binding UndoLastAction}"
+                            IsEnabled="{Binding CanUndo}"
+                            ToolTip="{Binding UndoDescription}"
+                            Margin="10,0,0,0"
+                            Padding="10,2"/>
+                    <Button Content="↷ Wiederholen"
+                            Command="{Binding RedoLastAction}"
+                            IsEnabled="{Binding CanRedo}"
+                            ToolTip="{Binding RedoDescription}"
+                            Margin="5,0,0,0"
+                            Padding="10,2"/>
+                </StackPanel>
+                <TextBlock Grid.Column="3" Margin="5" Text="{Binding ContainerList.Count, NotifyOnSourceUpdated=True, StringFormat={}Containers - {0}}" HorizontalAlignment="Center" 
+                           Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="5" Margin="5" Text="{Binding AssignedSignals, NotifyOnSourceUpdated=True, StringFormat={}Assigned Signals - {0}}" HorizontalAlignment="Center"
+                           Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="7" Margin="5" Text="{Binding PercentComplete, NotifyOnSourceUpdated=True, StringFormat={}{0:P2} Complete}" HorizontalAlignment="Center"
+                           Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Reimport comparison: no visible work is changed before applying this selection. -->
+            <Border Grid.Row="2"
+                    Margin="5"
+                    Padding="8"
+                    BorderBrush="#FF90A4AE"
+                    BorderThickness="1"
+                    Background="#FFF7F9FA"
+                    Visibility="{Binding HasPendingReimportChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="0,0,0,7">
+                        <TextBlock Text="Reimport-Vergleich – jede erkannte Änderung einzeln entscheiden"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding ReimportNotice}"
+                                   Foreground="#FF455A64"
+                                   Margin="0,3,0,0"/>
+                        <TextBlock Text="{Binding PendingReimportSelectionSummary}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding PendingReimportChanges}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              MaxHeight="230"
+                              HeadersVisibility="Column"
+                              IsReadOnly="False">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="#FFFFF3CD"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAccepted}" Value="True">
+                                        <Setter Property="Background" Value="#FFE8F5E9"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Übernehmen" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsAccepted, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Kriterium"
+                                                Binding="{Binding Category}"
+                                                IsReadOnly="True"
+                                                Width="150"/>
+                            <DataGridTextColumn Header="Signal"
+                                                Binding="{Binding Signal}"
+                                                IsReadOnly="True"
+                                                Width="180"/>
+                            <DataGridTextColumn Header="Bisher"
+                                                Binding="{Binding PreviousValue}"
+                                                IsReadOnly="True"
+                                                Width="*"/>
+                            <DataGridTextColumn Header="Neu erkannt"
+                                                Binding="{Binding DetectedValue}"
+                                                IsReadOnly="True"
+                                                Width="*"/>
+                            <DataGridTextColumn Header="Genauer Unterschied"
+                                                Binding="{Binding ExactDifference}"
+                                                IsReadOnly="True"
+                                                Width="2*"/>
+                            <DataGridTextColumn Header="Auswirkung der Auswahl"
+                                                Binding="{Binding DecisionEffect}"
+                                                IsReadOnly="True"
+                                                Width="2*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="2"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="0,7,0,0">
+                        <Button Content="Alle auswählen"
+                                Command="{Binding SelectAllReimportChanges}"
+                                Padding="9,3"
+                                Margin="3"/>
+                        <Button Content="Keine auswählen"
+                                Command="{Binding SelectNoReimportChanges}"
+                                Padding="9,3"
+                                Margin="3"/>
+                        <Button Content="Vorschau verwerfen"
+                                Command="{Binding CancelReimportSelection}"
+                                Padding="9,3"
+                                Margin="12,3,3,3"/>
+                        <Button Content="Auswahl anwenden"
+                                Command="{Binding ApplyReimportSelection}"
+                                Padding="12,3"
+                                Margin="3"
+                                FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2"
+                    Margin="5"
+                    Padding="8"
+                    BorderBrush="#FF42A5F5"
+                    BorderThickness="1"
+                    Background="#FFE3F2FD"
+                    Visibility="{Binding ShowReimportNotice, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Reimport-Hinweis:"
+                               FontWeight="SemiBold"
+                               Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding ReimportNotice}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Row 3 - Container data -->
+            <DataGrid x:Name="ContainerListDataGrid" Grid.Row="3" Margin="5" AutoGenerateColumns="False" CanUserAddRows="True" Height="Auto" MinColumnWidth="75" MinRowHeight="25" ItemsSource="{Binding ContainerList}"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" EnableRowVirtualization="True" EnableColumnVirtualization="True" ScrollViewer.CanContentScroll="True"
+                      AllowDrop="True">
+                <i:Interaction.Triggers>
+                    <i:EventTrigger EventName="SelectionChanged">
+                        <i:InvokeCommandAction Command="{Binding SelectionChangedExecuted}" CommandParameter="{Binding SelectedItems, ElementName=ContainerListDataGrid}" />
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="PreviewKeyDown">
+                        <i:InvokeCommandAction Command="{Binding ContainerDataGridPreviewKeyDown}" PassEventArgsToCommand="True"/>
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="DragOver">
+                        <i:InvokeCommandAction Command="{Binding ContainerDataGridDragOver}" PassEventArgsToCommand="True" />
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="Drop">
+                        <i:InvokeCommandAction Command="{Binding DataGridDrop}" PassEventArgsToCommand="True" />
+                    </i:EventTrigger>
+                </i:Interaction.Triggers>
+
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="White"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RequiresReview}" Value="True">
+                                <Setter Property="Background" Value="#FFFFF3CD"/>
+                                <Setter Property="BorderBrush" Value="#FFFFC107"/>
+                                <Setter Property="BorderThickness" Value="0,1,0,1"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                <Setter Property="Background" Value="#FFFFE1E1"/>
+                                <Setter Property="BorderBrush" Value="#FFE74C3C"/>
+                                <Setter Property="BorderThickness" Value="0,2,0,2"/>
+                                <Setter Property="Margin" Value="0,0,0,2"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ManuallyChecked}" Value="True">
+                                <Setter Property="Background" Value="#FFE8F5E9"/>
+                                <Setter Property="BorderBrush" Value="#FF66BB6A"/>
+                                <Setter Property="BorderThickness" Value="0,1,0,1"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Component" Binding="{Binding Component}" x:Name="ComponentColumn" />
+
+                    <DataGridTemplateColumn Header="Type" SortMemberPath="Type">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <!--<TextBlock Text="{Binding}" />-->
+                                <ComboBox ItemsSource="{Binding DataContext.ComponentTypes, ElementName=RootControl}" SelectedItem="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                        MinWidth="80" Background="White" Loaded="ComboBox_Loaded"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="ID">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <!--Activate Virtualization-->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel 
+                                                IsVirtualizing="True"
+                                                VirtualizationMode="Recycling" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <!--Remove ScrollViewer-->
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+
+                                    <!-- ItemTemplate -->
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding ID}" Style="{StaticResource ReviewEntryTextBoxStyle}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Signal-ID" IsReadOnly="True" Width="165">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SignalId}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding SignalId}"
+                                                       MinHeight="21"
+                                                       VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Address / Path">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <!--Activate Virtualization-->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel 
+                                                IsVirtualizing="True"
+                                                VirtualizationMode="Recycling" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <!--Remove ScrollViewer-->
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+
+                                    <!-- ItemTemplate -->
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding Address}" Style="{StaticResource ReviewEntryTextBoxStyle}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+
+                                </ItemsControl>
+
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="DataType">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <!--Activate Virtualization-->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel 
+                                                IsVirtualizing="True"
+                                                VirtualizationMode="Recycling" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <!--Remove ScrollViewer-->
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+
+                                    <!-- ItemTemplate -->
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding DataType}" Style="{StaticResource ReviewEntryTextBoxStyle}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+
+                                </ItemsControl>
+
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Signal">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <!--Activate Virtualization-->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel 
+                                                IsVirtualizing="True"
+                                                VirtualizationMode="Recycling" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <!--Remove ScrollViewer-->
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+
+                                    <!-- ItemTemplate -->
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding Signal, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                     Style="{StaticResource ReviewEntryTextBoxStyle}"
+                                                     ToolTip="Wird der Signaltext vollständig geleert, wird die Zuordnung entfernt und das Signal einmalig unter Nicht zugeordnet abgelegt." />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+
+                                </ItemsControl>
+
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Reimport-Änderung"
+                                            IsReadOnly="True"
+                                            Width="320">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ReviewMessage}"
+                                                       ToolTip="{Binding ReviewMessage}"
+                                                       TextWrapping="Wrap"
+                                                       MinHeight="21"
+                                                       Padding="3,1"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Slot" MinWidth="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+
+                                <ItemsControl ItemsSource="{Binding DataList}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel 
+                                                IsVirtualizing="True"
+                                                VirtualizationMode="Recycling" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ItemsPresenter />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <ComboBox ItemsSource="{Binding DataContext.Slots, RelativeSource={RelativeSource AncestorType=DataGridRow}}"
+                                                          SelectedItem="{Binding Slot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          MinWidth="100"
+                                                          MaxHeight="21"
+                                                          Background="White"
+                                                          Loaded="ComboBox_Loaded"/>
+
+                                                <Button Grid.Column="1"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Top"
+                                                        Margin="15,0,0,0"
+                                                        Style="{StaticResource RedXButtonStyle}"
+                                                        Command="{Binding DataContext.DeleteItem, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+
+                                </ItemsControl>
+
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Prüfstatus" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding ReimportStatusText}"
+                                           ToolTip="{Binding ReimportDetails}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Prüfhinweise" Binding="{Binding ValidationError}" IsReadOnly="True"/>
+                    <DataGridTemplateColumn Header="Manually Checked / geprüft">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding ManuallyChecked, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          ToolTip="Abhaken, sobald Zuordnung, Slots und Prüfhinweise fachlich kontrolliert wurden."/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!--Row 4 - Unassigend and filtered entries-->
+            <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Unassigned data -->
+                <Grid Grid.Row="0" Grid.Column="0" Margin=" 0,25,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Grid.Column="0" >
+                        <TextBlock Margin="5,5,25,5" Text="Filter:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <ux:TextBox Margin="5" MinWidth="400" Height="30" VerticalContentAlignment="Center" Text="{Binding SearchTextUnassignedEntries, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <TextBlock Margin="5" Grid.Column="1" Text="{Binding UnassignedEntries.Count, NotifyOnSourceUpdated=True, StringFormat={}Unassigned Data - {0}}" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TextRobotoLightStyle}"/>
+                </Grid>
+
+                <DataGrid Margin="5" Grid.Row="1" Grid.Column="0" ItemsSource="{Binding UnassignedEntries, NotifyOnSourceUpdated=True}" SelectedItem="{Binding SelectedUnassignedEntry, UpdateSourceTrigger=PropertyChanged}" 
+                          MinColumnWidth="100" AutoGenerateColumns="True" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" AllowDrop="True">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="NeedsReview">
+                                    <Setter Property="Background" Value="#FFFFE0B2"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="ManuallyEdited">
+                                    <Setter Property="Background" Value="#FFFFF8E1"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="NewFromSource">
+                                    <Setter Property="Background" Value="#FFE8F5E9"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="SourceChanged">
+                                    <Setter Property="Background" Value="#FFFFE0B2"/>
+                                    <Setter Property="BorderBrush" Value="#FFEF6C00"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="Drop">
+                            <i:InvokeCommandAction Command="{Binding DataGridDrop}" PassEventArgsToCommand="True" />
+                        </i:EventTrigger>
+                        <i:EventTrigger EventName="MouseMove">
+                            <i:InvokeCommandAction Command="{Binding DataGridMouseMove}" PassEventArgsToCommand="True" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </DataGrid>
+
+
+                <!-- Splitter -->
+                <GridSplitter Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="5" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch" />
+
+                <!-- Filtered data -->
+                <Grid Grid.Row="0" Grid.Column="2" Margin=" 0,25,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Grid.Column="0">
+                        <TextBlock Margin="5,5,25,5" Text="Filter:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <ux:TextBox Margin="5" MinWidth="400" Height="30" VerticalContentAlignment="Center" Text="{Binding SearchTextFilteredEntries, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <TextBlock Margin="5" Grid.Column="1" Text="{Binding FilteredEntries.Count, NotifyOnSourceUpdated=True, StringFormat={}Filtered Data - {0}}" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TextRobotoLightStyle}"/>
+                </Grid>
+
+                <DataGrid Margin="5" Grid.Row="1" Grid.Column="2" ItemsSource="{Binding FilteredEntries, NotifyOnSourceUpdated=True}" SelectedItem="{Binding SelectedFilteredEntry, UpdateSourceTrigger=PropertyChanged}" 
+                          MinColumnWidth="100" AutoGenerateColumns="True" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" AllowDrop="True">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="NeedsReview">
+                                    <Setter Property="Background" Value="#FFFFE0B2"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="ManuallyEdited">
+                                    <Setter Property="Background" Value="#FFFFF8E1"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="NewFromSource">
+                                    <Setter Property="Background" Value="#FFE8F5E9"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ReviewState}" Value="SourceChanged">
+                                    <Setter Property="Background" Value="#FFFFE0B2"/>
+                                    <Setter Property="BorderBrush" Value="#FFEF6C00"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="Drop">
+                            <i:InvokeCommandAction Command="{Binding DataGridDrop}" PassEventArgsToCommand="True" />
+                        </i:EventTrigger>
+                        <i:EventTrigger EventName="MouseMove">
+                            <i:InvokeCommandAction Command="{Binding DataGridMouseMove}" PassEventArgsToCommand="True" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </DataGrid>
+
+            </Grid>
+
+            <Expander Grid.Row="5"
+                      Margin="5"
+                      Header="{Binding ActivityLogHeader}"
+                      IsExpanded="False">
+                <Grid MaxHeight="210">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="0,0,0,5">
+                        <TextBlock Text="Neueste Aktivität steht oben."
+                                   VerticalAlignment="Center"
+                                   Foreground="#FF607D8B"
+                                   Margin="0,0,12,0"/>
+                        <Button Content="Protokoll leeren"
+                                Command="{Binding ClearActivityLog}"
+                                IsEnabled="{Binding HasActivityLog}"
+                                Padding="9,3"/>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding ActivityLog}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Zeit"
+                                                Binding="{Binding TimeText}"
+                                                Width="145"/>
+                            <DataGridTextColumn Header="Bereich"
+                                                Binding="{Binding Category}"
+                                                Width="115"/>
+                            <DataGridTextColumn Header="Aktion"
+                                                Binding="{Binding Action}"
+                                                Width="220"/>
+                            <DataGridTextColumn Header="Details"
+                                                Binding="{Binding Details}"
+                                                Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Expander>
+        </Grid>
+
+        <!--Grid for Buttons Load/Save Settings Generate, Export, Save/Load Data-->
+        <Grid Grid.Row="2" Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Settings Buttons  -->
+            <StackPanel Grid.Row="0" Orientation="Vertical">
+                <ux:Button Margin="5,5,5,0" Content="Load Settings" DebounceInterval="150" Command="{Binding LoadSettings}" />
+                <ux:Button Margin="5,0,5,5" Content="Save Settings" DebounceInterval="150" Command="{Binding SaveSettings}" />
+            </StackPanel>
+
+            <!-- Generate & Export  -->
+            <StackPanel Grid.Row="1" Orientation="Vertical">
+                <ux:Button Margin="5,5,5,0" Content="Generate" DebounceInterval="150" Command="{Binding GenerateContainers}" IsEnabled="{Binding CanGenerate}" IsBusy="{Binding IsBusyGenerateContainers}"/>
+                <ux:Button Margin="5,0,5,0" Content="Prüfzusammenfassung" DebounceInterval="150" Command="{Binding ValidateWorkspace}" />
+                <ux:Button Margin="5,0,5,5" Content="Export" DebounceInterval="150" Command="{Binding ExportContainers}" />
+            </StackPanel>
+
+            <!--Load / Save data & unassigend entries-->
+            <StackPanel Grid.Row="2" Orientation="Vertical" VerticalAlignment="Bottom">
+                <ux:Button Margin="5,5,5,0" Content="Save Data" DebounceInterval="150" Command="{Binding SaveData}" />
+                <ux:Button Margin="5,0,5,5" Content="Load Data" DebounceInterval="150" Command="{Binding LoadData}" IsEnabled="{Binding CanLoadData}"/>
+            </StackPanel>
+
+        </Grid>
+
+        <TextBlock Margin="5" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Text="{Binding StatusText}" Style="{StaticResource TextRobotoRegularStyle}"/>
+
+
+
+
+    </Grid>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</UserControl>

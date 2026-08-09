@@ -1,0 +1,75 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="2b721619-cb54-48ec-9c3c-5b6eed0576e6" LogicName="AsciiToUnicode" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System.Text;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           AsciiToUnicode                                                                       //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    27.05.2025       1.0.7          Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE                                              Konvertiert Ascii-Zeichen zu Unicode
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik konvertiert die Ascii-Zeichen am Eingang (InputString) zu Unicode am Ausgang (OutputString).
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    InputString darf nicht "0" oder leer sein!
+//
+//    Input Slot Values
+//    InputString       =   String, Eingang Ascii
+//
+//    Output Slot Values
+//    OutputString      =   String, Ausgabe Unicode
+//
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Konvertierung Ascii to Unicode
+//============================================================================================================
+// K O N V E R T I E R U N G    A S C I I    T O    U N I C O D E
+//============================================================================================================
+
+if(!string.IsNullOrEmpty(InputString))
+{
+    var asciibytes = Encoding.ASCII.GetBytes(InputString);
+    OutputString = Encoding.Unicode.GetString(asciibytes);
+}
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="7" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>InputString</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>OutputString</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

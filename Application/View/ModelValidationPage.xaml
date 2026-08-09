@@ -1,0 +1,748 @@
+﻿<UserControl x:Class="VIBN_Tools.Application.View.ModelValidationPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ux="http://Grob.com/wpf.ux"
+             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             xmlns:g="clr-namespace:VIBN_Tools.GlobalClasses"
+             xmlns:fee="clr-namespace:VIBN_Tools.GlobalClasses.FeeObjects"
+             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
+             xmlns:mv="clr-namespace:VIBN_Tools.ModelValidation"
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
+
+    <UserControl.DataContext>
+        <vm:ModelValidationPageVM/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
+                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+            <g:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+            <g:FloatConverter x:Key="FloatConverter"/>
+
+
+            <Style x:Key="PlausibilityRowStyle" TargetType="DataGridRow">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding HasWarning}" Value="True">
+                        <Setter Property="Background" Value="LightYellow"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding HasError}" Value="True">
+                        <Setter Property="Background" Value="LightCoral"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsAcknowledged}" Value="True">
+                        <Setter Property="Background" Value="LightBlue"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsPlausible}" Value="True">
+                        <Setter Property="Background" Value="LightGreen"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="TextColumnStyle" TargetType="TextBlock">
+                <Setter Property="Margin" Value="5"/>
+            </Style>
+
+            <Style x:Key="CheckboxColumnStyle" TargetType="CheckBox">
+                <Setter Property="Margin" Value="5"/>
+            </Style>
+
+            <Style x:Key="CheckboxReadOnlyStyle" TargetType="CheckBox">
+                <Setter Property="Margin" Value="5"/>
+                <Setter Property="IsEnabled" Value="False"/>
+            </Style>
+
+            <Style x:Key="ComboboxColumnStyle" TargetType="ComboBox">
+                <Setter Property="Margin" Value="5"/>
+            </Style>
+
+            <!-- Issue Symbol Style -->
+            <Style x:Key="PrefixSymbolStyle" TargetType="Run">
+                <!-- Default: Ok -->
+                <Setter Property="Text" Value="✔"/>
+                <Setter Property="Foreground" Value="LimeGreen"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                        <Setter Property="Text" Value="⚠"/>
+                        <Setter Property="Foreground" Value="Goldenrod"/>
+                    </DataTrigger>
+
+                    <DataTrigger Binding="{Binding Severity}" Value="Error">
+                        <Setter Property="Text" Value="❗"/>
+                        <Setter Property="Foreground" Value="Firebrick"/>
+                    </DataTrigger>
+
+                    <DataTrigger Binding="{Binding Severity}" Value="Ok">
+                        <Setter Property="Text" Value="✔"/>
+                        <Setter Property="Foreground" Value="LimeGreen"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+
+            <!--Template for Issue Column-->
+            <DataTemplate x:Key="IssueInlineTemplate" DataType="{x:Type mv:PlausibilityIssue}">
+                <TextBlock Margin="5,2.5,10,-12.5" VerticalAlignment="Center">                    
+                    <!--Build Text-->
+                    <Run Style="{StaticResource PrefixSymbolStyle}"/>
+                    <Run Text=" "/>
+                    <Run Text="{Binding Message}" Foreground="Black"/>
+                    <LineBreak/>
+                </TextBlock>
+            </DataTemplate>
+
+
+            <!--Template for Acknowledge Button-->
+            <DataTemplate x:Key="AcknowledgeButtonTemplate">
+                <Button Margin="5" VerticalAlignment="Top" Content=" ✓ " Command="{Binding DataContext.AcknowledgeObject, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                        CommandParameter="{Binding}" PreviewMouseDown="AcknowledgeButton_PreviewMouseDown"/>
+            </DataTemplate>
+
+            <!--Template for AllObjects-->
+            <DataTemplate x:Key="AllObjectsGroupTemplate">
+                <ListBox ItemsSource="{Binding DataContext.ValidationGroups, RelativeSource={RelativeSource AncestorType=TabControl}}" BorderThickness="0" Background="Transparent"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"  SelectionMode="Single"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Focusable" Value="False"/>
+                            <Setter Property="IsTabStop" Value="False"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Expander Header="{Binding GroupName}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}" PreviewMouseWheel="BubbleMouseWheelToScrollViewer" 
+                                      Visibility="{Binding HasItems, Converter={StaticResource BoolToVisibility}}">                                
+
+                                <DataGrid ItemsSource="{Binding ItemsView}" Margin="25,5,5,5" AutoGenerateColumns="False" CanUserAddRows="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" 
+                                          ColumnWidth="SizeToCells" HeadersVisibility="Column" HorizontalAlignment="Stretch" RowStyle="{StaticResource PlausibilityRowStyle}" PreviewMouseWheel="BubbleMouseWheelToScrollViewer"
+                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" EnableRowVirtualization="True" EnableColumnVirtualization="True">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="{Binding DataContext.NameColumnWidth, RelativeSource={RelativeSource AncestorType=TabControl}}" MinWidth="200"/>
+                                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" MinWidth="300" IsReadOnly="True"/>
+
+
+                                        <DataGridTemplateColumn Header="Issues" Width="{Binding DataContext.IssueColumnWidth, RelativeSource={RelativeSource AncestorType=TabControl}}" MinWidth="500">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock TextWrapping="Wrap">
+                                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Vertical"/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                        </ItemsControl>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+
+                            </Expander>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DataTemplate>
+            <!--Template for Marks-->
+            <DataTemplate x:Key="MarksGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Type" Binding="{Binding FeeType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Parent" MinWidth="150" Binding="{Binding Parent.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Marks" MinWidth="100" Binding="{Binding MarksString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Pick Marks" MinWidth="100" Binding="{Binding PickMarksString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Drop Marks" MinWidth="100" Binding="{Binding DropMarksString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Buttons-->
+            <DataTemplate x:Key="ButtonGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" IsReadOnly="True" ElementStyle="{StaticResource TextColumnStyle}"/>
+
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridComboBoxColumn Header="ButtonType" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding ButtonType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:ButtonTypeEnumValues.All}" />
+                        <DataGridTextColumn Header="LatchingTime" ElementStyle="{StaticResource TextColumnStyle}" Binding="{Binding LatchingTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Conveyors-->
+            <DataTemplate x:Key="ConveyorGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTextColumn Header="Static Friction" Binding="{Binding StaticFriction}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Kinetic Friction" Binding="{Binding KineticFriction}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridCheckBoxColumn Header="Manual Mode Active" Binding="{Binding ManualModeActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for DetectionFlags-->
+            <DataTemplate x:Key="DetectionFlagGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Is Workpiece" ElementStyle="{StaticResource CheckboxReadOnlyStyle}" Binding="{Binding IsWorkpiece, Mode=OneWay}" />
+                        <DataGridTextColumn Header="Marks" Binding="{Binding MarksString}" ElementStyle="{StaticResource TextColumnStyle}"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Inserters-->
+            <DataTemplate x:Key="InserterGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+
+                        <DataGridCheckBoxColumn Header="Use Index Slot" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding UseIndexInsertSlot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Use DropArea Blocked Slot" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding UseDropAreaBlockedSlot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Insertion Enabled" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding IsInsertionEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridComboBoxColumn Header="Trigger Source" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding TriggerSource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:TriggerSources.All}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Interfaces-->
+            <DataTemplate x:Key="InterfaceGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+
+                        <DataGridTextColumn Header="Type" Binding="{Binding ProviderName}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="IP-Address" Binding="{Binding IpAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Port" Binding="{Binding Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Signals" Binding="{Binding Signals.Count}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Joints-->
+            <DataTemplate x:Key="JointGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridComboBoxColumn Header="Joint Type" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding JointType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:JointTypeEnumValues.All}"/>
+                        <DataGridComboBoxColumn Header="Control Source" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding ControlType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:MotionSourceEnumValues.All}"/>
+                        <DataGridCheckBoxColumn Header="Use Limits" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding UseLimits, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Use Limit Indication" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding UseLimitIndication, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Manual Mode Active" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding ManualModeActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Labels-->
+            <DataTemplate x:Key="LabelGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Text Scale" Binding="{Binding TextScale}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Text Offset" Binding="{Binding TextPosition}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True" />
+                        <DataGridCheckBoxColumn Header="Use Slot" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding EnableSlot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Enable FaceCamera" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding EnableFaceCamera, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Logics-->
+            <DataTemplate x:Key="LogicGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CheckboxColumnStyle}" />
+
+                        <DataGridTextColumn Header="Logic Name" Binding="{Binding LogicDefinitionName}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Version" Binding="{Binding LogicDefinitionVersion}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Logic Enabled" Binding="{Binding IsEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CheckboxColumnStyle}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Pick & Placers-->
+            <DataTemplate x:Key="PickPlaceGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTextColumn Header="Pick Marks" Binding="{Binding PickMarksString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Drop Marks" Binding="{Binding DropMarksString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Pick Range" Binding="{Binding PickRange}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Drop Range" Binding="{Binding DropRange}" ElementStyle="{StaticResource TextColumnStyle}"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Reading-/Writing-Unit-->
+            <DataTemplate x:Key="ReadWriteGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridCheckBoxColumn Header="Detect Mark" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Mark to Detect" ElementStyle="{StaticResource TextColumnStyle}" Binding="{Binding MarkToDetect, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="UDT-Definition" ElementStyle="{StaticResource TextColumnStyle}" Binding="{Binding UdtDefinitionString}" IsReadOnly="True"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Removers-->
+            <DataTemplate x:Key="RemoverGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridCheckBoxColumn Header="Detect Payload" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectPayload, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect DetectionFlag" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectDetectionFlag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Bumper" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectBumper, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Tag" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectTag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Mark" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Mark to Detect" ElementStyle="{StaticResource TextColumnStyle}" Binding="{Binding MarkToDetect, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridCheckBoxColumn Header="ActivationSlot Enabled" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding IsActivationSlotEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Reparenters-->
+            <DataTemplate x:Key="ReparenterGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTextColumn Header="Range" Binding="{Binding ReparentRange, Mode=TwoWay, Converter={StaticResource FloatConverter}}" ElementStyle="{StaticResource TextColumnStyle}" />
+                        <DataGridTextColumn Header="ChildrenMark" Binding="{Binding ChildrenMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" />
+                        <DataGridTextColumn Header="ParentMark" Binding="{Binding ParentMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" />
+                        <DataGridComboBoxColumn Header="Mode" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding ReparentMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:ReparentModesEnumValues.All}"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Sensors-->
+            <DataTemplate x:Key="SensorGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridCheckBoxColumn Header="Detect Payload" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectPayload, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect DetectionFlag" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectDetectionFlag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Bumper" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectBumper, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Tag" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectTag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridCheckBoxColumn Header="Detect Mark" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding DetectMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Mark to Detect" ElementStyle="{StaticResource TextColumnStyle}" Binding="{Binding MarkToDetect, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridComboBoxColumn Header="Sensor Type" ElementStyle="{StaticResource ComboboxColumnStyle}" SelectedItemBinding="{Binding SensorType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static fee:SensorTypeEnumValues.All}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Signals-->
+            <DataTemplate x:Key="SignalGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Tag" Binding="{Binding Tag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Path" Binding="{Binding Path, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Type" Binding="{Binding IOTypeString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Usage" Binding="{Binding UsageString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="References" Binding="{Binding References, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+
+                        <DataGridTextColumn Header="Interface" Binding="{Binding ParentInterface.Name}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+            <!--Template for Stoppers-->
+            <DataTemplate x:Key="StopperGroupTemplate">
+                <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding ItemsView}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" RowStyle="{StaticResource PlausibilityRowStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource TextColumnStyle}"/>
+                        <DataGridTextColumn Header="Guid" Binding="{Binding Guid}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Position" Binding="{Binding Position}" ElementStyle="{StaticResource TextColumnStyle}" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="Visible" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridCheckBoxColumn Header="Use Collision Slot" ElementStyle="{StaticResource CheckboxColumnStyle}" Binding="{Binding UseCollisionSlot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <DataGridTemplateColumn Header="Issues" IsReadOnly="True" SortMemberPath="IssueSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap">
+                                        <ItemsControl ItemsSource="{Binding PlausibilityIssues}" ItemTemplate="{StaticResource IssueInlineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Vertical"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Acknowledge" CellTemplate="{StaticResource AcknowledgeButtonTemplate}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DataTemplate>
+
+            <!--Template Selector-->
+            <mv:ValidationItemsTemplateSelector x:Key="ItemsTemplateSelector"
+                AllObjectsTemplate="{StaticResource AllObjectsGroupTemplate}"
+                MarksTemplate="{StaticResource MarksGroupTemplate}"
+                ButtonsTemplate="{StaticResource ButtonGroupTemplate}"
+                ConveyorsTemplate="{StaticResource ConveyorGroupTemplate}"
+                DetectionsFlagsTemplate="{StaticResource DetectionFlagGroupTemplate}"
+                InsertersTemplate="{StaticResource InserterGroupTemplate}"
+                InterfacesTemplate="{StaticResource InterfaceGroupTemplate}"
+                JointsTemplate="{StaticResource JointGroupTemplate}"
+                LabelsTemplate="{StaticResource LabelGroupTemplate}"
+                LogicsTemplate="{StaticResource LogicGroupTemplate}"
+                PickAndPlacersTemplate="{StaticResource PickPlaceGroupTemplate}"
+                ReadingWritingUnitsTemplate="{StaticResource ReadWriteGroupTemplate}"
+                RemoversTemplate="{StaticResource RemoverGroupTemplate}"
+                ReparentersTemplate="{StaticResource ReparenterGroupTemplate}"
+                SensorsTemplate="{StaticResource SensorGroupTemplate}"
+                SignalsTemplate="{StaticResource SignalGroupTemplate}"
+                StoppersTemplate="{StaticResource StopperGroupTemplate}"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <ux:Button Grid.Column="0" Margin="5" Content="Update Objects" Command="{Binding UpdateFeeObjectData}" IsBusy="{Binding IsBusyUpdatingFeeData}"/>
+            <ux:Button Grid.Column="3" Margin="50,5,5,5" ux:Icon.Kind="Minimize" Command="{Binding CollapseAll}"/>
+            <ux:Button Grid.Column="4" Margin="5" ux:Icon.Kind="Maximize" Command="{Binding ExpandAll}"/>
+            <TextBlock Grid.Column="5" Margin="50,5,5,5" Text="Filter:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
+            <ux:TextBox Grid.Column="6" Margin="5" Width="350" Text="{Binding DataContext.FilterText, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+        </Grid>
+
+
+        <TabControl Grid.Row="1" Margin="5" ItemsSource="{Binding ValidationGroups}" SelectedItem="{Binding SelectedTab, Mode=TwoWay}" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem" BasedOn="{StaticResource InplaceTabItemSmallStyle}">
+                    <Setter Property="Header" Value="{Binding GroupName}" />
+                </Style>
+            </TabControl.ItemContainerStyle>
+
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <ContentPresenter Content="{Binding}" ContentTemplateSelector="{StaticResource ItemsTemplateSelector}" HorizontalAlignment="Left"/>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </Grid>
+</UserControl>

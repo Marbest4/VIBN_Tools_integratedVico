@@ -1,0 +1,122 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="878b2426-e93d-4300-97fc-682c53a14145" LogicName="KalteSchnittstelleBand" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Kalte Schnittstelle Bänder                                                                       //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+
+//    05.09.2025       1.0.1         FG               Urversion
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE                                              Kalte Schnittstelle Bänder
+//
+//============================================================================================================
+//
+//    Beschreibung:
+//    Schnittstelle von Band zu Band über Steuerungsgrenzen hinaus mit Hilfe von zwei Lichtschranken
+//  
+//============================================================================================================
+
+//====================================================================================
+// S I M - C O N V E Y O R   I S   S O U R C E
+//====================================================================================
+
+// Switch on SIM conveyor
+if (PLC_OUT_enableToTransport &amp;&amp; SIM_materialInSourcePresent)
+{
+    SIM_switchOnConvSource = true;
+}
+
+if (PLC_OUT_enableToTransport)
+{
+    SIM_switchOnConvSource = false;
+}
+
+
+// Input "is transporting"
+PLC_IN_IsTransporting = SIM_switchOnConvSource;
+
+
+//====================================================================================
+// S I M - C O N V E Y O R   I S   D E S T I N A T I O N
+//====================================================================================
+
+// Switch on SIM conveyor
+if (PLC_OUT_IsTransporting)
+{
+    SIM_switchOnConvDestination = true;
+}
+
+if (SIM_materialInDestinationPresent)
+{
+    SIM_switchOnConvSource = false;
+}
+
+
+// Input "enable to transport"
+PLC_IN_enableToTransport = !SIM_materialInDestinationPresent;
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_enableToTransport</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_IsTransporting</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_materialInSourcePresent</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_materialInDestinationPresent</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_enableToTransport</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_IsTransporting</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_switchOnConvSource</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_switchOnConvDestination</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

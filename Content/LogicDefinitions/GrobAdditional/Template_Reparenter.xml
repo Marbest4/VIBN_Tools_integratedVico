@@ -1,0 +1,132 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="d9ee0152-f6bd-4399-a7f6-74bccb15669c" LogicName="Template_Reparenter" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+using FS.SDK.Components;
+using FS.SDK.Util;
+using FS.SDK.Utilities;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Template_Reparenter                                                                  //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    22.05.2025       1.20.1         Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              x              Greif            Gruppiert das Child unter das Parent ein
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik gruppiert ein oder mehrere DetectionFlags im Sensorbereich vom Child zum neuen Parent um.
+//    Über den Eingang (SIM_Trigger=1) wird die Logik aktiviert. 
+//    Das Mark der untergeordnete Objekte wird mit (PAR_ChildrenMark) verglichen und bei Übereinstimmung,
+//    unter das Objekt mit dem Mark (PAR_ParentMark) eingruppiert.
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Sensor wird zwingend als Parent der Logik benötigt!
+//    PAR_ChildrenMark und PAR_ParentMark dürfen nicht "0" oder leer sein!
+//
+//    Input Slot Values
+//    PAR_ChildrenMark      =   String, Mark des Children   
+//    PAR_ParentMark        =   String, Mark des Parent
+//    SIM_Trigger           =   Bool, zum Aktivieren der Logik
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N    P R U E F E N
+//============================================================================================================
+
+// Prüfung auf Mark vorhanden
+if (String.IsNullOrEmpty(PAR_ChildrenMark)) { return; }
+if (String.IsNullOrEmpty(PAR_ParentMark)) { return; }
+
+#endregion
+
+#region CollisionList auslesen
+//============================================================================================================
+// C O L L I S I O N L I S T    A U S L E S E N
+//============================================================================================================
+
+// Auf Parent-SceneObject zugreifern (=Sensor) und die CollisionList auslesen. Hier werden alle detektierten Objekte aufgeführt
+var sensor = SceneObject.Parent;
+var collision = sensor.GetComponent&lt;ColliderComponent&gt;();
+var listcol = collision.CollisionList;
+
+#endregion
+
+#region Objekte reparenten
+//============================================================================================================
+// O B J E K T E    R E P A R E N T E N
+//============================================================================================================
+
+// Objekte im Sensorbereich gefunden
+if (listcol.Any())
+{
+    // Children- und Parent-Objekte identifizieren 
+    var children = listcol.Where(x =&gt; x.MarkComponent.Mark== PAR_ChildrenMark);
+    var parents = listcol.Where(x =&gt; x.MarkComponent.Mark == PAR_ParentMark);
+
+    if (SIM_Trigger &amp;&amp; !stateTrigger)
+    {
+        // Gefundene Children durchlaufen und an erstes Parent reparenten
+        foreach (var el in children)
+        {
+            if(el != null &amp;&amp; parents.FirstOrDefault() != null)
+            {
+                el.ReparentForceKeepWorldPosition(parents.FirstOrDefault());
+            }
+        }
+    }
+}
+stateTrigger = SIM_Trigger;
+
+#endregion</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="20" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PAR_ChildrenMark</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ParentMark</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots />
+	<LocalSlots>
+		<LogicSlot>
+			<Name>stateTrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

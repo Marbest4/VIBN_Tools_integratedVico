@@ -1,0 +1,432 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="a2a3c1cf-66fe-4cf6-b768-6f9fc993790b" LogicName="Kurvenscheibe" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Kurvenscheibe                                                                        //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    03.06.2025       1.6.1          Greif            Header integriert
+//    17.06.2025       1.8.0          Greif            Slot Namen angepasst
+//    17.06.2025       1.8.4          Greif            Abbruchbedingungen und Fehlermeldetext integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Greif            Umwandeln einer translatorische in eine rotoatorische Bewegung
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik wandelt eine translatorische in eine rotatorische Bewegung um.
+//    Dabei wird die aktuelle Position vom Motion Joint an den Eingang (SIM_OUT_MasterAxis_ActValue) angelegt.
+//    Die Positionen der translatorischen Achse werden an (PAR_Master_PosXX) und die der rotatorischen Achse
+//    an (PAR_VirtAxis01_PosXX) parametriert. Je nachdem für welche virtuelle Achse Positionen hinterlegt sind,
+//    wird die Distanz zur Zielposition am Ausgang (SIM_IN_VirtAxis1_TargetPos) ausgegeben.
+//    Es werden mindestens zwei Positionspaare (PAR_NumberOfPosPairs) benötigt.
+//
+//============================================================================================================
+//
+//    Voraussetzung/Benutzte Slots:
+//
+//    Input Slot Values
+//    PAR_NumberOfPosPairs          =   Int, Anzahl der parametrierten Positionspaare
+//    SIM_OUT_MasterAxis_ActValue   =   Real, akutelle Position der Masterachse
+//    PAR_Master_PosXX              =   Real, Positon Master
+//    PAR_VirtAxis01_PosXX          =   Real, Position X virtuelle Achse 1
+//    PAR_VirtAxis02_PosXX          =   Real, Position X virtuelle Achse 2
+//
+//    Output Slot Values
+//    SIM_IN_VirtAxis1_TargetPos    =   Real, Zielposition virtuelle Achse 1
+//    SIM_IN_VirtAxis2_TargetPos    =   Real, Zielposition virtuelle Achse 2
+//    OUT_ErrorMessage              =   String, Fehlermeldetext
+//    
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N    P R U E F E N
+//============================================================================================================
+
+// Fehlermeldung initialisieren
+OUT_ErrorMessage = "";
+
+// Fehlermeldung Positionspaare
+if(PAR_NumberOfPosPairs &lt;= 1 || PAR_NumberOfPosPairs &gt; 10)
+{ 
+    OUT_ErrorMessage = "Im aktuellen Stand können nur Positionspaare von 2 - 10 verwaltet werden";
+    return;
+}
+
+// Grenzen ermitteln
+double[] posMaster = { PAR_Master_Pos01, PAR_Master_Pos02, PAR_Master_Pos03, PAR_Master_Pos04, PAR_Master_Pos05, PAR_Master_Pos06, PAR_Master_Pos07, PAR_Master_Pos08, PAR_Master_Pos09, PAR_Master_Pos10 };
+
+// Fehlermelung Grenzwerte Master Achse
+if((SIM_OUT_MasterAxis_ActValue &gt; posMaster.Max()) || (SIM_OUT_MasterAxis_ActValue &lt; posMaster.Min()))
+{ 
+    OUT_ErrorMessage = "SIM_OUT_MasterAxis_ActValue ist ausßerhalb der Grenzwerte von PAR_Master_PosXX";
+    return;
+}
+
+#endregion
+
+#region Zielposition schreiben
+//============================================================================================================
+// Z I E L P O S I T I O N   S C H R E I B E N
+//============================================================================================================
+
+// Lineare Verknüpfung mit 2 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 1)
+{
+    // Achse befindet sich zwischen Positionspaar 1 und 2
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos01 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos02)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos02 - PAR_VirtAxis01_Pos01) / (PAR_Master_Pos02 - PAR_Master_Pos01)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos02)) + PAR_VirtAxis01_Pos02;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos02 - PAR_VirtAxis02_Pos01) / (PAR_Master_Pos02 - PAR_Master_Pos01)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos02)) + PAR_VirtAxis02_Pos02;        
+    }
+}
+
+// Mindestens 3 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 2)
+{
+    // Achse befindet sich zwischen Positionspaar 2 und 3
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos02 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos03)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos03 - PAR_VirtAxis01_Pos02) / (PAR_Master_Pos03 - PAR_Master_Pos02)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos03)) + PAR_VirtAxis01_Pos03;        
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos03 - PAR_VirtAxis02_Pos02) / (PAR_Master_Pos03 - PAR_Master_Pos02)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos03)) + PAR_VirtAxis02_Pos03;
+    }
+}
+
+// Mindestens 4 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 3)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos03 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos04)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos04 - PAR_VirtAxis01_Pos03) / (PAR_Master_Pos04 - PAR_Master_Pos03)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos04)) + PAR_VirtAxis01_Pos04;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos04 - PAR_VirtAxis02_Pos03) / (PAR_Master_Pos04 - PAR_Master_Pos03)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos04)) + PAR_VirtAxis02_Pos04;        
+    }
+}
+
+// Mindestens 5 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 4)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos04 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos05)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos05 - PAR_VirtAxis01_Pos04) / (PAR_Master_Pos05 - PAR_Master_Pos04)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos05)) + PAR_VirtAxis01_Pos05;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos05 - PAR_VirtAxis02_Pos04) / (PAR_Master_Pos05 - PAR_Master_Pos04)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos05)) + PAR_VirtAxis02_Pos05;        
+    }
+}
+
+// Mindestens 6 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 5)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos05 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos06)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos06 - PAR_VirtAxis01_Pos05) / (PAR_Master_Pos06 - PAR_Master_Pos05)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos06)) + PAR_VirtAxis01_Pos06;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos06 - PAR_VirtAxis02_Pos05) / (PAR_Master_Pos06 - PAR_Master_Pos05)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos06)) + PAR_VirtAxis02_Pos06;        
+    }
+}
+
+// Mindestens 7 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 6)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos06 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos07)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos07 - PAR_VirtAxis01_Pos06) / (PAR_Master_Pos07 - PAR_Master_Pos06)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos07)) + PAR_VirtAxis01_Pos07;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos07 - PAR_VirtAxis02_Pos06) / (PAR_Master_Pos07 - PAR_Master_Pos06)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos07)) + PAR_VirtAxis02_Pos07;        
+    }
+}
+
+// Mindestens 8 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 7)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos07 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos08)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos08 - PAR_VirtAxis01_Pos07) / (PAR_Master_Pos08 - PAR_Master_Pos07)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos08)) + PAR_VirtAxis01_Pos08;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos08 - PAR_VirtAxis02_Pos07) / (PAR_Master_Pos08 - PAR_Master_Pos07)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos08)) + PAR_VirtAxis02_Pos08;        
+    }
+}
+
+// Mindestens 9 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 8)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos08 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos09)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos09 - PAR_VirtAxis01_Pos08) / (PAR_Master_Pos09 - PAR_Master_Pos08)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos09)) + PAR_VirtAxis01_Pos09;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos09 - PAR_VirtAxis02_Pos08) / (PAR_Master_Pos09 - PAR_Master_Pos08)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos09)) + PAR_VirtAxis02_Pos09;        
+    }
+}
+
+// Mindestens 10 Positionspaare
+if(PAR_NumberOfPosPairs &gt; 9)
+{
+    // Achse befindet sich zwischen Positionspaar 3 und 4
+    if(SIM_OUT_MasterAxis_ActValue &gt;= PAR_Master_Pos09 &amp;&amp; SIM_OUT_MasterAxis_ActValue &lt;= PAR_Master_Pos10)
+    {
+        SIM_IN_VirtAxis1_TargetPos = (((PAR_VirtAxis01_Pos10 - PAR_VirtAxis01_Pos09) / (PAR_Master_Pos10 - PAR_Master_Pos09)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos10)) + PAR_VirtAxis01_Pos10;
+        SIM_IN_VirtAxis2_TargetPos = (((PAR_VirtAxis02_Pos10 - PAR_VirtAxis02_Pos09) / (PAR_Master_Pos10 - PAR_Master_Pos09)) * 
+                                        (SIM_OUT_MasterAxis_ActValue - PAR_Master_Pos10)) + PAR_VirtAxis02_Pos10;        
+    }
+}
+
+#endregion
+
+
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="8" Patch="4" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PAR_NumberOfPosPairs</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_OUT_MasterAxis_ActValue</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos01</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos01</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos01</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos02</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos02</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos02</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos03</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos03</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos03</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos04</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos04</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos04</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos05</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos05</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos05</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos06</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos06</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos06</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos07</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos07</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos07</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos08</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos08</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos08</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos09</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos09</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos09</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Master_Pos10</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis01_Pos10</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_VirtAxis02_Pos10</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_IN_VirtAxis1_TargetPos</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_IN_VirtAxis2_TargetPos</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>OUT_ErrorMessage</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots />
+</LogicDefinition>

@@ -1,0 +1,71 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<!-- Define the complex types separately -->
+	<xs:complexType name="FilterType">
+		<xs:sequence>
+			<xs:element name="Key" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	
+	<xs:complexType name="KeyType">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="keep" type="xs:boolean" use="required"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+	<xs:complexType name="KeySetType">
+		<xs:sequence>
+			<xs:element name="Key" type="KeyType" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="name" type="xs:string" use="optional"/>
+	</xs:complexType>
+
+	<xs:complexType name="KeygroupType">
+		<xs:sequence>
+			<xs:element name="KeySet" type="KeySetType" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="type" type="xs:string" use="required"/>
+		<xs:attribute name="operator" type="xs:string" use="optional"/>
+	</xs:complexType>
+
+	<xs:complexType name="SlotType">
+		<xs:sequence>
+			<xs:element name="Keygroup" type="KeygroupType" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="name" type="xs:string" use="required"/>
+	</xs:complexType>
+
+	<xs:complexType name="ComponentType">
+		<xs:sequence>
+			<xs:element name="Keygroup" type="KeygroupType" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="Slots">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Slot" type="SlotType" maxOccurs="unbounded"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="name" type="xs:string" use="required"/>
+		<xs:attribute name="type" type="xs:string" use="required"/>
+		<xs:attribute name="minSignals" type="xs:int" use="optional"/>
+		<xs:attribute name="maxSignals" type="xs:int" use="optional"/>
+	</xs:complexType>
+
+	<!-- Define the root element and reference the complex types -->
+	<xs:element name="AutoCreate">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Components">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Component" type="ComponentType" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="FilterList"  type="FilterType" maxOccurs="unbounded" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

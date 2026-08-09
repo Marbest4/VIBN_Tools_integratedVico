@@ -1,0 +1,622 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="ea437633-9435-411e-bc1c-77b73c3f5ace" LogicName="DMC_WT-Helper" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+#load "reference"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           DMC_WT-Helper                                                                        //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    06.06.2025       1.11.0         Greif            Header integriert
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE                                              WT-Nummer generieren (Aufsteigend +1)
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik generiert eine Palettennummer zwischen ihren Grenzwerten, welche mit einem Prefix oder Sufix
+//    angepasst werden kann. Es wird eine WT-Nummer (SIM_WritingUnit_DMC_WT) generiert, diese wird innerhalb
+//    der Grenzwerte (PAR_NumberMin und PAR_NumberMax) immer um 1 erhöht. Die Nummer kann mit vorangestellten
+//    (PAR_Prefix) oder nachgestellten (PAR_Suffix), Zeichen oder Zahlen angepasst werden.
+//    Wenn die WT-Nummer  zurückgesetzt (PAR_CounterReset=1) wird, startet die neue Nummer wieder beim 
+//    minimalen Grenzwert.
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    SIM_ReadingUnit_IsDetecting   =   Bool, Leseeinheit erkennt Daten
+//    SIM_ReadingUnit_DMC_WT        =   String, Leseeinheit WT Daten
+//    SIM_WritingUnit_IsDetecting   =   Bool, Schreibeinheit erkennt Daten
+//    SIM_WritingUnit_WriteOk       =   Bool, Schreibeinheit schreiben Ok
+//    PAR_Init_Value                =   String, Initialisierungs-Wert
+//    PAR_NumberMin                 =   String, unterer Grenzwert
+//    PAR_NumberMax                 =   String, oberer Grenzwert
+//    PAR_Prefix                    =   String, Prefix (vorangestellt)
+//    PAR_Suffix                    =   String, Suffix (nachgestellt)
+//    PAR_ActivateSuffix            =   Bool, aktiviere Suffix
+//    PAR_CounterReset              =   Bool, Zurücksetzen des Zählers
+//
+//    Output Slot Values
+//    SIM_ReadingUnit_DoRead        =   Bool, Lesen aktivieren
+//    SIM_WritingUnit_DoWrite       =   Bool, Schreiben aktivieren
+//    SIM_WritingUnit_DMC_WT        =   String, WT Daten 
+//    SIM_WritingUnit_WriteDone     =   Bool, Daten wurden geschrieben
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#region Abbruchbedingungen prüfen
+//============================================================================================================
+// A B B R U C H B E D I N G U N G E N   P R U E F E N
+//============================================================================================================
+
+// Lesen wenn Tag erkannt
+SIM_ReadingUnit_DoRead = SIM_ReadingUnit_IsDetecting;
+
+if(String.IsNullOrEmpty(SIM_ReadingUnit_DMC_WT) || (String.IsNullOrEmpty(PAR_Init_Value)) )
+{
+    return;
+}
+
+if(String.IsNullOrEmpty(PAR_Prefix))
+{
+    return;
+}
+
+#endregion
+
+// kontrollieren ob Suffix beschrieben wurde
+noSuffix = String.IsNullOrEmpty(PAR_Suffix);
+
+#region Zähler setzen
+//============================================================================================================
+// Z Ä H L E R    S E T Z E N
+//============================================================================================================
+
+//Zur Kontrolle NumberMax ausgeben
+numberMaxOut = PAR_NumberMax;
+
+// Zähler zurücksetzen
+if (iNumber &gt; PAR_NumberMax || iNumber &lt; PAR_NumberMin || PAR_CounterReset)
+{
+    iNumber = Convert.ToInt32(PAR_NumberMin - 1);
+    
+}
+
+#endregion
+
+#region Trigger setzen
+//============================================================================================================
+// T R I G G E R    S E T Z E N
+//============================================================================================================
+
+trigger = SIM_WritingUnit_IsDetecting &amp;&amp; SIM_ReadingUnit_DMC_WT == PAR_Init_Value;   
+
+// Trigger hochzählen
+if (trigger &amp;&amp; !trigger_Helper)
+{
+    // Gesamtzähler hochzählen
+    iNumber++;
+    // ungerade Zahl hochzählen
+    if (iNumber % 2 == 1) { iNumberWithOffset++; }
+    // gerade Zahl hochzählen
+    if (iNumber % 2 == 0) { iNumberNoOffset++; }
+}
+
+// Trigger Flanke aktualisieren
+trigger_Helper = trigger;
+
+#endregion
+
+#region Ausgänge setzen
+//============================================================================================================
+// A U S G Ä N G E    S E T Z E N
+//============================================================================================================
+
+// Anhand der Länge werden die 0-Stellen ermittelt und entsprechend ausgegeben
+char pad = '0';
+int NumberLength = Convert.ToInt32(Convert.ToString(PAR_NumberMax).Length);
+iNumberTemp = iNumber;
+string Pad0 = Convert.ToString(iNumberTemp);
+
+Pad0 = Pad0.PadLeft(NumberLength, pad);
+
+output = PAR_Prefix + Pad0 ;
+
+//// Ausgabe Einerstellen 00x
+//if (_iNumberTemp &lt; 10)
+//{
+//    _Output = PARA_Prefix + 0 + 0 + (_iNumberTemp);
+//}
+//// Ausgabe Zehnerstellen 0xx
+//else if (_iNumberTemp &gt;= 10 &amp;&amp; _iNumberTemp &lt; 100)
+//{
+//    _Output = PARA_Prefix + 0 + (_iNumberTemp);
+//}
+//// Ausgabe Hunderterstellen xxx
+//else if (_iNumberTemp &gt;= 100)
+//{
+//    _Output = PARA_Prefix + (_iNumberTemp);
+//}
+
+//Schreiben nur wenn Tag noch nicht bereits beschrieben
+if (SIM_WritingUnit_IsDetecting &amp;&amp; SIM_ReadingUnit_DMC_WT == PAR_Init_Value)
+{
+
+    if (!noSuffix &amp;&amp; PAR_ActivateSuffix)
+    {
+        SIM_WritingUnit_DMC_WT = output + PAR_Suffix;
+    }
+    else 
+    {
+        SIM_WritingUnit_DMC_WT = output;
+    }
+    
+   SIM_WritingUnit_DoWrite = true;
+
+}
+
+// Wurde geschrieben oder Tag entfernt, Writing zurücksetzen
+else if (!SIM_WritingUnit_IsDetecting || SIM_WritingUnit_WriteOk)
+{
+    //SIM_WritingUnit_DMC_WT = "";
+    SIM_WritingUnit_DoWrite = false;
+}
+
+// Speichern der Fertigmeldung des Schreibens
+if ( SIM_WritingUnit_WriteOk)
+    {
+    SIM_WritingUnit_WriteDone = true;
+    }
+else if (!SIM_WritingUnit_IsDetecting || SIM_ReadingUnit_DMC_WT == PAR_Init_Value)
+    {
+    SIM_WritingUnit_WriteDone = false;
+    }
+    
+#endregion</ScriptText>
+	<HmiDefinition>
+		<XtraSerializer version="24.1.6.0">
+			<Items>
+				<Item1 ItemKind="DiagramRoot" CanvasSizeMode="Fill" ShowPageBreaks="false" SelectedStencils="feeHmi">
+					<Children>
+						<Item1 Position="100,180" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplay_iNumber" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>_iNumber</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item1>
+						<Item2 Position="100,150" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplay_NumberMaxOut" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>_NumberMaxOut</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item2>
+						<Item3 Position="350,176" Size="450,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplay_SIM_WritingUnit_DMC_WT" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>SIM_WritingUnit_DMC_WT</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item3>
+						<Item4 Position="0,150" Size="100,20" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="_NumberMaxOut" WidgetName="LabelWidget_24" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item4>
+						<Item5 Position="350,150" Size="175,20" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="SIM_WritingUnit_DMC_WT" WidgetName="LabelWidget_26" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item5>
+						<Item6 Position="0,50" Size="320,46" VerticalContentAlignment="Center" FontSize="30" TextDecorations="None" StrokeThickness="0" ForegroundId="Accent1_4" ItemKind="LabelWidget" Text="DMC_WT-Helper" WidgetName="LabelWidget_27" WidgetBackground="#00FFFFFF" WidgetForeground="#FF44749F">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item6>
+						<Item7 Position="-250,100" Size="130,46" VerticalContentAlignment="Center" FontSize="18" TextDecorations="Underline" StrokeThickness="0" ItemKind="LabelWidget" Text="Input Signals" WidgetName="LabelWidget_42" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item7>
+						<Item8 Position="350,100" Size="220,46" VerticalContentAlignment="Center" FontSize="18" TextDecorations="Underline" StrokeThickness="0" ItemKind="LabelWidget" Text="Output Signals" WidgetName="LabelWidget_42_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item8>
+						<Item9 Position="0,100" Size="160,46" VerticalContentAlignment="Center" FontSize="18" TextDecorations="Underline" StrokeThickness="0" ItemKind="LabelWidget" Text="Local Variables" WidgetName="LabelWidget_42_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item9>
+						<Item10 Position="350,206" Size="20,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="BoolDisplayWidget" UseInverted="false" WidgetName="BoolDisplayWidget_46" WidgetBackground="#FFFFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>SIM_WritingUnit_WriteDone</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item10>
+						<Item11 Position="390,203" Size="165,26" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="SIM_WritingUnit_WriteDone" WidgetName="LabelWidget_47" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item11>
+						<Item12 Position="-250,150" Size="100,20" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="PARA_Init_Value" WidgetName="LabelWidget_48" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item12>
+						<Item13 Position="-140,150" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_49" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>ValueChanged</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression></Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>PARA_Init_Value</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item13>
+						<Item14 Position="-140,180" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_49_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>ValueChanged</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression></Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>PARA_Prefix</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item14>
+						<Item15 Position="0,180" Size="100,20" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="_iNumber" WidgetName="LabelWidget_24_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item15>
+						<Item16 Position="-250,180" Size="100,20" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="PARA_Prefix" WidgetName="LabelWidget_48_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item16>
+						<Item17 Position="-250,210" Size="100,NaN" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="PARA_Suffix" WidgetName="LabelWidget_48_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item17>
+						<Item18 Position="-250,240" Size="110,NaN" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="PARA_NumberMin" WidgetName="LabelWidget_48_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item18>
+						<Item19 Position="-140,208" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_49_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>ValueChanged</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression></Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>PARA_Suffix</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item19>
+						<Item20 Position="-140,238" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_49_1_2" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>ValueChanged</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression></Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>PARA_NumberMin</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item20>
+						<Item21 Position="-250,270" Size="110,NaN" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="PARA_NumberMax" WidgetName="LabelWidget_48_1_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item21>
+						<Item22 Position="-140,268" Size="80,20" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplayWidget_49_1_2_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents>
+									<WidgetEvent>
+										<EventName>ValueChanged</EventName>
+										<Actions>
+											<WidgetEventAction>
+												<Expression></Expression>
+											</WidgetEventAction>
+										</Actions>
+									</WidgetEvent>
+								</WidgetEvents>
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>PARA_NumberMax</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item22>
+						<Item23 Position="-250,320" Size="165,NaN" VerticalContentAlignment="Center" StrokeThickness="0" ItemKind="LabelWidget" Text="SIM_ReadingUnit_DMC_WT" WidgetName="LabelWidget_48_1_2_1_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots />
+							</HmiBehavior>
+						</Item23>
+						<Item24 Position="-250,340" Size="450,24" StrokeThickness="1" BorderBrush="#FF000000" ItemKind="ValueDisplayWidget" WidgetName="ValueDisplay_SIM_WritingUnit_DMC_WT_1" WidgetBackground="#00FFFFFF" WidgetForeground="#FF000000">
+							<HmiBehavior>
+								<WidgetEvents />
+								<WidgetAnimations />
+								<WidgetSlots>
+									<WidgetSlot>
+										<SlotName>ValueSlot</SlotName>
+										<LogicSlotName>SIM_ReadingUnit_DMC_WT</LogicSlotName>
+									</WidgetSlot>
+								</WidgetSlots>
+							</HmiBehavior>
+						</Item24>
+					</Children>
+				</Item1>
+			</Items>
+			<HmiControlState>
+				<ZoomFactor>1</ZoomFactor>
+				<ScrollPoint _x="-418" _y="-1" />
+			</HmiControlState>
+		</XtraSerializer>
+	</HmiDefinition>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="11" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PAR_Init_Value</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Prefix</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_Suffix</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ActivateSuffix</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NumberMin</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_NumberMax</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ReadingUnit_DMC_WT</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ReadingUnit_IsDetecting</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_WritingUnit_WriteOk</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_WritingUnit_IsDetecting</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_CounterReset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>SIM_ReadingUnit_DoRead</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_WritingUnit_DoWrite</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_WritingUnit_DMC_WT</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_WritingUnit_WriteDone</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>numberMaxOut</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>iNumber</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>output</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>trigger_Helper</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>iNumberWithOffset</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>iNumberNoOffset</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>useSuffix</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>noSuffix</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>iNumberTemp</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

@@ -1,0 +1,1661 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="e49575ef-3a88-4605-a703-ce9a9fdea2de" LogicName="Cognex_DataMan_DMR" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+using System;
+using System.Threading;
+using System.Text;
+using FS.SDK.Extensibility;
+using FS.SDK.Util;
+
+
+if(String.IsNullOrEmpty(SIM_ReadData))
+{
+    DEBUG_stringOutput = "ERROR: Input String is NULL or EMPTY!";
+    localReadData = String.Empty;
+}
+else
+{
+    localReadData = SIM_ReadData;
+    DEBUG_stringOutput = SIM_ReadData;
+}
+
+
+// Initialise arrays for DMC- and Triggerbuffer.
+string[] ReadDataSaved = new string[5]{bufferstring1, bufferstring2, bufferstring3, bufferstring4, bufferstring5};
+int[] TriggerIDSaved = new int[5]{buffertrigger1, buffertrigger2, buffertrigger3, buffertrigger4, buffertrigger5};
+
+
+
+
+if(SIM_Reset)
+{
+	PLC_IN_Acquiring = false; 
+	PLC_IN_Decoding = false;
+	
+	#region Result Data
+	PLC_IN_ResultData1 = 0;
+    PLC_IN_ResultData2 = 0;
+    PLC_IN_ResultData3 = 0;
+    PLC_IN_ResultData4 = 0;
+    PLC_IN_ResultData5 = 0;
+    PLC_IN_ResultData6 = 0;
+    PLC_IN_ResultData7 = 0;
+    PLC_IN_ResultData8 = 0;
+    PLC_IN_ResultData9 = 0;
+    PLC_IN_ResultData10 = 0;
+    PLC_IN_ResultData11 = 0;
+    PLC_IN_ResultData12 = 0;
+    PLC_IN_ResultData13 = 0;
+    PLC_IN_ResultData14 = 0;
+    PLC_IN_ResultData15 = 0;
+    PLC_IN_ResultData16 = 0;
+    PLC_IN_ResultData17 = 0;
+    PLC_IN_ResultData18 = 0;
+    PLC_IN_ResultData19 = 0;
+    PLC_IN_ResultData20 = 0;
+    PLC_IN_ResultData21 = 0;
+    PLC_IN_ResultData22 = 0;
+    PLC_IN_ResultData23 = 0;
+    PLC_IN_ResultData24 = 0;
+    PLC_IN_ResultData25 = 0;
+    PLC_IN_ResultData26 = 0;
+    PLC_IN_ResultData27 = 0;
+    PLC_IN_ResultData28 = 0;
+    PLC_IN_ResultData29 = 0;
+    PLC_IN_ResultData30 = 0;
+    PLC_IN_ResultData31 = 0;
+    PLC_IN_ResultData32 = 0;
+    PLC_IN_ResultData33 = 0;
+    PLC_IN_ResultData34 = 0;
+    PLC_IN_ResultData35 = 0;
+    PLC_IN_ResultData36 = 0;
+    PLC_IN_ResultData37 = 0;
+    PLC_IN_ResultData38 = 0;
+    PLC_IN_ResultData39 = 0;
+    PLC_IN_ResultData40 = 0;
+    PLC_IN_ResultData41 = 0;
+    PLC_IN_ResultData42 = 0;
+    PLC_IN_ResultData43 = 0;
+    PLC_IN_ResultData44 = 0;
+    PLC_IN_ResultData45 = 0;
+    PLC_IN_ResultData46 = 0;
+    PLC_IN_ResultData47 = 0;
+    PLC_IN_ResultData48 = 0;
+    PLC_IN_ResultData49 = 0;
+    PLC_IN_ResultData50 = 0;
+    PLC_IN_ResultData51 = 0;
+    PLC_IN_ResultData52 = 0;
+    PLC_IN_ResultData53 = 0;
+    PLC_IN_ResultData54 = 0;
+    PLC_IN_ResultData55 = 0;
+    PLC_IN_ResultData56 = 0;
+    PLC_IN_ResultData57 = 0;
+    PLC_IN_ResultData58 = 0;
+    PLC_IN_ResultData59 = 0;
+    PLC_IN_ResultData60 = 0;
+    PLC_IN_ResultData61 = 0;
+    PLC_IN_ResultData62 = 0;
+    PLC_IN_ResultData63 = 0;
+    PLC_IN_ResultData64 = 0;
+    PLC_IN_ResultData65 = 0;
+    PLC_IN_ResultData66 = 0;
+    PLC_IN_ResultData67 = 0;
+    PLC_IN_ResultData68 = 0;
+    PLC_IN_ResultData69 = 0;
+    PLC_IN_ResultData70 = 0;
+    PLC_IN_ResultData71 = 0;
+    PLC_IN_ResultData72 = 0;
+    PLC_IN_ResultData73 = 0;
+    PLC_IN_ResultData74 = 0;
+    PLC_IN_ResultData75 = 0;
+    PLC_IN_ResultData76 = 0;
+    PLC_IN_ResultData77 = 0;
+    PLC_IN_ResultData78 = 0;
+    PLC_IN_ResultData79 = 0;
+    PLC_IN_ResultData80 = 0;
+    PLC_IN_ResultData81 = 0;
+    PLC_IN_ResultData82 = 0;
+    PLC_IN_ResultData83 = 0;
+    PLC_IN_ResultData84 = 0;
+    PLC_IN_ResultData85 = 0;
+    PLC_IN_ResultData86 = 0;
+    PLC_IN_ResultData87 = 0;
+    PLC_IN_ResultData88 = 0;
+    PLC_IN_ResultData89 = 0;
+    PLC_IN_ResultData90 = 0;
+    PLC_IN_ResultData91 = 0;
+    PLC_IN_ResultData92 = 0;
+    PLC_IN_ResultData93 = 0;
+    PLC_IN_ResultData94 = 0;
+    PLC_IN_ResultData95 = 0;
+    PLC_IN_ResultData96 = 0;
+    PLC_IN_ResultData97 = 0;
+    PLC_IN_ResultData98 = 0;
+    PLC_IN_ResultData99 = 0;
+    PLC_IN_ResultData100 = 0;
+    PLC_IN_ResultData101 = 0;
+    PLC_IN_ResultData102 = 0;
+    PLC_IN_ResultData103 = 0;
+    PLC_IN_ResultData104 = 0;
+    PLC_IN_ResultData105 = 0;
+    PLC_IN_ResultData106 = 0;
+    PLC_IN_ResultData107 = 0;
+    PLC_IN_ResultData108 = 0;
+    PLC_IN_ResultData109 = 0;
+    PLC_IN_ResultData110 = 0;
+    PLC_IN_ResultData111 = 0;
+    PLC_IN_ResultData112 = 0;
+    PLC_IN_ResultData113 = 0;
+    PLC_IN_ResultData114 = 0;
+    PLC_IN_ResultData115 = 0;
+    PLC_IN_ResultData116 = 0;
+    PLC_IN_ResultData117 = 0;
+    PLC_IN_ResultData118 = 0;
+    PLC_IN_ResultData119 = 0;
+    PLC_IN_ResultData120 = 0;
+    PLC_IN_ResultData121 = 0;
+    PLC_IN_ResultData122 = 0;
+    PLC_IN_ResultData123 = 0;
+    PLC_IN_ResultData124 = 0;
+    PLC_IN_ResultData125 = 0;
+    PLC_IN_ResultData126 = 0;
+    PLC_IN_ResultData127 = 0;
+    PLC_IN_ResultData128 = 0;
+    
+    PLC_IN_ResultCode = 0;
+    PLC_IN_ResultLength = 0;
+    
+    PLC_IN_ResultsAvailable = false;
+    #endregion
+}
+
+
+/*********************************************************************************************************************************************************
+* TRIGGER HANDSHAKE
+*********************************************************************************************************************************************************/
+
+// Write Trigger
+PLC_IN_TriggerReady = PLC_OUT_TriggerEnable &amp;&amp; !PLC_IN_Acquiring &amp;&amp; !PLC_IN_Decoding;
+PLC_IN_TriggerAck = PLC_OUT_Trigger;
+
+if(PLC_IN_TriggerReady &amp;&amp; PLC_OUT_Trigger &amp;&amp; !stateTrigger)
+{
+	if(SIM_SetAcquiringMissed)
+	{
+		PLC_IN_MissedAcquiring = true;
+	}
+	else
+	{
+		// Trigger Count
+		triggerCount++;
+		if(triggerCount &gt; 10000)
+		{
+			triggerCount = 0;
+		}
+		
+		byte[] TrigID = BitConverter.GetBytes(triggerCount);
+		if(TrigID.Length &gt;= 2)
+        {
+            // Write to PLC-Signals (change High- and Low-Byte)
+            localTrigId1 = TrigID[1];
+            localTrigId2 = TrigID[0];
+        }
+        		
+		// Reset when aquiring was successful
+		PLC_IN_MissedAcquiring = false;
+	}
+	
+    PLC_IN_DecodeComplete = false;
+    
+    // Reset delay timers with new trigger
+    Timer_DelayResultAck = 0f;
+    Timer_DelayResultID = 0f;
+
+}
+stateTrigger = PLC_OUT_Trigger;
+
+
+
+
+
+/*********************************************************************************************************************************************************
+* TIMER AQUIRING &amp; DECODING  +  SAVE DATA
+*********************************************************************************************************************************************************/
+
+// Start Timer for Aquiring and Decoding
+aquiringDecodingDone = TimeAcquiringDecoding(PLC_IN_TriggerReady &amp;&amp; PLC_OUT_Trigger &amp;&amp; !PLC_IN_DecodeComplete &amp;&amp; !SIM_SetAcquiringMissed);
+
+if(aquiringDecodingDone)
+{	
+	// Write data to next free position, if ResultsBuffer is enabled
+	if(PLC_OUT_ResultsBufferEnable)
+	{
+	   
+		int i = 0;
+		int j = 0;
+		bool doneReadData = false;          // flag, dmc written
+        bool doneReadTrigger = false;       // flag, trigger written
+		
+		
+		#region Save Data
+		// Find next free position in string array
+		while(i &lt;= 4 &amp;&amp; !doneReadData)
+		{
+			// Check if buffer is full
+			if(i == 4 &amp;&amp; ReadDataSaved[i] != null)
+			{
+				PLC_IN_ResultBufferOverrun = true;
+			}
+			// Write data into next free array place
+			if(ReadDataSaved[i] == null)
+			{
+				ReadDataSaved[i] = localReadData;    //SIM_ReadData;
+				doneReadData = true;
+				
+				// Reset BufferOverrun bit, when new data was successfully written
+				PLC_IN_ResultBufferOverrun = false;
+			}
+			i++;
+		}		
+		// Save data
+		bufferstring1 = ReadDataSaved[0];
+		bufferstring2 = ReadDataSaved[1];
+		bufferstring3 = ReadDataSaved[2];
+		bufferstring4 = ReadDataSaved[3];
+		bufferstring5 = ReadDataSaved[4];
+		#endregion
+		
+		
+		#region Save Trigger
+		// Find next free position in trigger array
+		while(j &lt;= 4 &amp;&amp; !doneReadTrigger)
+		{
+			if(j == 4 &amp;&amp; TriggerIDSaved[j] != 0)
+			{
+				// Trigger-Array full!
+			}
+			// Write trigger to next free array place
+			if(TriggerIDSaved[j] == 0)
+			{
+				TriggerIDSaved[j] = triggerCount;
+				doneReadTrigger = true;
+			}
+			j++;
+		}
+		
+		// Save trigger data
+		buffertrigger1 = TriggerIDSaved[0];
+		buffertrigger2 = TriggerIDSaved[1];
+		buffertrigger3 = TriggerIDSaved[2];
+		buffertrigger4 = TriggerIDSaved[3];
+		buffertrigger5 = TriggerIDSaved[4];		
+        #endregion
+        
+	}
+	
+	
+	// Result Buffer disabled
+	else
+	{
+		bufferstring1 = localReadData;
+		buffertrigger1 = triggerCount; //localTrigId2; //PLC_IN_TriggerID2;       // Changed High-/Low-Byte for Siemens
+	}
+	
+}
+
+
+
+
+
+
+
+/*********************************************************************************************************************************************************
+* DATA READY ACKNOWLEDGE HANDSHAKE
+*********************************************************************************************************************************************************/
+
+if(PLC_IN_DecodeComplete)
+{
+    // Write data to PLC (always first position of data array -&gt; FIFO)
+    writeDone = WriteDataToPLC(bufferstring1, SIM_ResultData, SIM_QualityData);
+
+    if(writeDone)
+    {
+        // Feedback to PLC: data ready
+        PLC_IN_ResultsAvailable = true;
+        
+        PLC_IN_TriggerID1 = localTrigId1;
+        PLC_IN_TriggerID2 = localTrigId2;
+        
+        // Delay ResultID
+        Timer_DelayResultID += SceneObject.DeltaTime;
+        if(Timer_DelayResultID &gt; 0.1f)
+        {
+            PLC_IN_ResultID = (short)buffertrigger1;         
+            PLC_IN_ResultCode = 7;     //ResultRead 0x01, ResultValidated = 0x02, ResultVerified = 0x03
+            
+            // Data read from PLC
+            if(PLC_OUT_ResultsAck)
+            {
+                // Reset feedback: no data available
+                PLC_IN_ResultsAvailable = false;  
+                PLC_IN_DecodeComplete = false;
+                aquiringDecodingDone = false;
+                
+                // Move data in array if ResultsBuffer is enabled
+                if(PLC_OUT_ResultsBufferEnable)
+                {
+                    bufferstring1 = bufferstring2;
+                    bufferstring2 = bufferstring3;
+                    bufferstring3 = bufferstring4;
+                    bufferstring4 = bufferstring5;
+                    bufferstring5 =  null;
+                    
+                    buffertrigger1 = buffertrigger2;
+                    buffertrigger2 = buffertrigger3;
+                    buffertrigger3 = buffertrigger4;
+                    buffertrigger4 = buffertrigger5;
+                    buffertrigger5 = 0;
+                    
+                    // Set data ready, if data is still in buffer
+                    if(bufferstring1 != null)
+                    {
+                        writeDone = WriteDataToPLC(bufferstring1, SIM_ResultData, SIM_QualityData);
+                        
+                        PLC_IN_ResultsAvailable = true;
+                    }
+                }  
+            }
+        }
+        
+    }
+}
+
+
+
+
+
+
+
+/*********************************************************************************************************************************************************
+* HELPER FUNCTIONS
+*********************************************************************************************************************************************************/
+
+// TIMER FUNCTION FOR AQUIRING DECODING
+bool TimeAcquiringDecoding(bool enable)
+{
+
+	// Waiting for Trigger start
+	if(!enable &amp;&amp; !state_enabled)
+	{
+		PLC_IN_Acquiring = false;
+		PLC_IN_Decoding = false;
+		return false;
+	}
+	state_enabled = true;
+
+	if(!startDecoding)
+	{
+		// Start aquiring
+		PLC_IN_Acquiring = true;
+		
+		TimerAquiringDecoding += SceneObject.DeltaTime;
+		if(TimerAquiringDecoding &gt; 0.5f)
+		{
+            PLC_IN_Acquiring = false;
+            startDecoding = true;
+            TimerAquiringDecoding = 0;
+		}
+		return false;
+	}
+	
+	// Start decoding
+	PLC_IN_Decoding = true;
+	
+	TimerAquiringDecoding += SceneObject.DeltaTime;
+	if(TimerAquiringDecoding &gt; 0.5f)
+    {
+        PLC_IN_Decoding = false;
+        PLC_IN_DecodeComplete = true;
+        
+        startDecoding = false;
+        state_enabled = false;
+        return true;
+    }
+	return false;	
+}
+
+
+
+// WRITE DATA
+bool WriteDataToPLC(string data, string result, string quality)
+{
+	
+	int codelength10 = data.Length / 10;
+	int codelength1 = data.Length % 10;	
+	var resultdata = "";
+	
+	
+	// Check for Grob Script
+	if(!SIM_EnableGrobScript)
+	{
+		resultdata = data;
+	}
+	else if(SIM_EnableGrobScript)
+	{
+		resultdata = result + quality + codelength10.ToString() + codelength1.ToString() + data + "\n";		// "0x0A" = LineFeed "\n"
+	}
+	
+	PLC_IN_ResultLength = (short)resultdata.Length;
+	
+	// Byte-Array with data
+	byte[] DataBytes = new byte[128];
+	//resultdata.PadRight(128);
+	DataBytes = Encoding.UTF8.GetBytes(resultdata);
+	
+	
+	
+	
+	#region Write Output
+	// Write Output Bytes
+	if(resultdata.Length &gt;= 1){PLC_IN_ResultData1 = DataBytes[0];}
+	if(resultdata.Length &gt;= 2){PLC_IN_ResultData2 = DataBytes[1];}
+	if(resultdata.Length &gt;= 3){PLC_IN_ResultData3 = DataBytes[2];}
+	if(resultdata.Length &gt;= 4){PLC_IN_ResultData4 = DataBytes[3];}
+	if(resultdata.Length &gt;= 5){PLC_IN_ResultData5 = DataBytes[4];}
+	if(resultdata.Length &gt;= 6){PLC_IN_ResultData6 = DataBytes[5];}
+	if(resultdata.Length &gt;= 7){PLC_IN_ResultData7 = DataBytes[6];}
+	if(resultdata.Length &gt;= 8){PLC_IN_ResultData8 = DataBytes[7];}
+	if(resultdata.Length &gt;= 9){PLC_IN_ResultData9 = DataBytes[8];}
+	if(resultdata.Length &gt;= 10){PLC_IN_ResultData10 = DataBytes[9];}
+	if(resultdata.Length &gt;= 11){PLC_IN_ResultData11 = DataBytes[10];}
+	if(resultdata.Length &gt;= 12){PLC_IN_ResultData12 = DataBytes[11];}
+	if(resultdata.Length &gt;= 13){PLC_IN_ResultData13 = DataBytes[12];}
+	if(resultdata.Length &gt;= 14){PLC_IN_ResultData14 = DataBytes[13];}
+	if(resultdata.Length &gt;= 15){PLC_IN_ResultData15 = DataBytes[14];}
+	if(resultdata.Length &gt;= 16){PLC_IN_ResultData16 = DataBytes[15];}
+	if(resultdata.Length &gt;= 17){PLC_IN_ResultData17 = DataBytes[16];}
+	if(resultdata.Length &gt;= 18){PLC_IN_ResultData18 = DataBytes[17];}
+	if(resultdata.Length &gt;= 19){PLC_IN_ResultData19 = DataBytes[18];}
+	if(resultdata.Length &gt;= 20){PLC_IN_ResultData20 = DataBytes[19];}
+	if(resultdata.Length &gt;= 21){PLC_IN_ResultData21 = DataBytes[20];}
+	if(resultdata.Length &gt;= 22){PLC_IN_ResultData22 = DataBytes[21];}
+	if(resultdata.Length &gt;= 23){PLC_IN_ResultData23 = DataBytes[22];}
+	if(resultdata.Length &gt;= 24){PLC_IN_ResultData24 = DataBytes[23];}
+	if(resultdata.Length &gt;= 25){PLC_IN_ResultData25 = DataBytes[24];}
+	if(resultdata.Length &gt;= 26){PLC_IN_ResultData26 = DataBytes[25];}
+	if(resultdata.Length &gt;= 27){PLC_IN_ResultData27 = DataBytes[26];}
+	if(resultdata.Length &gt;= 28){PLC_IN_ResultData28 = DataBytes[27];}
+	if(resultdata.Length &gt;= 29){PLC_IN_ResultData29 = DataBytes[28];}
+	if(resultdata.Length &gt;= 30){PLC_IN_ResultData30 = DataBytes[29];}
+	if(resultdata.Length &gt;= 31){PLC_IN_ResultData31 = DataBytes[30];}
+	if(resultdata.Length &gt;= 32){PLC_IN_ResultData32 = DataBytes[31];}
+	if(resultdata.Length &gt;= 33){PLC_IN_ResultData33 = DataBytes[32];}
+	if(resultdata.Length &gt;= 34){PLC_IN_ResultData34 = DataBytes[33];}
+	if(resultdata.Length &gt;= 35){PLC_IN_ResultData35 = DataBytes[34];}
+	if(resultdata.Length &gt;= 36){PLC_IN_ResultData36 = DataBytes[35];}
+	if(resultdata.Length &gt;= 37){PLC_IN_ResultData37 = DataBytes[36];}
+	if(resultdata.Length &gt;= 38){PLC_IN_ResultData38 = DataBytes[37];}
+	if(resultdata.Length &gt;= 39){PLC_IN_ResultData39 = DataBytes[38];}
+	if(resultdata.Length &gt;= 40){PLC_IN_ResultData40 = DataBytes[39];}
+	if(resultdata.Length &gt;= 41){PLC_IN_ResultData41 = DataBytes[40];}
+	if(resultdata.Length &gt;= 42){PLC_IN_ResultData42 = DataBytes[41];}
+	if(resultdata.Length &gt;= 43){PLC_IN_ResultData43 = DataBytes[42];}
+	if(resultdata.Length &gt;= 44){PLC_IN_ResultData44 = DataBytes[43];}
+	if(resultdata.Length &gt;= 45){PLC_IN_ResultData45 = DataBytes[44];}
+	if(resultdata.Length &gt;= 46){PLC_IN_ResultData46 = DataBytes[45];}
+	if(resultdata.Length &gt;= 47){PLC_IN_ResultData47 = DataBytes[46];}
+	if(resultdata.Length &gt;= 48){PLC_IN_ResultData48 = DataBytes[47];}
+	if(resultdata.Length &gt;= 49){PLC_IN_ResultData49 = DataBytes[48];}
+	if(resultdata.Length &gt;= 50){PLC_IN_ResultData50 = DataBytes[49];}
+	if(resultdata.Length &gt;= 51){PLC_IN_ResultData51 = DataBytes[50];}
+	if(resultdata.Length &gt;= 52){PLC_IN_ResultData52 = DataBytes[51];}
+	if(resultdata.Length &gt;= 53){PLC_IN_ResultData53 = DataBytes[52];}
+	if(resultdata.Length &gt;= 54){PLC_IN_ResultData54 = DataBytes[53];}
+	if(resultdata.Length &gt;= 55){PLC_IN_ResultData55 = DataBytes[54];}
+	if(resultdata.Length &gt;= 56){PLC_IN_ResultData56 = DataBytes[55];}
+	if(resultdata.Length &gt;= 57){PLC_IN_ResultData57 = DataBytes[56];}
+	if(resultdata.Length &gt;= 58){PLC_IN_ResultData58 = DataBytes[57];}
+	if(resultdata.Length &gt;= 59){PLC_IN_ResultData59 = DataBytes[58];}
+	if(resultdata.Length &gt;= 60){PLC_IN_ResultData60 = DataBytes[59];}
+	if(resultdata.Length &gt;= 61){PLC_IN_ResultData61 = DataBytes[60];}
+	if(resultdata.Length &gt;= 62){PLC_IN_ResultData62 = DataBytes[61];}
+	if(resultdata.Length &gt;= 63){PLC_IN_ResultData63 = DataBytes[62];}
+	if(resultdata.Length &gt;= 64){PLC_IN_ResultData64 = DataBytes[63];}
+	if(resultdata.Length &gt;= 65){PLC_IN_ResultData65 = DataBytes[64];}
+	if(resultdata.Length &gt;= 66){PLC_IN_ResultData66 = DataBytes[65];}
+	if(resultdata.Length &gt;= 67){PLC_IN_ResultData67 = DataBytes[66];}
+	if(resultdata.Length &gt;= 68){PLC_IN_ResultData68 = DataBytes[67];}
+	if(resultdata.Length &gt;= 69){PLC_IN_ResultData69 = DataBytes[68];}
+	if(resultdata.Length &gt;= 70){PLC_IN_ResultData70 = DataBytes[69];}
+	if(resultdata.Length &gt;= 71){PLC_IN_ResultData71 = DataBytes[70];}
+	if(resultdata.Length &gt;= 72){PLC_IN_ResultData72 = DataBytes[71];}
+	if(resultdata.Length &gt;= 73){PLC_IN_ResultData73 = DataBytes[72];}
+	if(resultdata.Length &gt;= 74){PLC_IN_ResultData74 = DataBytes[73];}
+	if(resultdata.Length &gt;= 75){PLC_IN_ResultData75 = DataBytes[74];}
+	if(resultdata.Length &gt;= 76){PLC_IN_ResultData76 = DataBytes[75];}
+	if(resultdata.Length &gt;= 77){PLC_IN_ResultData77 = DataBytes[76];}
+	if(resultdata.Length &gt;= 78){PLC_IN_ResultData78 = DataBytes[77];}
+	if(resultdata.Length &gt;= 79){PLC_IN_ResultData79 = DataBytes[78];}
+	if(resultdata.Length &gt;= 80){PLC_IN_ResultData80 = DataBytes[79];}
+	if(resultdata.Length &gt;= 81){PLC_IN_ResultData81 = DataBytes[80];}
+	if(resultdata.Length &gt;= 82){PLC_IN_ResultData82 = DataBytes[81];}
+	if(resultdata.Length &gt;= 83){PLC_IN_ResultData83 = DataBytes[82];}
+	if(resultdata.Length &gt;= 84){PLC_IN_ResultData84 = DataBytes[83];}
+	if(resultdata.Length &gt;= 85){PLC_IN_ResultData85 = DataBytes[84];}
+	if(resultdata.Length &gt;= 86){PLC_IN_ResultData86 = DataBytes[85];}
+	if(resultdata.Length &gt;= 87){PLC_IN_ResultData87 = DataBytes[86];}
+	if(resultdata.Length &gt;= 88){PLC_IN_ResultData88 = DataBytes[87];}
+	if(resultdata.Length &gt;= 89){PLC_IN_ResultData89 = DataBytes[88];}
+	if(resultdata.Length &gt;= 90){PLC_IN_ResultData90 = DataBytes[89];}
+	if(resultdata.Length &gt;= 91){PLC_IN_ResultData91 = DataBytes[90];}
+	if(resultdata.Length &gt;= 92){PLC_IN_ResultData92 = DataBytes[91];}
+	if(resultdata.Length &gt;= 93){PLC_IN_ResultData93 = DataBytes[92];}
+	if(resultdata.Length &gt;= 94){PLC_IN_ResultData94 = DataBytes[93];}
+	if(resultdata.Length &gt;= 95){PLC_IN_ResultData95 = DataBytes[94];}
+	if(resultdata.Length &gt;= 96){PLC_IN_ResultData96 = DataBytes[95];}
+	if(resultdata.Length &gt;= 97){PLC_IN_ResultData97 = DataBytes[96];}
+	if(resultdata.Length &gt;= 98){PLC_IN_ResultData98 = DataBytes[97];}
+	if(resultdata.Length &gt;= 99){PLC_IN_ResultData99 = DataBytes[98];}
+	if(resultdata.Length &gt;= 100){PLC_IN_ResultData100 = DataBytes[99];}
+	if(resultdata.Length &gt;= 101){PLC_IN_ResultData101 = DataBytes[100];}
+	if(resultdata.Length &gt;= 102){PLC_IN_ResultData102 = DataBytes[101];}
+	if(resultdata.Length &gt;= 103){PLC_IN_ResultData103 = DataBytes[102];}
+	if(resultdata.Length &gt;= 104){PLC_IN_ResultData104 = DataBytes[103];}
+	if(resultdata.Length &gt;= 105){PLC_IN_ResultData105 = DataBytes[104];}
+	if(resultdata.Length &gt;= 106){PLC_IN_ResultData106 = DataBytes[105];}
+	if(resultdata.Length &gt;= 107){PLC_IN_ResultData107 = DataBytes[106];}
+	if(resultdata.Length &gt;= 108){PLC_IN_ResultData108 = DataBytes[107];}
+	if(resultdata.Length &gt;= 109){PLC_IN_ResultData109 = DataBytes[108];}
+	if(resultdata.Length &gt;= 110){PLC_IN_ResultData110 = DataBytes[109];}
+	if(resultdata.Length &gt;= 111){PLC_IN_ResultData111 = DataBytes[110];}
+	if(resultdata.Length &gt;= 112){PLC_IN_ResultData112 = DataBytes[111];}
+	if(resultdata.Length &gt;= 113){PLC_IN_ResultData113 = DataBytes[112];}
+	if(resultdata.Length &gt;= 114){PLC_IN_ResultData114 = DataBytes[113];}
+	if(resultdata.Length &gt;= 115){PLC_IN_ResultData115 = DataBytes[114];}
+	if(resultdata.Length &gt;= 116){PLC_IN_ResultData116 = DataBytes[115];}
+	if(resultdata.Length &gt;= 117){PLC_IN_ResultData117 = DataBytes[116];}
+	if(resultdata.Length &gt;= 118){PLC_IN_ResultData118 = DataBytes[117];}
+	if(resultdata.Length &gt;= 119){PLC_IN_ResultData119 = DataBytes[118];}
+	if(resultdata.Length &gt;= 120){PLC_IN_ResultData120 = DataBytes[119];}
+	if(resultdata.Length &gt;= 121){PLC_IN_ResultData121 = DataBytes[120];}
+	if(resultdata.Length &gt;= 122){PLC_IN_ResultData122 = DataBytes[121];}
+	if(resultdata.Length &gt;= 123){PLC_IN_ResultData123 = DataBytes[122];}
+	if(resultdata.Length &gt;= 124){PLC_IN_ResultData124 = DataBytes[123];}
+	if(resultdata.Length &gt;= 125){PLC_IN_ResultData125 = DataBytes[124];}
+	if(resultdata.Length &gt;= 126){PLC_IN_ResultData126 = DataBytes[125];}
+	if(resultdata.Length &gt;= 127){PLC_IN_ResultData127 = DataBytes[126];}
+	if(resultdata.Length &gt;= 128){PLC_IN_ResultData128 = DataBytes[127];}
+    #endregion
+    
+	DEBUG_stringOutput = resultdata;
+
+	
+	return true;
+}
+
+
+
+
+
+
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="68" Patch="2" />
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_OUT_TriggerEnable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_Trigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ResultsBufferEnable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_OUT_ResultsAck</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ReadData</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_SetAcquiringMissed</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_EnableGrobScript</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_ResultData</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_QualityData</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_Reset</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_TriggerReady</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_TriggerAck</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Acquiring</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_MissedAcquiring</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_TriggerID1</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_TriggerID2</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Decoding</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_DecodeComplete</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultBufferOverrun</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultsAvailable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultID</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultCode</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultLength</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData1</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData2</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData3</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData4</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData5</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData6</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData7</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData8</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData9</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData10</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData11</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData12</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData13</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData14</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData15</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData16</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData17</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData18</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData19</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData20</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData21</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData22</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData23</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData24</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData25</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData26</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData27</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData28</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData29</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData30</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData31</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData32</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData33</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData34</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData35</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData36</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData37</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData38</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData39</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData40</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData41</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData42</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData43</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData44</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData45</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData46</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>68</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData47</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>69</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData48</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>70</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData49</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>71</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData50</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>72</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData51</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>73</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData52</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>74</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData53</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>75</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData54</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>76</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData55</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>77</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData56</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>78</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData57</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>79</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData58</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>80</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData59</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>81</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData60</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>82</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData61</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>83</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData62</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>84</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData63</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>85</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData64</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>86</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData65</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>87</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData66</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>88</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData67</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>89</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData68</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>90</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData69</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>91</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData70</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>92</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData71</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>93</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData72</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>94</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData73</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>95</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData74</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>96</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData75</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>97</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData76</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>98</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData77</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>99</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData78</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>100</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData79</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>101</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData80</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>102</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData81</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>103</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData83</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>104</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData82</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>105</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData84</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>106</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData85</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>107</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData86</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>108</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData87</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>109</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData88</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>110</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData89</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>111</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData90</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>112</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData91</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>113</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData92</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>114</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData93</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>115</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData94</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>116</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData95</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>117</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData96</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>118</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData97</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>119</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData98</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>120</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData99</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>121</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData100</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>122</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData101</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>123</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData102</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>124</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData103</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>125</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData104</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>126</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData105</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>127</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData106</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>128</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData107</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>129</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData108</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>130</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData109</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>131</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData110</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>132</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData111</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>133</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData112</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>134</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData113</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>135</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData114</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>136</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData115</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>137</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData116</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>138</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData117</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>139</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData118</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>140</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData119</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>141</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData120</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>142</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData121</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>143</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData122</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>144</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData123</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>145</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData124</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>146</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData125</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>147</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData126</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>148</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData127</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>149</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ResultData128</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>150</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>DEBUG_stringOutput</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>151</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>stateTrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>152</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>bufferstring1</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>153</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>bufferstring2</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>154</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>bufferstring3</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>155</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>bufferstring4</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>156</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>bufferstring5</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>157</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>buffertrigger1</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>158</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>buffertrigger2</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>159</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>buffertrigger3</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>160</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>buffertrigger4</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>161</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>buffertrigger5</Name>
+			<IOSlotType>DInt</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>162</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>triggerCount</Name>
+			<IOSlotType>Int</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>163</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>state_enabled</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>164</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>startDecoding</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>165</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>stateResultsAck</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>166</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>writeDone</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>167</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>TimerAquiringDecoding</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>168</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>localReadData</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>169</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>localTrigId1</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>170</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>localTrigId2</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>171</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>aquiringDecodingDone</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>172</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Timer_DelayResultAck</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>173</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>Timer_DelayResultID</Name>
+			<IOSlotType>Real</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>174</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

@@ -1,0 +1,699 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="74e9c474-f0a9-42b5-b1cd-9796367bd350" LogicName="KukaSafety" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+
+using System;
+using System.Collections;
+
+
+#region Übersicht Safety-Bits
+/*
+
+##### Robot Safe Outputs ##########################################################
+
+PO_Res_A0_0 -   Reserve
+PO_NHE      -   Externer Not-Halt "eStop"
+PO_BS       -   Bedienerschutz
+PO_QBS      -   Quittierung Bedienerschutz
+PO_SHS1     -   Sicherheitshalt Stopp1 (alle Achsen)
+PO_SHS2     -   Sicherheitshalt Stopp2 (alle Achsen)
+PO_E2       -   Kundenspezifische Betriebsfunktionsanwahl
+PO_E7       -   Kundenspezifische Betriebsfunktionsanwahl
+
+###################################################################################
+
+##### Robot Safe Inputs ###########################################################
+
+NHL     -    Not-Halt_lokal
+AF      -    Antriebsfreigabe
+FF      -    Fahrfreigabe
+ZS      -    Zustimmung
+PE      -    Peri_Bit
+EXT     -    Betriebsart_Extern
+T1      -    Test_1
+T2      -    Test_2
+
+NHE     -    Not-Halt_extern
+BS      -    Bedienerschutz
+SHS1    -    Sicherheitshalt_Stopp_1
+SHS2    -    Sicherheitshalt_Stopp_2
+RES14   -    Reserve_14
+RES15   -    Reserve_15
+PSA     -    ProfiSafe_aktiv
+SP      -    Shutdown_ProfiSafe
+
+SO      -    SafeOperation_aktiv
+RR      -    Roboter_referenziert
+JF      -    Justagefehler
+VRED    -    Reduzierte_Geschwindigkeitsüberwachung
+SBH1    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_1
+SBH2    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_2
+SBH3    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_3
+SBH4    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_4
+
+SBH5    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_5
+SBH6    -    Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_6
+RES32   -    Reserve_32
+RES33   -    Reserve_33
+RES34   -    Reserve_34
+RES35   -    Reserve_35
+RES36   -    Reserve_36
+RES37   -    Reserve_37
+
+MR1     -    Melderaum_1
+MR2     -    Melderaum_2
+MR3     -    Melderaum_3
+MR4     -    Melderaum_4
+MR5     -    Melderaum_5
+MR6     -    Melderaum_6
+MR7     -    Melderaum_7
+MR8     -    Melderaum_8
+
+MR9     -    Melderaum_9
+MR10    -    Melderaum_10
+MR11    -    Melderaum_11
+MR12    -    Melderaum_12
+MR13    -    Melderaum_13
+MR14    -    Melderaum_14
+MR15    -    Melderaum_15
+MR16    -    Melderaum_16
+
+RES60   -    Reserve_60
+RES61   -    Reserve_61
+RES62   -    Reserve_62
+RES63   -    Reserve_63
+RES64   -    Reserve_64
+RES65   -    Reserve_65
+RES66   -    Reserve_66
+RES67   -    Reserve_67
+
+RES70   -    Reserve_70
+RES71   -    Reserve_71
+RES72   -    Reserve_72
+RES73   -    Reserve_73
+RES74   -    Reserve_74
+RES75   -    Reserve_75
+RES76   -    Reserve_76
+RES77   -    Reserve_77
+
+###################################################################################
+PLC_O_SafetyByte0 = 95;
+PLC_O_SafetyByte1 = 127;
+PLC_O_SafetyByte2 = 240;
+PLC_O_SafetyByte3 = 255;
+
+PLC_O_SafetyByte4 = 0;
+PLC_O_SafetyByte5 = 0;
+PLC_O_SafetyByte6 = 0;
+PLC_O_SafetyByte7 = 0;
+
+
+
+if(SIM_RobotEXT)
+{
+    PLC_O_SafetyByte0 = 63;
+    PLC_O_SafetyByte1 = 115;
+}
+###################################################################################
+
+*/
+#endregion
+
+#region Read RobSafeOut-Byte from PLC
+
+ConvertFunctions.ByteToBool(PLC_SafeOut_Byte0,
+x00: out PO_Res_A0_0,
+x01: out PO_NHE,
+x02: out PO_BS,
+x03: out PO_QBS,
+x04: out PO_SHS1,
+x05: out PO_SHS2,
+x06: out PO_E2,
+x07: out PO_E7);
+
+#endregion
+
+#region Sim-SafeRobot
+//Byte0
+NHL = _hmi_robotEstop;   // Not-Halt_lokal
+AF = true;              // Antriebsfreigabe
+FF = true;              // Fahrfreigabe
+ZS = true;              // Zustimmung
+PE = true;              // Peri_Bit
+EXT = SIM_RobotEXT;     // Betriebsart_Extern
+T1 = !SIM_RobotEXT;     // Test_1
+T2 = false;             // Test_2
+
+//Byte1
+HNE = PO_NHE;           // Not-Halt_extern
+BS = PO_BS;             // Bedienerschutz
+SHS1 = !PO_SHS1;        // Sicherheitshalt_Stopp_1
+SHS2 = !PO_SHS2;        // Sicherheitshalt_Stopp_2
+res14 = true;           // Reserve_14
+res15 = true;           // Reserve_15
+PSA = true;             // ProfiSafe_aktiv
+SP = false;             // Shutdown_ProfiSafe
+
+//Byte2
+SO = PAR_EnableSafeOperation; // SafeOperation_aktiv
+RR = false;             // Roboter_referenziert
+JF = false;             // Justagefehler
+VRED = false;           // Reduzierte_Geschwindigkeitsüberwachung
+SBH1 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_1
+SBH2 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_2
+SBH3 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_3
+SBH4 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_4
+
+//Byte3
+SBH5 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_5
+SBH6 = true;            // Aktivierungszustand_des_sicheren_betriebshalts_für_Achsgruppe_6
+res32 = true;           // Reserve_32
+res33 = true;           // Reserve_33
+res34 = true;           // Reserve_34
+res35 = true;           // Reserve_35
+res36 = true;           // Reserve_36
+res37 = true;           // Reserve_37
+
+//Byte4
+MR1 = false;            // Melderaum_1
+MR2 = false;            // Melderaum_2
+MR3 = false;            // Melderaum_3
+MR4 = false;            // Melderaum_4
+MR5 = false;            // Melderaum_5
+MR6 = false;            // Melderaum_6
+MR7 = false;            // Melderaum_7
+MR8 = false;            // Melderaum_8
+
+//Byte5
+MR9 = false;            // Melderaum_9
+MR10 = false;           // Melderaum_10
+MR11 = false;           // Melderaum_11
+MR12 = false;           // Melderaum_12
+MR13 = false;           // Melderaum_13
+MR14 = false;           // Melderaum_14
+MR15 = false;           // Melderaum_15
+MR16 = false;           // Melderaum_16
+
+#endregion
+
+
+#region Write RobSafeIn-Byte to PLC
+
+ConvertFunctions.BoolToByte(
+x0: NHL,
+x1: AF,
+x2: FF,
+x3: ZS,
+x4: PE,
+x5: EXT,
+x6: T1,
+x7: T2,
+result: out PLC_SafeIn_Byte0);
+
+ConvertFunctions.BoolToByte(
+x0: HNE,
+x1: BS,
+x2: SHS1,
+x3: SHS2,
+x4: res14,
+x5: res15,
+x6: PSA,
+x7: SP,
+result: out PLC_SafeIn_Byte1);
+
+ConvertFunctions.BoolToByte(
+x0: SO,
+x1: RR,
+x2: JF,
+x3: VRED,
+x4: SBH1,
+x5: SBH2,
+x6: SBH3,
+x7: SBH4,
+result: out PLC_SafeIn_Byte2);
+
+ConvertFunctions.BoolToByte(
+x0: SBH5,
+x1: SBH6,
+x2: res32,
+x3: res33,
+x4: res34,
+x5: res35,
+x6: res36,
+x7: res37,
+result: out PLC_SafeIn_Byte3);
+
+ConvertFunctions.BoolToByte(
+x0: MR1,
+x1: MR2,
+x2: MR3,
+x3: MR4,
+x4: MR5,
+x5: MR6,
+x6: MR7,
+x7: MR8,
+result: out PLC_SafeIn_Byte4);
+
+ConvertFunctions.BoolToByte(
+x0: MR9,
+x1: MR10,
+x2: MR11,
+x3: MR12,
+x4: MR13,
+x5: MR14,
+x6: MR15,
+x7: MR16,
+result: out PLC_SafeIn_Byte5);
+
+#endregion
+
+</ScriptText>
+	<HmiDefinition>
+		<XtraSerializer version="24.1.6.0">
+			<Items>
+				<Item1 ItemKind="DiagramRoot" CanvasSizeMode="Fill" ShowPageBreaks="false" SelectedStencils="feeHmi" />
+			</Items>
+			<HmiControlState>
+				<ZoomFactor>1</ZoomFactor>
+				<ScrollPoint _x="-948" _y="-91" />
+			</HmiControlState>
+		</XtraSerializer>
+	</HmiDefinition>
+	<HmiDefined>true</HmiDefined>
+	<Version Major="1" Minor="6" Patch="0" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>PLC_SafeOut_Byte0</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SIM_RobotEXT</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_EnableSafeOperation</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte0</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte1</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte2</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte3</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte4</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte5</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte6</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_SafeIn_Byte7</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>NHL</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>AF</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>FF</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>ZS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PE</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>EXT</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>T1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>17</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>T2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>18</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>HNE</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>19</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>BS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>20</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SHS1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>21</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SHS2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>22</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>23</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>24</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PSA</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>25</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SP</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>26</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SO</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>27</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>RR</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>28</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>JF</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>29</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>VRED</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>30</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>31</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>32</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>33</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>34</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>35</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>SBH6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>36</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res32</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>37</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res33</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>38</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res34</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>39</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res35</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>40</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res36</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>41</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>res37</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>42</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>43</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>44</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR3</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>45</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>46</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>47</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>48</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>49</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR8</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>50</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR9</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>51</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR10</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>52</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR11</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>53</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR12</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>54</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR13</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>55</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR14</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>56</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR15</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>57</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>MR16</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>58</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_Res_A0_0</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>59</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_NHE</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>60</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_BS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>61</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_QBS</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>62</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_SHS1</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>63</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_SHS2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>64</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_E2</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>65</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PO_E7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>66</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_hmi_robotEstop</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>67</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

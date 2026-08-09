@@ -1,0 +1,71 @@
+<LogicDefinition V="001" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="bc988dca-1317-4932-ac7e-8b7ce5ebdf19" LogicName="RenameLabelGlobal" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26">
+	<ScriptText>#load "reference"
+
+using EMSPlugin.SceneObjects;
+using FS.SDK.Components;
+
+
+// #######################################################################################################################
+// Zur automatischen Umbenennung aller LableObjects und automatischer Beschriftung dieser, wenn "UseSolt" aktiviert wurde.
+// Das Label liegt dabei als Kind unter dem Objekt das benannt werden soll. Die Funktion sucht den Parentnamen und
+// benennt das Label mitsamt TextSlot um.
+// #######################################################################################################################
+
+if (Enable &amp;&amp; !EnableTrigger)
+{
+    // sucht alle LabelObjects
+    foreach (var Label in SceneObject.Universe.GetAll().OfType&lt;LabelObject&gt;())
+    {
+            // Text des LabelObjekts wird gesetzt wenn "UseSlot" in den Properties LabelComponents
+            if (Label.GetComponent&lt;IOSlotContainerComponent&gt;() is { } slotContainer &amp;&amp;
+                        slotContainer.SlotsByName.TryGetValue("Text", out var slot) &amp;&amp;
+                        slot is IOSlot&lt;string&gt; TextSlot)
+            {
+
+                string LabelParent = Label.Parent.Name;
+                
+                // hol den Namen des Parent und ändere Name des Labels
+                Label.Name = $"Label_{LabelParent}";
+                
+                // ändere TextSlot des Labels
+                TextSlot.Value = LabelParent;
+                
+                // Ausgabe Logger
+                Logger.I($"Objektname und TextSlot wurden umbenannt:  {TextSlot.Value}");
+             }
+
+    }
+}
+// Trigger
+EnableTrigger = Enable;
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="8" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<InputSlots>
+		<LogicSlot>
+			<Name>Enable</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>ParentName</Name>
+			<IOSlotType>String</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>EnableTrigger</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>

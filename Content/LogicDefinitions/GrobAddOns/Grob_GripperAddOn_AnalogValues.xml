@@ -1,0 +1,199 @@
+<LogicDefinition V="002" xsi:type="CSharpLogicDefinition" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Guid="89687567-45a3-4ded-9f65-e5fc49905861" LogicName="Grob_GripperAddOn_AnalogValues" LogicComment="" LogicProvider="fe4a121e-169b-4fb0-8004-e2e53c268b26" HasCompileErrors="false">
+	<ScriptText>#load "reference"
+using FS.SDK.Components;
+using System;
+using System.Threading;
+using System.Text;
+using FS.SDK.Extensibility;
+using FS.SDK.Util;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                          //
+//    Logik:           Grob_GripperAddOn_AnalogValues                                                       //
+//                                                                                                          //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//    Datum            Version        Autor            Beschreibung
+//
+//    23.06.2026       1.0.1          Egg              Ur Version
+//
+//============================================================================================================
+//
+//    SW-Standard      Geprüft        Prüfer           Allgemeine Informationen
+//                     
+//    FEE              X              Egg              AddOn für Analogwert Rückmeldung für Grob_GripperBasic
+/*
+//============================================================================================================
+//
+//    Beschreibung:
+//
+//    Die Logik wird als AddOn für die Grob_GripperBasic Logik verwendet und gibt statt Bool-Werten
+//    Analog-Werte als Feedback an die PLC zurück
+//
+//============================================================================================================
+//
+//    Input Slot Values
+//    SIM_AddOnStatus               =   Byte, Gripper Status von Hauptlogik
+//    PAR_UnclampedValue            =   Word, Analogwert Vorgabe Gelöst
+//    PAR_ClampedValue              =   Word, Analogwert Vorgabe Gespannt
+//    PAR_ClampedWithPartValue      =   Word, Analogwert Vorgabe Gespannt mit Teil
+//    PAR_ClampedWithoutPartValue   =   Word, Analogwert Vorgabe Gespannt ohne Teil
+//
+//    Output Slot Values
+//    PLC_IN_Unclamped_Analog           =   Word, Rückmeldung Greifer gelöst
+//    PLC_IN_Clamped_Analog             =   Word, Rückmeldung Greifer gespannt
+//    PLC_IN_ClampedWithPart_Analog     =   Word, Rückmeldung Greifer gespannt mit Teil
+//    PLC_IN_ClampedWithoutPart_Analog  =   Word, Rückmeldung Greifer gespannt ohne Teil
+//
+//============================================================================================================
+*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#region Read-In Status Byte
+//============================================================================================================
+// R E A D - I N   S T A T U S   B Y T E 
+//============================================================================================================
+
+ConvertFunctions.ByteToBool(SIM_AddOnStatus,
+out _statusBit0_unclamped,
+out _statusBit1_clamped,
+out _statusBit2_clampedWithPart,
+out _statusBit3_clampedWithoutPart,
+out _statusBit4,
+out _statusBit5,
+out _statusBit6,
+out _statusBit7);
+
+
+#endregion
+
+
+#region Werte Schreiben
+//============================================================================================================
+// W E R T E   S C H R E I B E N   
+//============================================================================================================
+
+PLC_IN_Unclamped_Analog             = _statusBit0_unclamped             ? PAR_UnclampedValue : (ushort) 0;
+PLC_IN_Clamped_Analog               = _statusBit1_clamped               ? PAR_ClampedValue : (ushort) 0;
+PLC_IN_ClampedWithPart_Analog       = _statusBit2_clampedWithPart       ? PAR_ClampedWithPartValue : (ushort) 0;
+PLC_IN_ClampedWithoutPart_Analog    = _statusBit3_clampedWithoutPart    ? PAR_ClampedWithoutPartValue : (ushort) 0;
+
+
+#endregion
+
+
+</ScriptText>
+	<HmiDefined>false</HmiDefined>
+	<Version Major="1" Minor="0" Patch="1" />
+	<HasDependencyPath>false</HasDependencyPath>
+	<HasCompileErrors>false</HasCompileErrors>
+	<InputSlots>
+		<LogicSlot>
+			<Name>SIM_AddOnStatus</Name>
+			<IOSlotType>Byte</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>0</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_UnclampedValue</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>1</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedValue</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>2</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedWithPartValue</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>3</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PAR_ClampedWithoutPartValue</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Read</IOMode>
+			<Order>4</Order>
+		</LogicSlot>
+	</InputSlots>
+	<OutputSlots>
+		<LogicSlot>
+			<Name>PLC_IN_Unclamped_Analog</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>13</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_Clamped_Analog</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>14</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithPart_Analog</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>15</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>PLC_IN_ClampedWithoutPart_Analog</Name>
+			<IOSlotType>Word</IOSlotType>
+			<IOMode>Write</IOMode>
+			<Order>16</Order>
+		</LogicSlot>
+	</OutputSlots>
+	<LocalSlots>
+		<LogicSlot>
+			<Name>_statusBit0_unclamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>5</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit1_clamped</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>6</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit2_clampedWithPart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>7</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit3_clampedWithoutPart</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>8</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit4</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>9</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit5</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>10</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit6</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>11</Order>
+		</LogicSlot>
+		<LogicSlot>
+			<Name>_statusBit7</Name>
+			<IOSlotType>Bool</IOSlotType>
+			<IOMode>None</IOMode>
+			<Order>12</Order>
+		</LogicSlot>
+	</LocalSlots>
+</LogicDefinition>
