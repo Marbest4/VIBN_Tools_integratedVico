@@ -6,7 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-	<BaseOutputPath>C:\_Projekt\CodingBuild\VibnTools\Build</BaseOutputPath>
+	<BaseOutputPath>$(MSBuildProjectDirectory)\artifacts\build\</BaseOutputPath>
+	<FeeScreenSimRoot Condition="'$(FEE_SCREEN_SIM_ROOT)' != ''">$(FEE_SCREEN_SIM_ROOT)</FeeScreenSimRoot>
+	<FeeScreenSimRoot Condition="'$(FeeScreenSimRoot)' == ''">C:\Program Files\fe.screen-sim V5\5.0.11.48415</FeeScreenSimRoot>
+	<DefaultItemExcludes>$(DefaultItemExcludes);Tests\**;VIBN_Tools.Core\**;VIBN_Tools.Infrastructure\**;VIBN_Tools.Tia.Client\**;VIBN_Tools.Tia.Contracts\**;VIBN_Tools.TiaBridge\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,41 +49,47 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="VIBN_Tools.Core\VIBN_Tools.Core.csproj" />
+    <ProjectReference Include="VIBN_Tools.Infrastructure\VIBN_Tools.Infrastructure.csproj" />
+    <ProjectReference Include="VIBN_Tools.Tia.Client\VIBN_Tools.Tia.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="FS.API">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.API.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.API.dll</HintPath>
     </Reference>
     <Reference Include="FS.Components">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Components.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.Components.dll</HintPath>
     </Reference>
     <Reference Include="FS.Content">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Content.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.Content.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Hmi">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Hmi.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Hmi.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Mathematics">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Mathematics.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Network">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Network.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Network.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Packets">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Packets.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Packets.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Util">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Util.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Util.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Wpf">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.SDK.Wpf.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Wpf.dll</HintPath>
     </Reference>
     <Reference Include="FS.Util">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\FS.Util.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\FS.Util.dll</HintPath>
     </Reference>
     <Reference Include="ReadingUnitPlugin">
-      <HintPath>..\..\..\Program Files\fe.screen-sim V5\5.0.11.48415\Bin\Plugins\ReadingUnitPlugin\ReadingUnitPlugin.dll</HintPath>
+      <HintPath>$(FeeScreenSimRoot)\Bin\Plugins\ReadingUnitPlugin\ReadingUnitPlugin.dll</HintPath>
     </Reference>
   </ItemGroup>
 
@@ -254,5 +263,17 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="BuildAndCopyTiaBridge" AfterTargets="Build">
+    <MSBuild Projects="$(MSBuildProjectDirectory)\VIBN_Tools.TiaBridge\VIBN_Tools.TiaBridge.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <TiaBridgeOutput Include="$(MSBuildProjectDirectory)\VIBN_Tools.TiaBridge\bin\$(Configuration)\net48\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TiaBridgeOutput)"
+          DestinationFiles="@(TiaBridgeOutput->'$(TargetDir)TiaBridge\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -1,0 +1,91 @@
+<UserControl x:Class="VIBN_Tools.Application.View.ViCoSearchPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <RadioButton Grid.Column="0" VerticalAlignment="Center" Content="Projekt" IsChecked="{Binding IsProjectMode}" />
+            <RadioButton Grid.Column="1" Margin="12,0,16,0" VerticalAlignment="Center" Content="PC" IsChecked="{Binding IsWorkstationMode}" />
+            <TextBox Grid.Column="2" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            <Button Grid.Column="3" MinWidth="120" Margin="8,0,0,0" Content="Aktualisieren" Command="{Binding RefreshCommand}" />
+            <Button Grid.Column="4"
+                    MinWidth="140"
+                    Margin="8,0,0,0"
+                    Content="Kanbanize abrufen"
+                    Command="{Binding RefreshOnlineCommand}"
+                    IsEnabled="{Binding CanRefreshOnline}" />
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <DataGrid Grid.Column="0"
+                      ItemsSource="{Binding Results}"
+                      SelectedItem="{Binding SelectedWorkstation}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      EnableRowVirtualization="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="PC" Binding="{Binding PcName}" Width="140" />
+                    <DataGridTextColumn Header="Beschreibung" Binding="{Binding DisplayName}" Width="*" />
+                    <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName}" Width="180" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.DisplayName}" />
+                    <TextBlock Margin="0,8,0,0" Text="{Binding SelectedWorkstation.TiaInformation}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.FeeInformation}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.HardwareInformation}" TextWrapping="Wrap" />
+                    <CheckBox Margin="0,8,0,0" IsChecked="{Binding IsOnline}" IsEnabled="False" Content="PC erreichbar" />
+
+                    <TextBlock Margin="0,14,0,4" Text="Projekt" />
+                    <ComboBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
+
+                    <WrapPanel Margin="0,14,0,0">
+                        <CheckBox Content="Monitor 1" IsChecked="{Binding UseMonitor1}" />
+                        <CheckBox Margin="8,0,0,0" Content="Monitor 2" IsChecked="{Binding UseMonitor2}" IsEnabled="{Binding HasMonitor2}" />
+                        <CheckBox Margin="8,0,0,0" Content="Monitor 3" IsChecked="{Binding UseMonitor3}" IsEnabled="{Binding HasMonitor3}" />
+                        <CheckBox Margin="8,0,0,0" Content="Monitor 4" IsChecked="{Binding UseMonitor4}" IsEnabled="{Binding HasMonitor4}" />
+                    </WrapPanel>
+
+                    <UniformGrid Margin="0,10,0,0" Columns="2">
+                        <Button Margin="0,3,3,3" Content="Remote Desktop" Command="{Binding ConnectRemoteCommand}" />
+                        <Button Margin="3" Content="TeamViewer" Command="{Binding OpenTeamViewerCommand}" />
+                        <Button Margin="0,3,3,3" Content="PC-Projektordner" Command="{Binding OpenPcProjectsCommand}" />
+                        <Button Margin="3" Content="Simulation" Command="{Binding OpenSimulationCommand}" />
+                        <Button Margin="0,3,3,3" Content="PLC-Projekt" Command="{Binding OpenCommissioningCommand}" />
+                        <Button Margin="3" Content="Planung" Command="{Binding OpenPlanningCommand}" />
+                    </UniformGrid>
+
+                    <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding SelectedWorkstation.Details}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Margin="0,2" Text="{Binding}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Margin="0,12,0,0" Text="{Binding StatusText}" />
+    </Grid>
+</UserControl>

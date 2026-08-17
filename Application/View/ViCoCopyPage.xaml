@@ -1,0 +1,55 @@
+<UserControl x:Class="VIBN_Tools.Application.View.ViCoCopyPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12" Orientation="Horizontal">
+            <Button MinWidth="130" Content="Ordner hinzufügen" Command="{Binding AddFolderCommand}" />
+            <Button MinWidth="130" Margin="8,0,0,0" Content="Dateien hinzufügen" Command="{Binding AddFilesCommand}" />
+            <Button MinWidth="100" Margin="8,0,0,0" Content="Entfernen" Command="{Binding RemoveCommand}" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Sources}"
+                  SelectedItem="{Binding SelectedSource}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  EnableRowVirtualization="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Element" Binding="{Binding Name}" Width="240" />
+                <DataGridTextColumn Header="Quelle" Binding="{Binding FullPath}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" Text="Ziel" />
+            <TextBox Grid.Column="1" Text="{Binding DestinationPath}" />
+            <Button Grid.Column="2" MinWidth="110" Margin="8,0,0,0" Content="Durchsuchen" Command="{Binding BrowseDestinationCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" />
+                <TextBlock Margin="0,6,0,0" Text="{Binding StatusText}" />
+            </StackPanel>
+            <Button Grid.Column="1" MinWidth="110" Margin="12,0,0,0" Content="Abbrechen" Command="{Binding CancelCommand}" />
+            <Button Grid.Column="2" MinWidth="130" Margin="8,0,0,0" Content="Übertragen" Command="{Binding TransferCommand}" />
+        </Grid>
+    </Grid>
+</UserControl>

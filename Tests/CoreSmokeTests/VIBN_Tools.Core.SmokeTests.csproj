@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Application\VM\TiaPortalPageVM.cs" Link="Desktop\TiaPortalPageVM.cs" />
+    <Compile Include="..\..\Application\VM\ViCoAdministrationPageVM.cs" Link="Desktop\ViCoAdministrationPageVM.cs" />
+    <Compile Include="..\..\Application\VM\ViCoCopyPageVM.cs" Link="Desktop\ViCoCopyPageVM.cs" />
+    <Compile Include="..\..\Application\VM\ViCoPageVM.cs" Link="Desktop\ViCoPageVM.cs" />
+    <Compile Include="..\..\Application\VM\ViCoSearchPageVM.cs" Link="Desktop\ViCoSearchPageVM.cs" />
+    <ProjectReference Include="..\..\VIBN_Tools.Core\VIBN_Tools.Core.csproj" />
+    <ProjectReference Include="..\..\VIBN_Tools.Infrastructure\VIBN_Tools.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\VIBN_Tools.Tia.Client\VIBN_Tools.Tia.Client.csproj" />
+  </ItemGroup>
+</Project>

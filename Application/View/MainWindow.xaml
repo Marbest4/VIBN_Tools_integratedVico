@@ -52,6 +52,26 @@
                     <TabItem Header="Project Settings" ux:Icon.Kind="Settings">
                         <p:SettingsPage/>
                     </TabItem>
+
+                    <TabItem Header="ViCo" ux:Icon.Kind="TaskListAssigned">
+                        <p:ViCoPage/>
+                    </TabItem>
+
+                    <TabItem Header="ViCo Search" ux:Icon.Kind="TaskListAssigned">
+                        <p:ViCoSearchPage/>
+                    </TabItem>
+
+                    <TabItem Header="ViCo Copy" ux:Icon.Kind="Copy">
+                        <p:ViCoCopyPage/>
+                    </TabItem>
+
+                    <TabItem Header="TIA Portal" ux:Icon.Kind="Settings">
+                        <p:TiaPortalPage/>
+                    </TabItem>
+
+                    <TabItem Header="ViCo Dashboard" ux:Icon.Kind="TaskListAssigned">
+                        <p:ViCoAdministrationPage/>
+                    </TabItem>
                     
                     <TabItem Header="CAD Wizard" ux:Icon.Kind="Cad">
                         <p:CadWizardPage/>
