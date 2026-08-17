@@ -54,7 +54,7 @@
                     <TextBlock Margin="0,8,0,0" Text="{Binding SelectedWorkstation.TiaInformation}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.FeeInformation}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.HardwareInformation}" TextWrapping="Wrap" />
-                    <CheckBox Margin="0,8,0,0" IsChecked="{Binding IsOnline}" IsEnabled="False" Content="PC erreichbar" />
+                    <CheckBox Margin="0,8,0,0" IsChecked="{Binding IsOnline, Mode=OneWay}" IsEnabled="False" Content="PC erreichbar" />
 
                     <TextBlock Margin="0,14,0,4" Text="Projekt" />
                     <ComboBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
