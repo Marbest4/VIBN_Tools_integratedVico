@@ -1,6 +1,4 @@
-﻿using FS.API;
-using System.ComponentModel;
-using System.Windows;
+using FS.API;
 using VIBN_Tools.GlobalClasses.FeeObjects;
 using VIBN_Tools.Settings;
 
@@ -8,56 +6,51 @@ namespace VIBN_Tools.GlobalClasses
 {
     public static class Services
     {
-        public static CoreApi ApiInstance { get; private set; }
-        public static FeeConnectionService Connection { get; private set; }
-        public static FeeObjectService FeeObjects { get; private set; }
+        public static CoreApi ApiInstance { get; private set; } = null!;
+        public static FeeConnectionService Connection { get; private set; } = null!;
+        public static FeeObjectService FeeObjects { get; private set; } = null!;
         public static ProjectSettings ProjectSettings { get; } = new ProjectSettings();
 
+        public static bool IsFeeSdkAvailable { get; private set; }
 
-
-
+        public static string? FeeSdkInitializationError { get; private set; }
 
         public static void Initialize()
         {
-            ApiInstance = new CoreApi();
-
-            if (!DesignerProperties.GetIsInDesignMode(new DependencyObject()))
-            {
-                Connection = new FeeConnectionService();
-            }
-
+            // ViCo and TIA must remain usable even when the optional fe.screen-sim
+            // runtime is missing or incomplete on the current workstation.
             FeeObjects = new FeeObjectService();
 
-            // Load Fee Data only once
-            //if (Connection != null)
-            //{
-            //    Action handler = null;
+            try
+            {
+                ApiInstance = new CoreApi();
+                IsFeeSdkAvailable = true;
+                FeeSdkInitializationError = null;
+            }
+            catch (Exception exception)
+            {
+                IsFeeSdkAvailable = false;
+                FeeSdkInitializationError = GetInnermostMessage(exception);
+            }
 
-            //    handler = async () =>
-            //    {
-            //        if (Connection.IsConnected)
-            //        {
-            //            Connection.Connected -= handler;
-            //            await FeeObjects.UpdateFeeDataAsync();
-            //        }
-            //    };
-            //    Connection.Connected += handler;
-            //}
+            Connection = new FeeConnectionService();
 
-            // Load Fee Data on every connect
-            if (Connection != null)
+            if (IsFeeSdkAvailable)
             {
                 Connection.Connected += async () =>
                 {
                     if (Connection.LoadFeeDataOnConnect)
-                    {
                         await FeeObjects.GetInitialFeeDataAsync();
-                    }
-                    
                 };
             }
+        }
 
+        private static string GetInnermostMessage(Exception exception)
+        {
+            while (exception.InnerException is not null)
+                exception = exception.InnerException;
 
+            return exception.Message;
         }
     }
 }

@@ -7,9 +7,14 @@ namespace VIBN_Tools.Application.VM
     {
         public MainWindowVM()
         {
-
+            FeeSdkStatusText = Services.IsFeeSdkAvailable
+                ? string.Empty
+                : $"fe.screen-sim SDK nicht verfügbar: {Services.FeeSdkInitializationError}";
         }
 
+        public string FeeSdkStatusText { get; }
+
+        public bool IsFeeSdkAvailable => Services.IsFeeSdkAvailable;
 
 
         public async Task InitializeAsync()

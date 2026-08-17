@@ -57,8 +57,13 @@ Die unabhängig testbaren Komponenten lassen sich so prüfen:
 ```powershell
 dotnet build Tests/CoreSmokeTests/VIBN_Tools.Core.SmokeTests.csproj --configuration Release --no-restore -warnaserror
 dotnet run --project Tests/CoreSmokeTests/VIBN_Tools.Core.SmokeTests.csproj --configuration Release --no-build
+dotnet run --project Tests/UiStartupSmokeTests/VIBN_Tools.UiStartup.SmokeTests.csproj --configuration Release --no-build
 dotnet build VIBN_Tools.TiaBridge/VIBN_Tools.TiaBridge.csproj --configuration Release --no-restore -warnaserror
 ```
+
+Der UI-Starttest initialisiert das vollständige Hauptfenster einschließlich aller ursprünglichen und migrierten
+Views. Ist das optionale fe.screen-sim-SDK nicht vollständig installiert, bleiben ViCo und TIA nutzbar. Die
+SDK-abhängigen Register werden in diesem Fall deaktiviert und die Ursache wird im Hauptfenster angezeigt.
 
 ## Noch bewusst ausstehend
 
