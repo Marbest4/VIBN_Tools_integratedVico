@@ -61,7 +61,7 @@
                         <p:ViCoSearchPage/>
                     </TabItem>
 
-                    <TabItem Header="ViCo Copy" ux:Icon.Kind="Copy">
+                    <TabItem Header="ViCo Copy" ux:Icon.Kind="FileSync">
                         <p:ViCoCopyPage/>
                     </TabItem>
 
