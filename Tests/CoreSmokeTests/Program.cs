@@ -18,6 +18,10 @@ try
     await VerifyFileCopyAsync(temporaryRoot);
     Console.WriteLine("Running legacy workstation catalog smoke test...");
     await VerifyLegacyWorkstationCatalogAsync(temporaryRoot);
+    Console.WriteLine("Running ViCo project identity and path smoke test...");
+    VerifyProjectIdentityAndPaths(temporaryRoot);
+    Console.WriteLine("Running Remote Desktop profile smoke test...");
+    VerifyRemoteDesktopProfile();
     if (OperatingSystem.IsWindows())
     {
         Console.WriteLine("Running legacy license and update smoke test...");
@@ -90,7 +94,7 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
         new[]
         {
             "#Working#[GM9000/01-001] Demo", "lane-1",
-            "ZKDS ZK0001", "lane-1",
+            "Remote user: ZKDS-Simulation-P01", "lane-1",
             "TIA V18", "lane-1",
             "FEE 5.0", "lane-1",
             "LAN Industrial", "lane-1"
@@ -100,9 +104,74 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
     Assert(snapshot.Workstations.Count == 1, "Legacy workstation catalog should contain one workstation.");
     var workstation = snapshot.Workstations[0];
     Assert(workstation.PcName == "GM12345", "Workstation name parsing failed.");
+    Assert(workstation.UserName == "zkds-simulation-p01", "Kanbanize user parsing failed.");
+    Assert(workstation.Status == "In Arbeit", "Kanbanize status parsing failed.");
     Assert(workstation.Projects.Count == 1, "Project card parsing failed.");
     Assert(new ViCoWorkstationSearch().Search(snapshot.Workstations, "GM9000", ViCoSearchMode.Project).Count == 1,
         "Project-oriented workstation search failed.");
+}
+
+static void VerifyProjectIdentityAndPaths(string temporaryRoot)
+{
+    var simulationRoot = Path.Combine(temporaryRoot, "simulation");
+    var simulationPath = Path.Combine(simulationRoot, "Area", "GM_GU1660_Line", "05-130");
+    Directory.CreateDirectory(simulationPath);
+
+    var resolver = new ViCoRelatedPathResolver(
+        simulationRoot,
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GM_GU1660/05-130"] = simulationPath
+        },
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GU1660"] = @"\\server\plc\GU1660"
+        },
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Customer_GU1660_Planning"] = @"\\server\planning\GU1660"
+        });
+    var workstation = new ViCoWorkstation(
+        "GM12345 Tool PC",
+        "GM12345",
+        "zkds-simulation-p01",
+        "TIA V18",
+        "FEE 5",
+        "LAN",
+        new[] { "[W] GM_GU1660/05-130 Customer" },
+        Array.Empty<string>());
+
+    var projectCard = workstation.Projects[0];
+    Assert(resolver.Resolve(workstation, projectCard, ViCoRelatedPathKind.Simulation) == simulationPath,
+        "Status-tolerant simulation path resolution failed.");
+    Assert(resolver.Resolve(workstation, projectCard, ViCoRelatedPathKind.Commissioning) == @"\\server\plc\GU1660",
+        "Commissioning path resolution failed.");
+    Assert(resolver.Resolve(workstation, projectCard, ViCoRelatedPathKind.Planning) == @"\\server\planning\GU1660",
+        "Planning path resolution failed.");
+
+    var workstationPath = resolver.Resolve(workstation, projectCard, ViCoRelatedPathKind.WorkstationProject);
+    Assert(workstationPath == Path.Combine(@"\\GM12345\_Projekte$", "Area", "GM_GU1660_Line", "05-130"),
+        "Workstation project path mapping failed.");
+
+    var structureRoot = Path.Combine(temporaryRoot, "project-structure");
+    new StandardProjectStructureService().EnsureCreated(structureRoot);
+    Assert(Directory.Exists(Path.Combine(structureRoot, "02_SimulationProject")),
+        "Standard project structure creation failed.");
+}
+
+static void VerifyRemoteDesktopProfile()
+{
+    var lines = RemoteDesktopProfileBuilder.Build(
+        "GM12345",
+        "zkds-simulation-p01",
+        new[] { 0, 2 },
+        3);
+    Assert(lines.Contains("username:s:zkds-simulation-p01"),
+        "The normalized Kanbanize user was not written to the RDP profile.");
+    Assert(lines.Contains("prompt for credentials:i:0"),
+        "The RDP profile must retain the original one-click credential behavior.");
+    Assert(lines.Contains("selectedmonitors:s:0,2"),
+        "Selected RDP monitors were not preserved.");
 }
 
 static async Task VerifyAdministrationServicesAsync(string temporaryRoot)

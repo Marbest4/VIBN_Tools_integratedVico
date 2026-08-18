@@ -18,6 +18,7 @@ internal static class Program
 
         try
         {
+            _ = new ViCoWorkspacePage();
             FrameworkElement[] integratedViews =
             [
                 new ViCoPage(),

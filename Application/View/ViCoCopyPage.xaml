@@ -1,33 +1,63 @@
 <UserControl x:Class="VIBN_Tools.Application.View.ViCoCopyPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Margin="24">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,12" Orientation="Horizontal">
-            <Button MinWidth="130" Content="Ordner hinzufügen" Command="{Binding AddFolderCommand}" />
-            <Button MinWidth="130" Margin="8,0,0,0" Content="Dateien hinzufügen" Command="{Binding AddFilesCommand}" />
-            <Button MinWidth="100" Margin="8,0,0,0" Content="Entfernen" Command="{Binding RemoveCommand}" />
-        </StackPanel>
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Übertragungsrichtung" />
+            <ToggleButton Grid.Column="1" Width="130" Margin="12,0" Content="{Binding DirectionText}" IsChecked="{Binding IsServerToPc}" />
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="{Binding SelectionSummary}" TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="3" MinWidth="150" Content="Auswahl übernehmen" Command="{Binding ApplySelectionCommand}" />
+        </Grid>
 
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Sources}"
-                  SelectedItem="{Binding SelectedSource}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  EnableRowVirtualization="True">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Element" Binding="{Binding Name}" Width="240" />
-                <DataGridTextColumn Header="Quelle" Binding="{Binding FullPath}" Width="*" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" Text="Quelle" />
+            <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding SourceRootPath, Mode=OneWay}" />
+            <Button Grid.Column="2" MinWidth="180" Margin="8,0,0,0" Content="Projektinhalt hinzufügen" Command="{Binding AddProjectContentCommand}" />
+        </Grid>
 
-        <Grid Grid.Row="2" Margin="0,12,0,0">
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="0,0,0,8" Orientation="Horizontal">
+                <Button MinWidth="130" Content="Ordner hinzufügen" Command="{Binding AddFolderCommand}" />
+                <Button MinWidth="130" Margin="8,0,0,0" Content="Dateien hinzufügen" Command="{Binding AddFilesCommand}" />
+                <Button MinWidth="100" Margin="8,0,0,0" Content="Entfernen" Command="{Binding RemoveCommand}" />
+            </StackPanel>
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding Sources}"
+                      SelectedItem="{Binding SelectedSource}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      EnableRowVirtualization="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Element" Binding="{Binding Name}" Width="240" />
+                    <DataGridTextColumn Header="Quelle" Binding="{Binding FullPath}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -38,7 +68,7 @@
             <Button Grid.Column="2" MinWidth="110" Margin="8,0,0,0" Content="Durchsuchen" Command="{Binding BrowseDestinationCommand}" />
         </Grid>
 
-        <Grid Grid.Row="3" Margin="0,12,0,0">
+        <Grid Grid.Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

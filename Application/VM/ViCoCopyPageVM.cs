@@ -6,18 +6,30 @@ using VIBN_Tools.GlobalClasses;
 
 namespace VIBN_Tools.Application.VM;
 
-public sealed record CopySourceEntry(string Name, string FullPath, bool IsDirectory);
+public sealed record CopySourceEntry(
+    string Name,
+    string FullPath,
+    bool IsDirectory,
+    bool CopyContentsToDestination = false);
 
 public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
 {
     private readonly IFileCopyService _copyService;
     private readonly IFolderSelectionService _folderSelection;
+    private readonly ViCoWorkspaceContext _workspaceContext;
+    private readonly IProjectStructureService _projectStructure;
     private CancellationTokenSource? _copyCancellation;
 
-    public ViCoCopyPageVM(IFileCopyService copyService, IFolderSelectionService folderSelection)
+    public ViCoCopyPageVM(
+        IFileCopyService copyService,
+        IFolderSelectionService folderSelection,
+        ViCoWorkspaceContext workspaceContext,
+        IProjectStructureService projectStructure)
     {
         _copyService = copyService;
         _folderSelection = folderSelection;
+        _workspaceContext = workspaceContext;
+        _projectStructure = projectStructure;
 
         AddFolderCommand = GetCommandBinding(AddFolder);
         AddFilesCommand = GetCommandBinding(AddFiles);
@@ -25,6 +37,8 @@ public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
         BrowseDestinationCommand = GetCommandBinding(BrowseDestination);
         TransferCommand = GetCommandBindingAsync(TransferAsync);
         CancelCommand = GetCommandBinding(Cancel);
+        ApplySelectionCommand = GetCommandBinding(ApplyWorkspaceSelection);
+        AddProjectContentCommand = GetCommandBinding(AddProjectContent);
     }
 
     public ObservableCollection<CopySourceEntry> Sources { get; } = new();
@@ -40,6 +54,47 @@ public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
     public ICommand TransferCommand { get; }
 
     public ICommand CancelCommand { get; }
+
+    public ICommand ApplySelectionCommand { get; }
+
+    public ICommand AddProjectContentCommand { get; }
+
+    private bool _isServerToPc = true;
+    public bool IsServerToPc
+    {
+        get => _isServerToPc;
+        set
+        {
+            _isServerToPc = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DirectionText));
+            ApplyWorkspaceSelection();
+        }
+    }
+
+    public string DirectionText => IsServerToPc ? "Server → PC" : "PC → Server";
+
+    private string _sourceRootPath = string.Empty;
+    public string SourceRootPath
+    {
+        get => _sourceRootPath;
+        private set
+        {
+            _sourceRootPath = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string _selectionSummary = "Noch keine Auswahl aus der ViCo-Übersicht übernommen.";
+    public string SelectionSummary
+    {
+        get => _selectionSummary;
+        private set
+        {
+            _selectionSummary = value;
+            OnPropertyChanged();
+        }
+    }
 
     private CopySourceEntry? _selectedSource;
     public CopySourceEntry? SelectedSource
@@ -104,14 +159,14 @@ public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
 
     private void AddFolder()
     {
-        var path = _folderSelection.SelectFolder("Quellordner auswählen");
+        var path = _folderSelection.SelectFolder("Quellordner auswählen", SourceRootPath);
         if (path is not null)
             AddSource(path, true);
     }
 
     private void AddFiles()
     {
-        foreach (var path in _folderSelection.SelectFiles("Quelldateien auswählen"))
+        foreach (var path in _folderSelection.SelectFiles("Quelldateien auswählen", SourceRootPath))
             AddSource(path, false);
     }
 
@@ -142,12 +197,54 @@ public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
             DestinationPath = path;
     }
 
+    public void ApplyWorkspaceSelection()
+    {
+        var selection = _workspaceContext.CurrentSelection;
+        if (!selection.IsComplete)
+        {
+            SelectionSummary = "Bitte zuerst in der ViCo-Übersicht einen PC und ein Projekt auswählen.";
+            return;
+        }
+
+        SourceRootPath = IsServerToPc
+            ? selection.ServerProjectPath
+            : selection.WorkstationProjectPath;
+        DestinationPath = IsServerToPc
+            ? selection.WorkstationProjectPath
+            : selection.ServerProjectPath;
+        SelectionSummary = $"{selection.PcName} · {selection.Project} · {DirectionText}";
+        StatusText = "Auswahl übernommen. Elemente auswählen oder den gesamten Projektinhalt hinzufügen.";
+    }
+
+    private void AddProjectContent()
+    {
+        if (string.IsNullOrWhiteSpace(SourceRootPath) || !Directory.Exists(SourceRootPath))
+        {
+            StatusText = "Der Quellprojektpfad ist nicht erreichbar.";
+            return;
+        }
+
+        if (Sources.Any(item => item.CopyContentsToDestination))
+            return;
+        Sources.Add(new CopySourceEntry("Gesamter Projektinhalt", SourceRootPath, true, true));
+        StatusText = "Der gesamte Projektinhalt wurde vorgemerkt.";
+    }
+
     private async Task TransferAsync()
     {
         if (IsBusy || Sources.Count == 0 || string.IsNullOrWhiteSpace(DestinationPath))
             return;
-        if (!Directory.Exists(DestinationPath))
+        var selection = _workspaceContext.CurrentSelection;
+        if (IsServerToPc &&
+            selection.IsComplete &&
+            string.Equals(DestinationPath, selection.WorkstationProjectPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _projectStructure.EnsureCreated(DestinationPath);
+        }
+        else if (!Directory.Exists(DestinationPath))
+        {
             Directory.CreateDirectory(DestinationPath);
+        }
 
         _copyCancellation?.Dispose();
         _copyCancellation = new CancellationTokenSource();
@@ -159,7 +256,9 @@ public sealed class ViCoCopyPageVM : MvvmBase, IDisposable
         {
             var items = Sources.Select(source => new FileCopyItem(
                 source.FullPath,
-                Path.Combine(DestinationPath, source.Name))).ToArray();
+                source.CopyContentsToDestination
+                    ? DestinationPath
+                    : Path.Combine(DestinationPath, source.Name))).ToArray();
             var progress = new Progress<FileCopyProgress>(value =>
             {
                 ProgressPercent = value.Percent;

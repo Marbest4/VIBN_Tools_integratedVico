@@ -12,6 +12,7 @@ public partial class ViCoCopyPage : UserControl
         InitializeComponent();
         _viewModel = ViCoFeatureBootstrapper.CreateCopyViewModel();
         DataContext = _viewModel;
+        Loaded += (_, _) => _viewModel.ApplyWorkspaceSelection();
         Unloaded += (_, _) => _viewModel.Dispose();
     }
 }

@@ -11,6 +11,7 @@ namespace VIBN_Tools.KanbanizeService
 {
     public class KanbanizeService
     {
+        public static string ApiKey => "kUBX588nUNRxWmv2oy94OMxguJOEl71futuemI2m";
 
         private readonly HttpClient _httpClient;
         private readonly SemaphoreSlim _throttle = new SemaphoreSlim(10);    // max. 10 parallel
@@ -21,7 +22,7 @@ namespace VIBN_Tools.KanbanizeService
         {
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-            _httpClient.DefaultRequestHeaders.Add("apikey", "kUBX588nUNRxWmv2oy94OMxguJOEl71futuemI2m");
+            _httpClient.DefaultRequestHeaders.Add("apikey", ApiKey);
             _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
         }
 

@@ -52,8 +52,9 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             var title = lanes[laneIndex];
             if (title.Contains("data", StringComparison.OrdinalIgnoreCase) ||
                 title.Contains("Lane", StringComparison.OrdinalIgnoreCase) ||
-                (!title.Contains("GM", StringComparison.OrdinalIgnoreCase) &&
-                 !title.Contains("Tool", StringComparison.OrdinalIgnoreCase)))
+                 (!title.Contains("GM", StringComparison.OrdinalIgnoreCase) &&
+                  !title.Contains("GU", StringComparison.OrdinalIgnoreCase) &&
+                  !title.Contains("Tool", StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
@@ -99,7 +100,9 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             }
 
             var pcName = ExtractPcName(displayName);
-            var user = details.FirstOrDefault(value => value.Contains("ZKDS", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+            var user = details
+                .Select(ExtractUserName)
+                .FirstOrDefault(value => value.Length > 0) ?? string.Empty;
             var tia = details.FirstOrDefault(value => value.Contains("TIA", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
             var fee = string.Join(" | ", details.Where(value => value.Contains("FEE", StringComparison.OrdinalIgnoreCase)));
             var hardware = details.FirstOrDefault(value => value.Contains("LAN", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
@@ -138,7 +141,14 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         for (var index = 0; index + 1 < robotCards.Count; index += 2)
         {
             var projectKey = Clean(robotCards[index]);
-            if (!projects.Any(project => project.Contains(projectKey, StringComparison.OrdinalIgnoreCase)))
+            var normalizedRobotProject = ProjectIdentity.Normalize(
+                projectKey.Replace("Software Robotik", string.Empty, StringComparison.OrdinalIgnoreCase));
+            var robotMachineKey = ProjectIdentity.MachineKey(projectKey);
+            if (!projects.Any(project =>
+                    (normalizedRobotProject.Length > 0 &&
+                     ProjectIdentity.Normalize(project).Contains(normalizedRobotProject, StringComparison.OrdinalIgnoreCase)) ||
+                    (robotMachineKey.Length > 0 &&
+                     string.Equals(ProjectIdentity.MachineKey(project), robotMachineKey, StringComparison.OrdinalIgnoreCase))))
                 continue;
             var columnId = Clean(robotCards[index + 1]);
             var columnName = columnNames.TryGetValue(columnId, out var name) ? name : columnId;
@@ -158,6 +168,40 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
     {
         var match = Regex.Match(value, @"\b(?:GM|GU)[A-Z0-9]{4,8}\b", RegexOptions.IgnoreCase);
         return match.Success ? match.Value.ToUpperInvariant() : value.Trim();
+    }
+
+    internal static string ExtractUserName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(
+            value,
+            @"(?<![A-Z0-9])ZKDS-[A-Z0-9._-]+",
+            RegexOptions.IgnoreCase);
+        if (match.Success)
+            return match.Value.TrimEnd('.', ',', ';', ':').ToLowerInvariant();
+
+        match = Regex.Match(
+            value,
+            @"(?<![A-Z0-9])ZKDS[ _-]+SIMULATION[ _-]+P\d{1,2}",
+            RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return Regex.Replace(match.Value, "[ _]+", "-")
+                .ToLowerInvariant();
+        }
+
+        var matches = Regex.Matches(
+            value,
+            @"(?<![A-Z0-9])ZK[A-Z0-9._-]{2,}",
+            RegexOptions.IgnoreCase);
+        return matches
+            .Select(candidate => candidate.Value.TrimEnd('.', ',', ';', ':'))
+            .Where(candidate => candidate.Length > 4)
+            .OrderByDescending(candidate => candidate.Length)
+            .Select(candidate => candidate.ToLowerInvariant())
+            .FirstOrDefault() ?? string.Empty;
     }
 
     private static string Clean(string value) =>

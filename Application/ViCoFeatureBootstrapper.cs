@@ -5,11 +5,14 @@ using VIBN_Tools.Application.VM;
 using VIBN_Tools.Core.ViCo;
 using VIBN_Tools.Infrastructure.ViCo;
 using VIBN_Tools.Tia.Client;
+using VIBN_Tools.Settings;
 
 namespace VIBN_Tools.Application;
 
 public static class ViCoFeatureBootstrapper
 {
+    private static readonly ViCoWorkspaceContext WorkspaceContext = new();
+
     public static ViCoPageVM CreateViewModel()
     {
         var options = ViCoPathsOptions.CreateDefault();
@@ -46,13 +49,20 @@ public static class ViCoFeatureBootstrapper
         var options = ViCoPathsOptions.CreateDefault();
         return new ViCoCopyPageVM(
             new BoundedFileCopyService(options.MaximumParallelCopies),
-            new WpfFolderSelectionService());
+            new WpfFolderSelectionService(),
+            WorkspaceContext,
+            new StandardProjectStructureService());
     }
 
     public static ViCoSearchPageVM CreateSearchViewModel()
     {
         var options = ViCoPathsOptions.CreateDefault();
-        var remoteDesktop = new WindowsRemoteDesktopService(options.WorkingDirectory);
+        var remoteDesktop = new WindowsRemoteDesktopService(
+            options.WorkingDirectory,
+            new ViCoRemoteCredentialStore());
+        var apiKey = Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = KanbanizeService.KanbanizeService.ApiKey;
 
         return new ViCoSearchPageVM(
             new LegacyWorkstationCatalog(options.ServerCacheRoot),
@@ -63,8 +73,10 @@ public static class ViCoFeatureBootstrapper
             new WindowsPathLauncher(),
             new KanbanizeRefreshService(
                 new HttpClient(),
-                Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY"),
-                options.ServerCacheRoot));
+                apiKey,
+                options.ServerCacheRoot),
+            WorkspaceContext,
+            values => RemoteConnection.SynchronizeServerUsers(values));
     }
 
     public static ViCoAdministrationPageVM CreateAdministrationViewModel()
@@ -87,7 +99,9 @@ public static class ViCoFeatureBootstrapper
         await ViCoRelatedPathResolver.CreateAsync(
             options.SimulationProjectsRoot,
             options.ServerCacheRoot,
-            cancellationToken);
+            cancellationToken,
+            options.CommissioningProjectsRoot,
+            options.PlanningProjectsRoot);
 
     private static IReadOnlyList<string> FindInstalledTiaVersions()
     {

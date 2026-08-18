@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using System.Windows;
 using VIBN_Tools.Application;
 using VIBN_Tools.Application.VM;
 
@@ -14,15 +15,18 @@ public partial class TiaPortalPage : UserControl
         InitializeComponent();
         _viewModel = ViCoFeatureBootstrapper.CreateTiaPortalViewModel();
         DataContext = _viewModel;
-        Unloaded += OnUnloaded;
+        if (System.Windows.Application.Current is not null)
+            System.Windows.Application.Current.Exit += OnApplicationExit;
     }
 
-    private async void OnUnloaded(object sender, System.Windows.RoutedEventArgs e)
+    private async void OnApplicationExit(object sender, ExitEventArgs e)
     {
         if (_disposed)
             return;
 
         _disposed = true;
+        if (System.Windows.Application.Current is not null)
+            System.Windows.Application.Current.Exit -= OnApplicationExit;
         await _viewModel.DisposeAsync();
     }
 }

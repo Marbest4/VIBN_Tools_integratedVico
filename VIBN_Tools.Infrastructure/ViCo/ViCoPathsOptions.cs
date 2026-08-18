@@ -23,6 +23,12 @@ public sealed record ViCoPathsOptions(
     public string VersionsRoot { get; init; } =
         @"\\grob.local\grob\GM\KO\EL\ALLG\Abtlg\ZD\Simulation\Dokumentation\vico\versions";
 
+    public string CommissioningProjectsRoot { get; init; } =
+        @"\\grob.local\grob\GM\KO\ALLG\PRJ\El_Project";
+
+    public string PlanningProjectsRoot { get; init; } =
+        @"\\grob.local\grob\GM\ALLG\KdProj\Kundenprojekte";
+
     public static ViCoPathsOptions CreateDefault()
     {
         return new ViCoPathsOptions(

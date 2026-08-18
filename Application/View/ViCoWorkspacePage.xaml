@@ -1,0 +1,26 @@
+<UserControl x:Class="VIBN_Tools.Application.View.ViCoWorkspacePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View">
+    <TabControl Margin="8">
+        <TabItem Header="Übersicht &amp; Verbindung">
+            <TabControl Margin="4">
+                <TabItem Header="PC-/Projektsuche">
+                    <local:ViCoSearchPage />
+                </TabItem>
+                <TabItem Header="Projekte &amp; Favoriten">
+                    <local:ViCoPage />
+                </TabItem>
+            </TabControl>
+        </TabItem>
+        <TabItem Header="Transfer">
+            <local:ViCoCopyPage />
+        </TabItem>
+        <TabItem Header="TIA Portal">
+            <local:TiaPortalPage />
+        </TabItem>
+        <TabItem Header="Verwaltung">
+            <local:ViCoAdministrationPage />
+        </TabItem>
+    </TabControl>
+</UserControl>

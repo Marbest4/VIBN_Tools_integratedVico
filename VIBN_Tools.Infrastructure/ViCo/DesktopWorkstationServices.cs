@@ -30,64 +30,30 @@ public sealed class WindowsRemoteDesktopService : IRemoteDesktopService
 {
     private const int MonitorMetric = 80;
     private readonly string _rdpFile;
+    private readonly IRemoteCredentialStore? _credentials;
 
-    public WindowsRemoteDesktopService(string workingDirectory)
+    public WindowsRemoteDesktopService(string workingDirectory, IRemoteCredentialStore? credentials = null)
     {
         Directory.CreateDirectory(workingDirectory);
         _rdpFile = Path.Combine(workingDirectory, "ViCo.rdp");
+        _credentials = credentials;
     }
 
     public int MonitorCount => Math.Max(1, GetSystemMetrics(MonitorMetric));
 
     public void Connect(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes)
     {
-        if (string.IsNullOrWhiteSpace(hostName))
-            throw new ArgumentException("A workstation is required.", nameof(hostName));
-
-        var monitors = monitorIndexes
-            .Where(index => index >= 0 && index < MonitorCount)
-            .Distinct()
-            .OrderBy(index => index)
-            .ToArray();
-        if (monitors.Length == 0)
-            monitors = new[] { 0 };
-
-        var lines = new List<string>
-        {
-            "screen mode id:i:2",
-            "session bpp:i:32",
-            "compression:i:1",
-            "keyboardhook:i:2",
-            "networkautodetect:i:1",
-            "bandwidthautodetect:i:1",
-            "displayconnectionbar:i:1",
-            "redirectclipboard:i:1",
-            "autoreconnection enabled:i:1",
-            $"full address:s:{hostName}",
-            $"username:s:{userName}",
-            "prompt for credentials:i:1",
-            "administrative session:i:0",
-            "enablecredsspsupport:i:1",
-            "redirectprinters:i:0",
-            "redirectcomports:i:0",
-            "redirectsmartcards:i:0",
-            "drivestoredirect:s:"
-        };
-
-        if (monitors.Length == MonitorCount)
-            lines.Add("use multimon:i:1");
-        else if (monitors.Length > 1)
-        {
-            lines.Add($"selectedmonitors:s:{string.Join(',', monitors)}");
-            lines.Add("use multimon:i:1");
-        }
-        else
-        {
-            lines.Add("use multimon:i:0");
-        }
-
+        var lines = RemoteDesktopProfileBuilder.Build(hostName, userName, monitorIndexes, MonitorCount);
         File.WriteAllLines(_rdpFile, lines, Encoding.Unicode);
-        Process.Start(new ProcessStartInfo("mstsc.exe", $"\"{_rdpFile}\"") { UseShellExecute = true });
+        _credentials?.Save(hostName, userName);
+        try
+        {
+            Process.Start(new ProcessStartInfo("mstsc.exe", $"\"{_rdpFile}\"") { UseShellExecute = true });
+        }
+        finally
+        {
+            _credentials?.RemoveLater(hostName, TimeSpan.FromSeconds(10));
+        }
     }
 
     [DllImport("user32.dll")]
@@ -124,12 +90,22 @@ public sealed class ViCoRelatedPathResolver : IViCoRelatedPathResolver
             return Directory.Exists(driveD) ? driveD : $@"\\{workstation.PcName}\C$";
         }
 
-        var key = ExtractProjectKey(project);
+        var simulationPath = FindProject(_projects, project);
+        if (kind == ViCoRelatedPathKind.WorkstationProject)
+        {
+            if (string.IsNullOrWhiteSpace(simulationPath))
+                return null;
+
+            var relativePath = Path.GetRelativePath(_simulationRoot, simulationPath);
+            return Path.Combine($@"\\{workstation.PcName}\_Projekte$", relativePath);
+        }
+
+        var key = ProjectIdentity.MachineKey(project);
         return kind switch
         {
-            ViCoRelatedPathKind.Simulation => Find(_projects, project),
-            ViCoRelatedPathKind.Commissioning => Find(_commissioning, key),
-            ViCoRelatedPathKind.Planning => FindContains(_planning, key),
+            ViCoRelatedPathKind.Simulation => simulationPath,
+            ViCoRelatedPathKind.Commissioning => FindByMachine(_commissioning, key, false),
+            ViCoRelatedPathKind.Planning => FindByMachine(_planning, key, true),
             _ => null
         };
     }
@@ -137,7 +113,9 @@ public sealed class ViCoRelatedPathResolver : IViCoRelatedPathResolver
     public static async Task<ViCoRelatedPathResolver> CreateAsync(
         string simulationRoot,
         string cacheRoot,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? commissioningRoot = null,
+        string? planningRoot = null)
     {
         var projectService = new FileSystemProjectCatalogService(new ViCoPathsOptions(simulationRoot, string.Empty));
         var catalog = await projectService.LoadAsync(cancellationToken);
@@ -145,9 +123,88 @@ public sealed class ViCoRelatedPathResolver : IViCoRelatedPathResolver
             item => item.DisplayName,
             item => item.FullPath,
             StringComparer.OrdinalIgnoreCase);
-        var commissioning = await LoadPairsAsync(cacheRoot, "ComissioningFoldersName.txt", "ComissioningFoldersPath.txt", cancellationToken);
-        var planning = await LoadPairsAsync(cacheRoot, "PlanningFoldersName.txt", "PlanningFoldersPath.txt", cancellationToken);
+        var commissioningTask = LoadPairsOrScanAsync(
+            cacheRoot,
+            "ComissioningFoldersName.txt",
+            "ComissioningFoldersPath.txt",
+            commissioningRoot,
+            3,
+            false,
+            cancellationToken);
+        var planningTask = LoadPairsOrScanAsync(
+            cacheRoot,
+            "PlanningFoldersName.txt",
+            "PlanningFoldersPath.txt",
+            planningRoot,
+            2,
+            true,
+            cancellationToken);
+        await Task.WhenAll(commissioningTask, planningTask);
+        var commissioning = await commissioningTask;
+        var planning = await planningTask;
         return new ViCoRelatedPathResolver(simulationRoot, projects, commissioning, planning);
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> LoadPairsOrScanAsync(
+        string cacheRoot,
+        string namesFile,
+        string pathsFile,
+        string? liveRoot,
+        int depth,
+        bool skipUnderscoreDirectories,
+        CancellationToken cancellationToken)
+    {
+        var cached = await LoadPairsAsync(cacheRoot, namesFile, pathsFile, cancellationToken);
+        var cachePath = Path.Combine(cacheRoot, pathsFile);
+        var cacheIsCurrent = File.Exists(cachePath) && File.GetLastWriteTime(cachePath).Date == DateTime.Today;
+        if (cacheIsCurrent || string.IsNullOrWhiteSpace(liveRoot) || !Directory.Exists(liveRoot))
+            return cached;
+
+        try
+        {
+            var scanned = await Task.Run(
+                () => ScanDirectories(liveRoot, depth, skipUnderscoreDirectories, cancellationToken),
+                cancellationToken);
+            return scanned.Count > 0 ? scanned : cached;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return cached;
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> ScanDirectories(
+        string root,
+        int depth,
+        bool skipUnderscoreDirectories,
+        CancellationToken cancellationToken)
+    {
+        IEnumerable<string> current = new[] { root };
+        for (var level = 0; level < depth; level++)
+        {
+            var next = new List<string>();
+            foreach (var parent in current)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    next.AddRange(Directory.EnumerateDirectories(parent).Where(path =>
+                        !skipUnderscoreDirectories || level != 0 ||
+                        !Path.GetFileName(path).StartsWith('_')));
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+                {
+                    // Other branches remain usable when one customer folder is inaccessible.
+                }
+            }
+            current = next;
+        }
+
+        return current
+            .GroupBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> LoadPairsAsync(
@@ -168,16 +225,73 @@ public sealed class ViCoRelatedPathResolver : IViCoRelatedPathResolver
             .ToDictionary(group => group.Key, group => paths[group.First()], StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string? Find(IReadOnlyDictionary<string, string> values, string key) =>
-        values.TryGetValue(key, out var path) ? path : null;
-
-    private static string? FindContains(IReadOnlyDictionary<string, string> values, string key) =>
-        values.FirstOrDefault(pair => pair.Key.Contains(key, StringComparison.OrdinalIgnoreCase)).Value;
-
-    private static string ExtractProjectKey(string project)
+    private static string? FindProject(IReadOnlyDictionary<string, string> values, string project)
     {
-        var first = project.Split('/')[0];
-        var parts = first.Split('_', '-');
-        return parts.FirstOrDefault(part => part.Length >= 3) ?? first;
+        if (string.IsNullOrWhiteSpace(project))
+            return null;
+
+        var normalized = ProjectIdentity.Normalize(project);
+        var machineKey = ProjectIdentity.MachineKey(project);
+        return values
+            .Select(pair => new
+            {
+                pair.Value,
+                Normalized = ProjectIdentity.Normalize(pair.Key),
+                MachineKey = ProjectIdentity.MachineKey(pair.Key)
+            })
+            .Where(candidate =>
+                normalized.Contains(candidate.Normalized, StringComparison.OrdinalIgnoreCase) ||
+                candidate.Normalized.Contains(normalized, StringComparison.OrdinalIgnoreCase) ||
+                (machineKey.Length > 0 &&
+                 string.Equals(candidate.MachineKey, machineKey, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(candidate =>
+                normalized.Contains(candidate.Normalized, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(candidate => candidate.Normalized.Length)
+            .Select(candidate => candidate.Value)
+            .FirstOrDefault();
+    }
+
+    private static string? FindByMachine(
+        IReadOnlyDictionary<string, string> values,
+        string machineKey,
+        bool allowContains)
+    {
+        if (machineKey.Length == 0)
+            return null;
+
+        var exact = values.FirstOrDefault(pair =>
+            string.Equals(ProjectIdentity.MachineKey(pair.Key), machineKey, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(ProjectIdentity.Normalize(pair.Key), machineKey, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(exact.Value))
+            return exact.Value;
+
+        return allowContains
+            ? values.FirstOrDefault(pair =>
+                ProjectIdentity.Normalize(pair.Key).Contains(machineKey, StringComparison.OrdinalIgnoreCase)).Value
+            : null;
+    }
+}
+
+public sealed class StandardProjectStructureService : IProjectStructureService
+{
+    private static readonly string[] ProjectFolders =
+    {
+        "00_Documents",
+        "01_CAD",
+        "02_SimulationProject",
+        "03_WorkpieceTemplates",
+        "04_Robot",
+        "05_PLC",
+        "06_Video"
+    };
+
+    public void EnsureCreated(string projectDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(projectDirectory))
+            throw new ArgumentException("A project directory is required.", nameof(projectDirectory));
+
+        Directory.CreateDirectory(projectDirectory);
+        foreach (var folder in ProjectFolders)
+            Directory.CreateDirectory(Path.Combine(projectDirectory, folder));
     }
 }
