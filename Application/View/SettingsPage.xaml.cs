@@ -11,7 +11,11 @@ namespace VIBN_Tools.Application.View
         public SettingsPage()
         {
             InitializeComponent();
-            DataContext = new SettingsPageVM(ProjectSettings, Connection);
+            DataContext = new SettingsPageVM(
+                ProjectSettings,
+                Connection,
+                ViCoFeatureBootstrapper.WorkstationDirectory,
+                ApplicationLogService.Instance);
         }
     }
 }

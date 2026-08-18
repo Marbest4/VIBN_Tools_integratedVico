@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.Windows.Input;
 using VIBN_Tools.Core.ViCo;
 using VIBN_Tools.GlobalClasses;
@@ -19,10 +20,12 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
     public string Status => Model.Status;
     public string ProjectSummary => Model.ProjectSummary;
     public string AdditionalProjects => Model.AdditionalProjects;
-    public string TiaInformation => Model.TiaInformation;
+    public string SoftwareInformation => Model.SoftwareInformation;
+    public IReadOnlyList<AutomationSoftwareInfo> SoftwareDetails => Model.AutomationSoftware;
     public string FeeInformation => Model.FeeInformation;
     public string HardwareInformation => Model.HardwareInformation;
     public int RobotCount => Model.RobotCount;
+    public string RobotSummary => Model.RobotSummary;
     public IReadOnlyList<string> Details => Model.Details;
 
     private string _onlineStatus = "Wird geprüft …";
@@ -49,11 +52,15 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     private readonly IExternalPathLauncher _launcher;
     private readonly IViCoOnlineRefreshService _onlineRefresh;
     private readonly ViCoWorkspaceContext _workspaceContext;
-    private readonly Action<IEnumerable<(string Server, string User)>> _synchronizeUsers;
+    private readonly Action<IEnumerable<ViCoWorkstation>> _synchronizeWorkstations;
+    private readonly IApplicationLog _log;
     private IReadOnlyList<ViCoWorkstation> _allWorkstations = Array.Empty<ViCoWorkstation>();
     private IViCoRelatedPathResolver? _pathResolver;
     private CancellationTokenSource? _availabilityCancellation;
+    private CancellationTokenSource? _searchDebounceCancellation;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly ConcurrentDictionary<string, (bool IsOnline, DateTimeOffset CheckedAt)> _availabilityCache =
+        new(StringComparer.OrdinalIgnoreCase);
     private bool _initialized;
 
     public ViCoSearchPageVM(
@@ -65,7 +72,8 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         IExternalPathLauncher launcher,
         IViCoOnlineRefreshService onlineRefresh,
         ViCoWorkspaceContext workspaceContext,
-        Action<IEnumerable<(string Server, string User)>> synchronizeUsers)
+        Action<IEnumerable<ViCoWorkstation>> synchronizeWorkstations,
+        IApplicationLog? log = null)
     {
         _catalog = catalog;
         _search = search;
@@ -75,7 +83,8 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         _launcher = launcher;
         _onlineRefresh = onlineRefresh;
         _workspaceContext = workspaceContext;
-        _synchronizeUsers = synchronizeUsers;
+        _synchronizeWorkstations = synchronizeWorkstations;
+        _log = log ?? NullApplicationLog.Instance;
 
         RefreshCommand = GetCommandBindingAsync(RefreshAsync);
         RefreshOnlineCommand = GetCommandBindingAsync(RefreshOnlineAsync);
@@ -115,7 +124,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         {
             _searchText = value;
             OnPropertyChanged();
-            ApplySearch();
+            _ = ApplySearchDebouncedAsync();
         }
     }
 
@@ -230,6 +239,8 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     {
         _availabilityCancellation?.Cancel();
         _availabilityCancellation?.Dispose();
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
         _lifetimeCancellation.Cancel();
         _lifetimeCancellation.Dispose();
     }
@@ -248,11 +259,19 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             var snapshot = await catalogTask;
             _pathResolver = await resolverTask;
             _allWorkstations = snapshot.Workstations;
-            _synchronizeUsers(_allWorkstations.Select(item => (item.PcName, item.UserName)));
+            _synchronizeWorkstations(_allWorkstations);
             ApplySearch();
             StatusText = snapshot.Warnings.Count == 0
                 ? $"{_allWorkstations.Count} Arbeitsstationen geladen. Kanbanize-Benutzer wurden synchronisiert."
                 : $"{_allWorkstations.Count} Arbeitsstationen geladen; {snapshot.Warnings.Count} Datenquelle(n) nicht erreichbar.";
+            _log.Information("ViCo-Suche", StatusText);
+            foreach (var warning in snapshot.Warnings)
+                _log.Warning("ViCo-Suche", "Eine Datenquelle konnte nicht gelesen werden.", warning);
+        }
+        catch (Exception exception)
+        {
+            StatusText = "PC- und Projektdaten konnten nicht geladen werden.";
+            _log.Error("ViCo-Suche", StatusText, exception);
         }
         finally
         {
@@ -275,6 +294,13 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         try
         {
             await _onlineRefresh.RefreshAsync();
+            _log.Information("Kanbanize", "PC-, Projekt- und Robotikdaten wurden aktualisiert.");
+        }
+        catch (Exception exception)
+        {
+            StatusText = "Kanbanize-Aktualisierung fehlgeschlagen.";
+            _log.Error("Kanbanize", StatusText, exception);
+            return;
         }
         finally
         {
@@ -300,6 +326,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     StatusText = $"Kanbanize-Aktualisierung fehlgeschlagen: {exception.Message}";
+                    _log.Error("Kanbanize", "Die periodische Aktualisierung ist fehlgeschlagen.", exception);
                 }
             }
         }
@@ -320,6 +347,22 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         StartAvailabilityRefresh();
     }
 
+    private async Task ApplySearchDebouncedAsync()
+    {
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
+        _searchDebounceCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
+        try
+        {
+            await Task.Delay(300, _searchDebounceCancellation.Token);
+            ApplySearch();
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer search text superseded this update.
+        }
+    }
+
     private void StartAvailabilityRefresh()
     {
         _availabilityCancellation?.Cancel();
@@ -338,9 +381,17 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             var acquired = false;
             try
             {
+                if (_availabilityCache.TryGetValue(row.PcName, out var cached) &&
+                    DateTimeOffset.Now - cached.CheckedAt < TimeSpan.FromSeconds(30))
+                {
+                    row.SetOnline(cached.IsOnline);
+                    return;
+                }
                 await throttle.WaitAsync(cancellationToken);
                 acquired = true;
-                row.SetOnline(await _network.PingAsync(row.PcName, cancellationToken));
+                var isOnline = await _network.PingAsync(row.PcName, cancellationToken);
+                _availabilityCache[row.PcName] = (isOnline, DateTimeOffset.Now);
+                row.SetOnline(isOnline);
             }
             catch (OperationCanceledException)
             {
@@ -369,6 +420,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         if (string.IsNullOrWhiteSpace(SelectedWorkstation.UserName))
         {
             StatusText = "Die Kanbanize-Karte enthält keinen gültigen Remote-Benutzer.";
+            _log.Warning("Remote Desktop", StatusText);
             return;
         }
 
@@ -381,10 +433,12 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         {
             _remoteDesktop.Connect(SelectedWorkstation.PcName, SelectedWorkstation.UserName, monitors);
             StatusText = $"Remote Desktop wird als {SelectedWorkstation.UserName} gestartet.";
+            _log.Information("Remote Desktop", $"Verbindung zu {SelectedWorkstation.PcName} als {SelectedWorkstation.UserName} gestartet.");
         }
         catch (Exception exception)
         {
             StatusText = $"Remote Desktop konnte nicht gestartet werden: {exception.Message}";
+            _log.Error("Remote Desktop", $"Verbindung zu {SelectedWorkstation.PcName} konnte nicht gestartet werden.", exception);
         }
     }
 
@@ -401,6 +455,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         }
         _launcher.Open(path);
         StatusText = $"Geöffnet: {path}";
+        _log.Information("ViCo-Pfade", StatusText);
     }
 
     private void UpdatePathInformation()

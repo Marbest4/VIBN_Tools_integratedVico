@@ -25,7 +25,8 @@ internal static class Program
                 new ViCoSearchPage(),
                 new ViCoCopyPage(),
                 new TiaPortalPage(),
-                new ViCoAdministrationPage()
+                new ViCoAdministrationPage(),
+                new DiagnosticsPanel()
             ];
 
             foreach (var view in integratedViews)

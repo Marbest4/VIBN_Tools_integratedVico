@@ -8,11 +8,16 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,12" Orientation="Horizontal">
-            <Button MinWidth="120" Content="Aktualisieren" Command="{Binding RefreshCommand}" />
-            <Button MinWidth="150" Margin="8,0,0,0" Content="Lizenz anfragen" Command="{Binding RequestLicenseCommand}" IsEnabled="{Binding IsLicenseConfigured}" />
-            <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Berechtigung:" />
-            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CurrentLevel}" />
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal">
+                <Button MinWidth="120" Content="Aktualisieren" Command="{Binding RefreshCommand}" />
+                <Button MinWidth="150" Margin="8,0,0,0" Content="Lizenz anfragen" Command="{Binding RequestLicenseCommand}" IsEnabled="{Binding IsLicenseConfigured}" />
+                <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Angemeldet als:" />
+                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CurrentUser}" />
+                <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Berechtigung:" />
+                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CurrentLevel}" />
+            </StackPanel>
+            <TextBlock Margin="0,8,0,0" Text="{Binding LicenseStatus}" TextWrapping="Wrap" />
         </StackPanel>
 
         <Grid Grid.Row="1">

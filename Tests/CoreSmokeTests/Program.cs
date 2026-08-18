@@ -18,6 +18,8 @@ try
     await VerifyFileCopyAsync(temporaryRoot);
     Console.WriteLine("Running legacy workstation catalog smoke test...");
     await VerifyLegacyWorkstationCatalogAsync(temporaryRoot);
+    Console.WriteLine("Running shared workstation directory smoke test...");
+    await VerifyWorkstationDirectoryAsync();
     Console.WriteLine("Running ViCo project identity and path smoke test...");
     VerifyProjectIdentityAndPaths(temporaryRoot);
     Console.WriteLine("Running Remote Desktop profile smoke test...");
@@ -26,6 +28,8 @@ try
     {
         Console.WriteLine("Running legacy license and update smoke test...");
         await VerifyAdministrationServicesAsync(temporaryRoot);
+        Console.WriteLine("Running administration identity smoke test...");
+        await VerifyAdministrationIdentityAsync();
     }
     Console.WriteLine("Running TIA library workflow smoke test...");
     await VerifyTiaLibraryWorkflowAsync(temporaryRoot);
@@ -96,9 +100,20 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
             "#Working#[GM9000/01-001] Demo", "lane-1",
             "Remote user: ZKDS-Simulation-P01", "lane-1",
             "TIA V18", "lane-1",
+            "Beckhoff TwinCAT 3 angegeben", "lane-1",
+            "Rockwell Studio 5000 V35 installiert", "lane-1",
             "FEE 5.0", "lane-1",
             "LAN Industrial", "lane-1"
         });
+    await File.WriteAllLinesAsync(
+        Path.Combine(cache, "AllRobyCards.txt"),
+        new[] { "[GM9000/01-001][R01] Software Robotik", "column-working" });
+    await File.WriteAllLinesAsync(
+        Path.Combine(cache, "AllRobyCardsRobyName.txt"),
+        new[] { "R01", "column-working" });
+    await File.WriteAllLinesAsync(
+        Path.Combine(cache, "AllRobyColumns.txt"),
+        new[] { "column-working", "In Arbeit" });
 
     var snapshot = await new LegacyWorkstationCatalog(cache).LoadAsync();
     Assert(snapshot.Workstations.Count == 1, "Legacy workstation catalog should contain one workstation.");
@@ -107,8 +122,33 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
     Assert(workstation.UserName == "zkds-simulation-p01", "Kanbanize user parsing failed.");
     Assert(workstation.Status == "In Arbeit", "Kanbanize status parsing failed.");
     Assert(workstation.Projects.Count == 1, "Project card parsing failed.");
+    Assert(workstation.AutomationSoftware.Count == 3, "TIA, Beckhoff and Rockwell should be detected.");
+    Assert(workstation.SoftwareInformation.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase),
+        "Beckhoff software information is missing.");
+    Assert(workstation.RobotCount == 1 && workstation.RobotDetails[0].Name == "R01",
+        "Robot name, status or deduplication failed.");
     Assert(new ViCoWorkstationSearch().Search(snapshot.Workstations, "GM9000", ViCoSearchMode.Project).Count == 1,
         "Project-oriented workstation search failed.");
+}
+
+static async Task VerifyWorkstationDirectoryAsync()
+{
+    var workstation = new ViCoWorkstation(
+        "GM12345 Tool PC",
+        "GM12345",
+        "kanbanize-user",
+        "TIA Portal V18",
+        string.Empty,
+        string.Empty,
+        Array.Empty<string>(),
+        Array.Empty<string>());
+    var directory = new WorkstationDirectory(new SnapshotCatalog(workstation));
+    await directory.RefreshAsync();
+
+    Assert(directory.PcNames.SequenceEqual(new[] { "localhost", "GM12345" }),
+        "The shared workstation directory did not expose the dynamic PC list.");
+    Assert(directory.FindUser("gm12345") == "kanbanize-user",
+        "Kanbanize user priority in the shared workstation directory failed.");
 }
 
 static void VerifyProjectIdentityAndPaths(string temporaryRoot)
@@ -185,12 +225,28 @@ static async Task VerifyAdministrationServicesAsync(string temporaryRoot)
     await licenses.SetLevelAsync(@"grob\user", "Level8");
     var entries = await licenses.LoadApprovedAsync();
     Assert(entries.Count == 1 && entries[0].Level == "Level8", "Legacy license roundtrip failed.");
+    Assert(WindowsUserIdentity.Equals(@"grob\user", "user"),
+        "Domain-qualified and short Windows users should identify the same license.");
 
     var version = Path.Combine(temporaryRoot, "versions", "V1.2.3", "publish");
     Directory.CreateDirectory(version);
     await File.WriteAllTextAsync(Path.Combine(version, "VICO_V2.exe"), string.Empty);
     var update = await new FileSystemViCoUpdateService(Path.Combine(temporaryRoot, "versions")).FindLatestAsync();
     Assert(update?.Version == "1.2.3", "ViCo update discovery failed.");
+}
+
+static async Task VerifyAdministrationIdentityAsync()
+{
+    var viewModel = new VIBN_Tools.Application.VM.ViCoAdministrationPageVM(
+        new MemoryLicenseService(new ViCoLicenseEntry(@"grob\user", "Level9", "memory")),
+        new EmptyMeetingService(),
+        new EmptyUpdateService(),
+        new NoOpPathLauncher(),
+        "user");
+    await viewModel.InitializeAsync();
+
+    Assert(viewModel.CurrentLevel == "Level9" && viewModel.CanManageLicenses,
+        "A domain-qualified Level9 license should enable administration for the short Windows user.");
 }
 
 static async Task VerifyTiaLibraryWorkflowAsync(string temporaryRoot)
@@ -279,4 +335,45 @@ static void Assert(bool condition, string message)
 {
     if (!condition)
         throw new InvalidOperationException(message);
+}
+
+sealed class SnapshotCatalog(params ViCoWorkstation[] workstations) : IViCoWorkstationCatalog
+{
+    public Task<ViCoWorkstationSnapshot> LoadAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ViCoWorkstationSnapshot(workstations, Array.Empty<string>()));
+}
+
+sealed class MemoryLicenseService(params ViCoLicenseEntry[] entries) : IViCoLicenseService
+{
+    public bool IsConfigured => true;
+
+    public Task<IReadOnlyList<ViCoLicenseEntry>> LoadApprovedAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(entries);
+
+    public Task<IReadOnlyList<ViCoLicenseEntry>> LoadRequestsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(Array.Empty<ViCoLicenseEntry>());
+
+    public Task RequestCurrentUserAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SetLevelAsync(string userName, string level, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+}
+
+sealed class EmptyMeetingService : IUpcomingMeetingService
+{
+    public Task<IReadOnlyList<UpcomingMeeting>> LoadTodayAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<UpcomingMeeting>>(Array.Empty<UpcomingMeeting>());
+}
+
+sealed class EmptyUpdateService : IViCoUpdateService
+{
+    public Task<ViCoUpdateInfo?> FindLatestAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<ViCoUpdateInfo?>(null);
+}
+
+sealed class NoOpPathLauncher : IExternalPathLauncher
+{
+    public void Open(string path)
+    {
+    }
 }

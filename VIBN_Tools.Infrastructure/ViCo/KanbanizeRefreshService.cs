@@ -27,7 +27,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
 
         var lanesTask = GetJsonAsync("/boards/1541/lanes", cancellationToken);
         var cardsTask = GetJsonAsync("/cards?board_ids=1541&per_page=1000", cancellationToken);
-        var robotCardsTask = GetJsonAsync("/cards?board_ids=846&per_page=1000&fields=title,column_id", cancellationToken);
+        var robotCardsTask = GetJsonAsync("/cards?board_ids=846&per_page=1000&fields=card_id,title,column_id", cancellationToken);
         var robotColumnsTask = GetJsonAsync("/boards/846/columns?fields=column_id,name", cancellationToken);
         await Task.WhenAll(lanesTask, cardsTask, robotCardsTask, robotColumnsTask);
         using var lanes = await lanesTask;
@@ -65,6 +65,8 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             cancellationToken);
 
         var robotCardLines = new List<string>();
+        var robotNameLines = new List<string>();
+        var knownRobotCards = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var card in EnumerateObjects(robotCards.RootElement))
         {
             if (!TryGetScalar(card, "title", out var title) ||
@@ -73,8 +75,13 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             {
                 continue;
             }
+            var identity = TryGetScalar(card, "card_id", out var cardId) ? cardId : $"{title}|{columnId}";
+            if (!knownRobotCards.Add(identity))
+                continue;
             robotCardLines.Add(title);
             robotCardLines.Add(columnId);
+            robotNameLines.Add(ExtractRobotName(title));
+            robotNameLines.Add(columnId);
         }
 
         var robotColumnLines = new List<string>();
@@ -90,6 +97,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         }
 
         await WriteAtomicallyAsync(Path.Combine(_cacheRoot, "AllRobyCards.txt"), robotCardLines, cancellationToken);
+        await WriteAtomicallyAsync(Path.Combine(_cacheRoot, "AllRobyCardsRobyName.txt"), robotNameLines, cancellationToken);
         await WriteAtomicallyAsync(Path.Combine(_cacheRoot, "AllRobyColumns.txt"), robotColumnLines, cancellationToken);
     }
 
@@ -144,6 +152,18 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         "29376" or "29371" => "#Done#",
         _ => string.Empty
     };
+
+    private static string ExtractRobotName(string title)
+    {
+        var values = System.Text.RegularExpressions.Regex.Matches(title, @"\[([^\]]+)\]")
+            .Select(match => match.Groups[1].Value.Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
+        if (values.Length > 1)
+            return values[^1];
+        return title.Replace("Software Robotik", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim(' ', '-', ':', '|');
+    }
 
     private static async Task WriteAtomicallyAsync(
         string destination,

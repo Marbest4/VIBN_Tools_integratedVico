@@ -11,7 +11,16 @@ namespace VIBN_Tools.Application;
 
 public static class ViCoFeatureBootstrapper
 {
+    private static readonly ViCoPathsOptions SharedOptions = ViCoPathsOptions.CreateDefault();
     private static readonly ViCoWorkspaceContext WorkspaceContext = new();
+    private static readonly LegacyWorkstationCatalog SharedWorkstationCatalog =
+        new(SharedOptions.ServerCacheRoot);
+
+    public static IWorkstationDirectory WorkstationDirectory { get; } =
+        new WorkstationDirectory(SharedWorkstationCatalog);
+
+    public static Task InitializeWorkstationDirectoryAsync(CancellationToken cancellationToken = default) =>
+        WorkstationDirectory.RefreshAsync(cancellationToken);
 
     public static ViCoPageVM CreateViewModel()
     {
@@ -65,7 +74,7 @@ public static class ViCoFeatureBootstrapper
             apiKey = KanbanizeService.KanbanizeService.ApiKey;
 
         return new ViCoSearchPageVM(
-            new LegacyWorkstationCatalog(options.ServerCacheRoot),
+            SharedWorkstationCatalog,
             new ViCoWorkstationSearch(),
             cancellationToken => CreatePathResolverAsync(options, cancellationToken),
             new NetworkAvailabilityService(),
@@ -76,7 +85,8 @@ public static class ViCoFeatureBootstrapper
                 apiKey,
                 options.ServerCacheRoot),
             WorkspaceContext,
-            values => RemoteConnection.SynchronizeServerUsers(values));
+            workstations => WorkstationDirectory.Synchronize(workstations),
+            ApplicationLogService.Instance);
     }
 
     public static ViCoAdministrationPageVM CreateAdministrationViewModel()
@@ -86,11 +96,12 @@ public static class ViCoFeatureBootstrapper
             new LegacyLicenseService(
                 options.ApprovedLicensesRoot,
                 options.LicenseRequestsRoot,
-                Environment.GetEnvironmentVariable("VIBN_VICO_LICENSE_KEY")),
+                LegacyLicenseCompatibility.ResolveKey()),
             new OutlookMeetingService(),
             new FileSystemViCoUpdateService(options.VersionsRoot),
             new WindowsPathLauncher(),
-            WindowsIdentity.GetCurrent().Name);
+            WindowsIdentity.GetCurrent().Name,
+            ApplicationLogService.Instance);
     }
 
     private static async Task<IViCoRelatedPathResolver> CreatePathResolverAsync(

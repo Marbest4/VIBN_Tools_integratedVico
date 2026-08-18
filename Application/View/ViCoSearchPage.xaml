@@ -6,6 +6,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
@@ -42,11 +43,23 @@
                     <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="90" />
                     <DataGridTextColumn Header="PC" Binding="{Binding PcName, Mode=OneWay}" Width="105" />
                     <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="165" />
-                    <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="220" />
-                    <DataGridTextColumn Header="TIA" Binding="{Binding TiaInformation, Mode=OneWay}" Width="120" />
+                    <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="240" />
+                    <DataGridTemplateColumn Header="Software" Width="190">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SoftwareInformation}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SoftwareInformation}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="FEE" Binding="{Binding FeeInformation, Mode=OneWay}" Width="150" />
                     <DataGridTextColumn Header="Hardware / LAN" Binding="{Binding HardwareInformation, Mode=OneWay}" Width="150" />
-                    <DataGridTextColumn Header="Roboter" Binding="{Binding RobotCount, Mode=OneWay}" Width="70" />
+                    <DataGridTemplateColumn Header="Roboter (Kanbanize)" Width="125">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding RobotCount}" TextAlignment="Center" ToolTip="{Binding RobotSummary}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Online" Binding="{Binding OnlineStatus, Mode=OneWay}" Width="90" />
                 </DataGrid.Columns>
             </DataGrid>
@@ -64,7 +77,20 @@
                         <TextBlock Grid.Column="1" Text="{Binding SelectedRemoteUser, Mode=OneWay}" />
                     </Grid>
 
-                    <TextBlock Margin="0,8,0,0" Text="{Binding SelectedWorkstation.TiaInformation, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="Software (laut Kanbanize)" />
+                    <ItemsControl ItemsSource="{Binding SelectedWorkstation.SoftwareDetails}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Margin="0,2" TextWrapping="Wrap">
+                                    <Run Text="{Binding DisplayName}" />
+                                    <Run Text=" – " />
+                                    <Run Text="{Binding EvidenceLabel}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="Roboter (Kanbanize)" />
+                    <TextBlock Text="{Binding SelectedWorkstation.RobotSummary, Mode=OneWay}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.FeeInformation, Mode=OneWay}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.HardwareInformation, Mode=OneWay}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.OnlineStatus, Mode=OneWay}" />
@@ -104,6 +130,14 @@
             </ScrollViewer>
         </Grid>
 
-        <TextBlock Grid.Row="2" Margin="0,12,0,0" Text="{Binding StatusText}" />
+        <StackPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
+            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Status:" />
+            <Border Margin="8,0,0,0" Padding="7,3" Background="#FFE3E7ED" CornerRadius="3"><TextBlock Text="[B] Backlog" /></Border>
+            <Border Margin="6,0,0,0" Padding="7,3" Background="#FFFFF2CC" CornerRadius="3"><TextBlock Text="[P] Planung" /></Border>
+            <Border Margin="6,0,0,0" Padding="7,3" Background="#FFDDEBF7" CornerRadius="3"><TextBlock Text="[W] In Arbeit" /></Border>
+            <Border Margin="6,0,0,0" Padding="7,3" Background="#FFE2F0D9" CornerRadius="3"><TextBlock Text="[D] Erledigt" /></Border>
+            <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Foreground="#FF666666" Text="Software und Roboter werden aus Kanbanize-Karten ermittelt." />
+        </StackPanel>
+        <TextBlock Grid.Row="3" Margin="0,8,0,0" Text="{Binding StatusText}" />
     </Grid>
 </UserControl>

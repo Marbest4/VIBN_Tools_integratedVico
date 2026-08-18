@@ -101,6 +101,8 @@
 
                 </ux:NavigationBar>
 
+                <local:DiagnosticsPanel Grid.Row="3" Margin="8,0,8,8" />
+
 
             </Grid>
 

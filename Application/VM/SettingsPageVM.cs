@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Net.Http;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using Newtonsoft.Json;
@@ -8,6 +9,7 @@ using VIBN_Tools.GlobalClasses;
 using VIBN_Tools.GlobalClasses.FeeObjects;
 using VIBN_Tools.KanbanizeService;
 using VIBN_Tools.Settings;
+using VIBN_Tools.Core.ViCo;
 using static VIBN_Tools.Settings.ProjectSettings;
 
 namespace VIBN_Tools.Application.VM
@@ -25,6 +27,8 @@ namespace VIBN_Tools.Application.VM
         private readonly ProjectSettings _projectSettings;
         private readonly FeeConnectionService _connectionService;
         private readonly FeeObjectService _feeObjectService;
+        private readonly IWorkstationDirectory _workstations;
+        private readonly IApplicationLog _log;
 
         public TemplateType SelectedTemplate
         {
@@ -62,7 +66,7 @@ namespace VIBN_Tools.Application.VM
                 if (value)
                 {
                     _isServerChangeActive = true;
-                    SelectedServer = ServerNames[0].ToString();
+                    SelectedServer = "localhost";
                     _isServerChangeActive = false;
                 }
             }
@@ -82,14 +86,14 @@ namespace VIBN_Tools.Application.VM
 
                 if (_isServerChangeActive) return;
 
-                if (!string.Equals(value, ServerNames[0].ToString(), StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(value, "localhost", StringComparison.OrdinalIgnoreCase))
                 {
                     _isServerChangeActive = true;
                     CheckboxUseLocalhost = false;
                     _isServerChangeActive = false;
                 }
 
-                //CheckServerAsync();
+                _ = CheckServerAsync(value);
             }
         }
 
@@ -98,7 +102,7 @@ namespace VIBN_Tools.Application.VM
         private bool _changeServerFromCheckBox = false;
         private bool _changeServerFromComboBox = false;
 
-        public ObservableCollection<string> ServerNames { get; set; }
+        public ObservableCollection<string> ServerNames => _workstations.PcNames;
 
         private bool _isServerReachable;
         public bool IsServerReachable
@@ -107,6 +111,17 @@ namespace VIBN_Tools.Application.VM
             set
             {
                 _isServerReachable = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _connectionStatus = "Noch keine Verbindung aufgebaut.";
+        public string ConnectionStatus
+        {
+            get => _connectionStatus;
+            private set
+            {
+                _connectionStatus = value;
                 OnPropertyChanged();
             }
         }
@@ -306,11 +321,16 @@ namespace VIBN_Tools.Application.VM
         // C O N S T R U C T O R
         //===========================================================================================================================
 
-        public SettingsPageVM(ProjectSettings projectSettings, FeeConnectionService connectionService)
+        public SettingsPageVM(
+            ProjectSettings projectSettings,
+            FeeConnectionService connectionService,
+            IWorkstationDirectory workstations,
+            IApplicationLog? log = null)
         {
-            ServerNames = new ObservableCollection<string>(RemoteConnection.ServerUserNames.Select(x => x.Server));
             _projectSettings = projectSettings;
             _connectionService = connectionService;
+            _workstations = workstations;
+            _log = log ?? NullApplicationLog.Instance;
 
             Services.FeeObjects.FeeObjectsUpdated += OnFeeObjectsLoaded;
 
@@ -343,9 +363,31 @@ namespace VIBN_Tools.Application.VM
 
         private async Task Connect_ToFee(object parameter)
         {
-            _connectionService.LoadFeeDataOnConnect = LoadFeeData;
+            if (string.IsNullOrWhiteSpace(SelectedServer))
+            {
+                ConnectionStatus = "Bitte zuerst einen PC auswählen.";
+                _log.Warning("Project Settings", ConnectionStatus);
+                return;
+            }
 
-            Services.ApiInstance.Connect(SelectedServer, "admin", "admin");
+            _connectionService.LoadFeeDataOnConnect = LoadFeeData;
+            var stopwatch = Stopwatch.StartNew();
+            ConnectionStatus = $"Verbindung zu {SelectedServer} wird aufgebaut …";
+            _log.Information("Project Settings", ConnectionStatus);
+            try
+            {
+                Services.ApiInstance.Connect(SelectedServer, "admin", "admin");
+                stopwatch.Stop();
+                ConnectionStatus = $"Mit {SelectedServer} verbunden ({stopwatch.Elapsed.TotalSeconds:F1} s).";
+                _log.Information("Project Settings", ConnectionStatus);
+            }
+            catch (Exception exception)
+            {
+                stopwatch.Stop();
+                ConnectionStatus = $"Verbindung zu {SelectedServer} fehlgeschlagen.";
+                _log.Error("Project Settings", ConnectionStatus, exception);
+            }
+            await Task.CompletedTask;
         }
 
 
@@ -356,6 +398,8 @@ namespace VIBN_Tools.Application.VM
             Services.ApiInstance.Disconnect();
 
             ConnectedServer = "---";
+            ConnectionStatus = "Verbindung getrennt.";
+            _log.Information("Project Settings", ConnectionStatus);
         }
 
 
@@ -387,15 +431,20 @@ namespace VIBN_Tools.Application.VM
             UsedDisplays = new[] { UseDisplay1, UseDisplay2, UseDisplay3, UseDisplay4 }.Count(x => x);
         }
 
-        private async Task CheckServerAsync()
+        private async Task CheckServerAsync(string serverName)
         {
-            if (string.IsNullOrWhiteSpace(SelectedServer))
+            if (string.IsNullOrWhiteSpace(serverName))
             {
                 IsServerReachable = false;
                 return;
             }
 
-            IsServerReachable = await RemoteConnection.CheckServerReachableAsync(SelectedServer);
+            var reachable = await RemoteConnection.CheckServerReachableAsync(serverName);
+            if (!string.Equals(SelectedServer, serverName, StringComparison.OrdinalIgnoreCase))
+                return;
+            IsServerReachable = reachable;
+            if (!reachable)
+                _log.Warning("Project Settings", $"{serverName} antwortet nicht auf Ping. Ein Verbindungsversuch bleibt möglich.");
         }
 
 

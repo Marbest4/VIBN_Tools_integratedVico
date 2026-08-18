@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace VIBN_Tools.Core.ViCo;
 
 public enum ViCoSearchMode
@@ -15,16 +17,50 @@ public enum ViCoRelatedPathKind
     WorkstationProject
 }
 
+public enum AutomationPlatform
+{
+    SiemensTiaPortal,
+    BeckhoffTwinCat,
+    RockwellStudio5000
+}
+
+public enum SoftwareEvidenceState
+{
+    Specified,
+    Installed
+}
+
+public sealed record AutomationSoftwareInfo(
+    AutomationPlatform Platform,
+    string DisplayName,
+    string Source,
+    SoftwareEvidenceState EvidenceState = SoftwareEvidenceState.Specified)
+{
+    public string EvidenceLabel => EvidenceState == SoftwareEvidenceState.Installed
+        ? "installiert"
+        : "laut Kanbanize angegeben";
+}
+
+public sealed record ViCoRobotInfo(string Name, string Status, string SourceCard);
+
 public sealed record ViCoWorkstation(
     string DisplayName,
     string PcName,
     string UserName,
-    string TiaInformation,
+    string SoftwareInformation,
     string FeeInformation,
     string HardwareInformation,
     IReadOnlyList<string> Projects,
-    IReadOnlyList<string> Details)
+    IReadOnlyList<string> Details,
+    IReadOnlyList<AutomationSoftwareInfo>? Software = null,
+    IReadOnlyList<ViCoRobotInfo>? Robots = null)
 {
+    public IReadOnlyList<AutomationSoftwareInfo> AutomationSoftware { get; } =
+        Software ?? Array.Empty<AutomationSoftwareInfo>();
+
+    public IReadOnlyList<ViCoRobotInfo> RobotDetails { get; } =
+        Robots ?? Array.Empty<ViCoRobotInfo>();
+
     public string ProjectSummary => string.Join(" | ", Projects.Take(3));
 
     public string AdditionalProjects => Projects.Count > 3 ? $"+{Projects.Count - 3}" : string.Empty;
@@ -34,8 +70,13 @@ public sealed record ViCoWorkstation(
         .Where(value => value.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase));
 
-    public int RobotCount => Details.Count(value =>
-        value.StartsWith("Robot ", StringComparison.OrdinalIgnoreCase));
+    public int RobotCount => RobotDetails.Count > 0
+        ? RobotDetails.Count
+        : Details.Count(value => value.StartsWith("Robot ", StringComparison.OrdinalIgnoreCase));
+
+    public string RobotSummary => RobotDetails.Count == 0
+        ? "Keine Robotik-Karte zugeordnet"
+        : string.Join(" | ", RobotDetails.Select(robot => $"{robot.Name}: {robot.Status}"));
 }
 
 public sealed record ViCoWorkstationSnapshot(
@@ -84,6 +125,128 @@ public interface IViCoOnlineRefreshService
     bool IsConfigured { get; }
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed record WorkstationDirectoryEntry(string PcName, string UserName);
+
+public interface IWorkstationDirectory
+{
+    ObservableCollection<string> PcNames { get; }
+
+    IReadOnlyList<WorkstationDirectoryEntry> Entries { get; }
+
+    DateTimeOffset? LastUpdated { get; }
+
+    Task RefreshAsync(CancellationToken cancellationToken = default);
+
+    void Synchronize(IEnumerable<ViCoWorkstation> workstations);
+
+    string FindUser(string pcName);
+}
+
+public sealed class WorkstationDirectory : IWorkstationDirectory
+{
+    private readonly IViCoWorkstationCatalog _catalog;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly object _sync = new();
+    private IReadOnlyList<WorkstationDirectoryEntry> _entries =
+        new[] { new WorkstationDirectoryEntry("localhost", string.Empty) };
+
+    public WorkstationDirectory(IViCoWorkstationCatalog catalog)
+    {
+        _catalog = catalog;
+        PcNames.Add("localhost");
+    }
+
+    public ObservableCollection<string> PcNames { get; } = new();
+
+    public IReadOnlyList<WorkstationDirectoryEntry> Entries
+    {
+        get
+        {
+            lock (_sync)
+                return _entries;
+        }
+    }
+
+    public DateTimeOffset? LastUpdated { get; private set; }
+
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        await _refreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            var snapshot = await _catalog.LoadAsync(cancellationToken);
+            Synchronize(snapshot.Workstations);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    public void Synchronize(IEnumerable<ViCoWorkstation> workstations)
+    {
+        var entries = workstations
+            .Where(item => !string.IsNullOrWhiteSpace(item.PcName))
+            .GroupBy(item => item.PcName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new WorkstationDirectoryEntry(
+                group.Key.ToUpperInvariant(),
+                group.Select(item => item.UserName.Trim())
+                    .FirstOrDefault(user => !string.IsNullOrWhiteSpace(user)) ?? string.Empty))
+            .OrderBy(item => item.PcName, StringComparer.OrdinalIgnoreCase)
+            .Prepend(new WorkstationDirectoryEntry("localhost", string.Empty))
+            .ToArray();
+
+        lock (_sync)
+            _entries = entries;
+
+        ReplacePcNames(entries.Select(item => item.PcName));
+        LastUpdated = DateTimeOffset.Now;
+    }
+
+    public string FindUser(string pcName)
+    {
+        lock (_sync)
+        {
+            return _entries.FirstOrDefault(entry =>
+                string.Equals(entry.PcName, pcName, StringComparison.OrdinalIgnoreCase))?.UserName ?? string.Empty;
+        }
+    }
+
+    private void ReplacePcNames(IEnumerable<string> names)
+    {
+        var desired = names.ToArray();
+        for (var index = PcNames.Count - 1; index >= 0; index--)
+        {
+            if (!desired.Contains(PcNames[index], StringComparer.OrdinalIgnoreCase))
+                PcNames.RemoveAt(index);
+        }
+
+        for (var index = 0; index < desired.Length; index++)
+        {
+            var currentIndex = PcNames.IndexOf(desired[index]);
+            if (currentIndex < 0)
+                PcNames.Insert(Math.Min(index, PcNames.Count), desired[index]);
+            else if (currentIndex != index)
+                PcNames.Move(currentIndex, index);
+        }
+    }
+}
+
+public static class WindowsUserIdentity
+{
+    public static string Normalize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+        var trimmed = value.Trim().Replace('/', '\\');
+        var separator = trimmed.LastIndexOf('\\');
+        return (separator >= 0 ? trimmed[(separator + 1)..] : trimmed).ToLowerInvariant();
+    }
+
+    public static bool Equals(string left, string right) =>
+        string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase);
 }
 
 public static class ProjectIdentity

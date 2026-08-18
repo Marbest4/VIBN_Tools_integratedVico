@@ -18,9 +18,10 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         var lanes = await ReadLinesAsync("AllPCLaneInfosWithChilds.txt", warnings, cancellationToken);
         var cards = await ReadLinesAsync("AllCardsOfPCsV2.txt", warnings, cancellationToken);
         var robotCards = await ReadLinesAsync("AllRobyCards.txt", warnings, cancellationToken);
+        var robotNames = await ReadLinesAsync("AllRobyCardsRobyName.txt", warnings, cancellationToken);
         var robotColumns = await ReadLinesAsync("AllRobyColumns.txt", warnings, cancellationToken);
         var combined = CombineLegacyCards(lanes, cards);
-        return new ViCoWorkstationSnapshot(ParseWorkstations(combined, robotCards, robotColumns), warnings);
+        return new ViCoWorkstationSnapshot(ParseWorkstations(combined, robotCards, robotNames, robotColumns), warnings);
     }
 
     private async Task<IReadOnlyList<string>> ReadLinesAsync(
@@ -83,6 +84,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
     private static IReadOnlyList<ViCoWorkstation> ParseWorkstations(
         IReadOnlyList<string> combined,
         IReadOnlyList<string> robotCards,
+        IReadOnlyList<string> robotNames,
         IReadOnlyList<string> robotColumns)
     {
         var result = new List<ViCoWorkstation>();
@@ -103,33 +105,38 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             var user = details
                 .Select(ExtractUserName)
                 .FirstOrDefault(value => value.Length > 0) ?? string.Empty;
-            var tia = details.FirstOrDefault(value => value.Contains("TIA", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+            var software = ParseSoftware(details);
+            var softwareSummary = string.Join(" | ", software.Select(item => item.DisplayName));
             var fee = string.Join(" | ", details.Where(value => value.Contains("FEE", StringComparison.OrdinalIgnoreCase)));
             var hardware = details.FirstOrDefault(value => value.Contains("LAN", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
             var projects = details
                 .Where(IsProjectCard)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            AddRobotInformation(details, projects, robotCards, robotColumns);
+            var robots = FindRobotInformation(projects, robotCards, robotNames, robotColumns);
+            foreach (var robot in robots)
+                details.Add($"Robot: {robot.Name} – {robot.Status}");
 
             result.Add(new ViCoWorkstation(
                 displayName,
                 pcName,
                 user,
-                tia,
+                softwareSummary,
                 fee,
                 hardware,
                 projects,
-                details));
+                details,
+                software,
+                robots));
         }
 
         return result;
     }
 
-    private static void AddRobotInformation(
-        ICollection<string> details,
+    private static IReadOnlyList<ViCoRobotInfo> FindRobotInformation(
         IReadOnlyCollection<string> projects,
         IReadOnlyList<string> robotCards,
+        IReadOnlyList<string> robotNames,
         IReadOnlyList<string> robotColumns)
     {
         var columnNames = Enumerable.Range(0, robotColumns.Count / 2)
@@ -137,7 +144,8 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 index => Clean(robotColumns[index * 2]),
                 index => Clean(robotColumns[index * 2 + 1]),
                 StringComparer.OrdinalIgnoreCase);
-        var robotNumber = 0;
+        var robots = new List<ViCoRobotInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index + 1 < robotCards.Count; index += 2)
         {
             var projectKey = Clean(robotCards[index]);
@@ -152,8 +160,66 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 continue;
             var columnId = Clean(robotCards[index + 1]);
             var columnName = columnNames.TryGetValue(columnId, out var name) ? name : columnId;
-            details.Add($"Robot {++robotNumber}: {columnName}");
+            var robotName = index < robotNames.Count
+                ? Clean(robotNames[index])
+                : ExtractRobotName(projectKey);
+            if (string.IsNullOrWhiteSpace(robotName) || robotName.All(char.IsDigit))
+                robotName = ExtractRobotName(projectKey);
+            if (string.IsNullOrWhiteSpace(robotName))
+                robotName = $"Roboter {robots.Count + 1}";
+            var identity = $"{ProjectIdentity.Normalize(projectKey)}|{ProjectIdentity.Normalize(robotName)}";
+            if (seen.Add(identity))
+                robots.Add(new ViCoRobotInfo(robotName, columnName, projectKey));
         }
+        return robots;
+    }
+
+    private static IReadOnlyList<AutomationSoftwareInfo> ParseSoftware(IEnumerable<string> details)
+    {
+        var result = new List<AutomationSoftwareInfo>();
+        foreach (var detail in details)
+        {
+            AddSoftware(result, detail, AutomationPlatform.SiemensTiaPortal,
+                "TIA Portal", "TIA Portal", "TIA");
+            AddSoftware(result, detail, AutomationPlatform.BeckhoffTwinCat,
+                "Beckhoff TwinCAT", "Beckhoff", "TwinCAT");
+            AddSoftware(result, detail, AutomationPlatform.RockwellStudio5000,
+                "Rockwell Studio 5000", "Rockwell", "Studio 5000", "RSLogix");
+        }
+
+        return result
+            .GroupBy(item => item.Platform)
+            .Select(group => group.First())
+            .ToArray();
+    }
+
+    private static void AddSoftware(
+        ICollection<AutomationSoftwareInfo> target,
+        string detail,
+        AutomationPlatform platform,
+        string name,
+        params string[] markers)
+    {
+        if (!markers.Any(marker => detail.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            return;
+        var version = Regex.Match(detail, @"\b(?:V(?:ersion)?\s*)?\d{1,2}(?:\.\d+)?\b", RegexOptions.IgnoreCase);
+        var displayName = version.Success ? $"{name} {version.Value.Trim()}" : name;
+        var state = Regex.IsMatch(detail, @"\binstall(?:iert|ed|ation)\b", RegexOptions.IgnoreCase)
+            ? SoftwareEvidenceState.Installed
+            : SoftwareEvidenceState.Specified;
+        target.Add(new AutomationSoftwareInfo(platform, displayName, detail, state));
+    }
+
+    private static string ExtractRobotName(string title)
+    {
+        var bracketValues = Regex.Matches(title, @"\[([^\]]+)\]")
+            .Select(match => match.Groups[1].Value.Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
+        if (bracketValues.Length > 1)
+            return bracketValues[^1];
+        var cleaned = title.Replace("Software Robotik", string.Empty, StringComparison.OrdinalIgnoreCase);
+        return ProjectIdentity.CleanDisplay(cleaned).Trim(' ', '-', ':', '|');
     }
 
     private static bool IsProjectCard(string value) =>
@@ -161,7 +227,11 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
          value.Contains("GU", StringComparison.OrdinalIgnoreCase)) &&
         !value.Contains("ZKDS", StringComparison.OrdinalIgnoreCase) &&
         !value.Contains("LAN", StringComparison.OrdinalIgnoreCase) &&
-        !value.Contains("TIA", StringComparison.OrdinalIgnoreCase) &&
+         !value.Contains("TIA", StringComparison.OrdinalIgnoreCase) &&
+         !value.Contains("Beckhoff", StringComparison.OrdinalIgnoreCase) &&
+         !value.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase) &&
+         !value.Contains("Rockwell", StringComparison.OrdinalIgnoreCase) &&
+         !value.Contains("Studio 5000", StringComparison.OrdinalIgnoreCase) &&
         !value.Contains("FEE", StringComparison.OrdinalIgnoreCase);
 
     private static string ExtractPcName(string value)

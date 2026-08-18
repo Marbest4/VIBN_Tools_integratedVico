@@ -124,6 +124,7 @@
                         <TextBlock Grid.Column="2" Margin="5" Style="{StaticResource TextRobotoLightStyle}" FontSize="12" Text="{Binding FeeObjectStatus}" VerticalAlignment="Bottom"/>
 
                     </Grid>
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="5" Margin="5,4,5,0" Text="{Binding ConnectionStatus}" TextWrapping="Wrap" />
                 </Grid>
             </GroupBox>
 

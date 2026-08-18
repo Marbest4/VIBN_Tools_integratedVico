@@ -12,6 +12,7 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     private readonly IViCoUpdateService _updates;
     private readonly IExternalPathLauncher _launcher;
     private readonly string _currentUser;
+    private readonly IApplicationLog _log;
     private bool _initialized;
 
     public ViCoAdministrationPageVM(
@@ -19,13 +20,15 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         IUpcomingMeetingService meetings,
         IViCoUpdateService updates,
         IExternalPathLauncher launcher,
-        string currentUser)
+        string currentUser,
+        IApplicationLog? log = null)
     {
         _licenses = licenses;
         _meetings = meetings;
         _updates = updates;
         _launcher = launcher;
         _currentUser = currentUser.ToLowerInvariant();
+        _log = log ?? NullApplicationLog.Instance;
 
         foreach (var level in Enumerable.Range(0, 10).Select(value => $"Level{value}").Append("denied"))
             LicenseLevels.Add(level);
@@ -51,6 +54,8 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     public ICommand OpenUpdateCommand { get; }
 
     public bool IsLicenseConfigured => _licenses.IsConfigured;
+
+    public string CurrentUser => _currentUser;
 
     private ViCoLicenseEntry? _selectedLicense;
     public ViCoLicenseEntry? SelectedLicense
@@ -101,6 +106,17 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
 
     public bool CanManageLicenses => ParseLevel(CurrentLevel) >= 8;
 
+    private string _licenseStatus = "Lizenzdaten wurden noch nicht geprüft.";
+    public string LicenseStatus
+    {
+        get => _licenseStatus;
+        private set
+        {
+            _licenseStatus = value;
+            OnPropertyChanged();
+        }
+    }
+
     private string _statusText = "ViCo-Dashboard ist bereit.";
     public string StatusText
     {
@@ -132,8 +148,12 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         LatestUpdate = await updateTask;
         Replace(LicenseEntries, await licenseTask);
         CurrentLevel = LicenseEntries.FirstOrDefault(entry =>
-            string.Equals(entry.UserName, _currentUser, StringComparison.OrdinalIgnoreCase))?.Level ?? "Nicht erkannt";
+            WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level ?? "Nicht erkannt";
+        LicenseStatus = CurrentLevel == "Nicht erkannt"
+            ? $"Für {WindowsUserIdentity.Normalize(_currentUser)} wurde keine Freigabe gefunden."
+            : $"{WindowsUserIdentity.Normalize(_currentUser)} wurde mit {CurrentLevel} erkannt.";
         StatusText = "ViCo-Dashboard aktualisiert.";
+        _log.Information("Verwaltung", LicenseStatus);
     }
 
     private async Task RequestLicenseAsync()
@@ -141,18 +161,37 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         if (!_licenses.IsConfigured)
         {
             StatusText = "Lizenzkompatibilität ist nicht konfiguriert.";
+            _log.Warning("Verwaltung", StatusText);
             return;
         }
-        await _licenses.RequestCurrentUserAsync();
-        StatusText = "Lizenzanfrage wurde abgelegt.";
+        try
+        {
+            await _licenses.RequestCurrentUserAsync();
+            StatusText = "Lizenzanfrage wurde abgelegt.";
+            _log.Information("Verwaltung", StatusText);
+        }
+        catch (Exception exception)
+        {
+            StatusText = "Lizenzanfrage konnte nicht gespeichert werden.";
+            _log.Error("Verwaltung", StatusText, exception);
+        }
     }
 
     private async Task SaveLicenseAsync()
     {
         if (!CanManageLicenses || SelectedLicense is null || string.IsNullOrWhiteSpace(SelectedLevel))
             return;
-        await _licenses.SetLevelAsync(SelectedLicense.UserName, SelectedLevel);
-        await RefreshAsync();
+        try
+        {
+            await _licenses.SetLevelAsync(SelectedLicense.UserName, SelectedLevel);
+            _log.Information("Verwaltung", $"{SelectedLicense.UserName} wurde auf {SelectedLevel} gesetzt.");
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            StatusText = "Das Lizenzlevel konnte nicht gespeichert werden.";
+            _log.Error("Verwaltung", StatusText, exception);
+        }
     }
 
     private void OpenUpdate()
@@ -167,8 +206,9 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         {
             return await _meetings.LoadTodayAsync();
         }
-        catch
+        catch (Exception exception)
         {
+            _log.Error("Verwaltung", "Outlook-Termine konnten nicht geladen werden.", exception);
             return Array.Empty<UpcomingMeeting>();
         }
     }
@@ -176,7 +216,10 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     private async Task<IReadOnlyList<ViCoLicenseEntry>> TryLoadLicensesAsync()
     {
         if (!_licenses.IsConfigured)
+        {
+            LicenseStatus = "Der ViCo-Kompatibilitätsschlüssel ist nicht konfiguriert.";
             return Array.Empty<ViCoLicenseEntry>();
+        }
         try
         {
             var approvedTask = _licenses.LoadApprovedAsync();
@@ -184,13 +227,15 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
             await Task.WhenAll(approvedTask, requestsTask);
             return (await approvedTask)
                 .Concat(await requestsTask)
-                .GroupBy(entry => entry.UserName, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(entry => WindowsUserIdentity.Normalize(entry.UserName), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.OrderBy(entry => entry.Level == "Requested" ? 1 : 0).First())
                 .OrderBy(entry => entry.UserName, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
-        catch
+        catch (Exception exception)
         {
+            LicenseStatus = "Lizenzdateien oder Netzwerkpfad sind nicht erreichbar.";
+            _log.Error("Verwaltung", LicenseStatus, exception);
             return Array.Empty<ViCoLicenseEntry>();
         }
     }
