@@ -51,8 +51,8 @@
                       IsReadOnly="True"
                       EnableRowVirtualization="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Element" Binding="{Binding Name}" Width="240" />
-                    <DataGridTextColumn Header="Quelle" Binding="{Binding FullPath}" Width="*" />
+                    <DataGridTextColumn Header="Element" Binding="{Binding Name, Mode=OneWay}" Width="240" />
+                    <DataGridTextColumn Header="Quelle" Binding="{Binding FullPath, Mode=OneWay}" Width="*" />
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

@@ -15,7 +15,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Margin="24">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -34,23 +34,27 @@
             </Grid.ColumnDefinitions>
 
             <TextBox Grid.Column="0"
-                     MinWidth="420"
+                     MinHeight="36"
                      Margin="0,0,12,0"
+                     Padding="8,5"
+                     FontSize="14"
                      VerticalContentAlignment="Center"
                      ToolTip="GM- oder Projektnummer eingeben"
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
 
             <Button Grid.Column="1"
                     MinWidth="150"
+                    MinHeight="36"
+                    FontSize="14"
                     Content="Index aktualisieren"
                     Command="{Binding RefreshCommand}" />
         </Grid>
 
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="3*" MinWidth="520" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="2*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="Projekte">
@@ -66,11 +70,14 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
                               SelectionMode="Single"
+                              FontSize="13.5"
+                              RowHeight="36"
+                              ColumnHeaderHeight="38"
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Projekt" Binding="{Binding DisplayName}" Width="220" />
-                            <DataGridTextColumn Header="Pfad" Binding="{Binding FullPath}" Width="*" />
+                            <DataGridTextColumn Header="Projekt" Binding="{Binding DisplayName, Mode=OneWay}" Width="240" />
+                            <DataGridTextColumn Header="Pfad" Binding="{Binding FullPath, Mode=OneWay}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -87,6 +94,8 @@
                     </StackPanel>
                 </Grid>
             </GroupBox>
+
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="#FFD0D5DC" ShowsPreview="True" />
 
             <GroupBox Grid.Column="2" Header="Favoriten">
                 <Grid Margin="8">

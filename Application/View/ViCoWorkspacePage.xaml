@@ -1,23 +1,29 @@
 <UserControl x:Class="VIBN_Tools.Application.View.ViCoWorkspacePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:VIBN_Tools.Application.View">
+             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
+             FontSize="14"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True"
+             TextOptions.TextFormattingMode="Display">
     <UserControl.Resources>
-        <Style TargetType="TabItem">
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="14,8" />
             <Setter Property="HeaderTemplate">
                 <Setter.Value>
                     <DataTemplate>
-                        <TextBlock MinWidth="110" Text="{Binding}" TextAlignment="Center" />
+                        <TextBlock MinWidth="105" FontSize="14" Text="{Binding}" TextAlignment="Center" />
                     </DataTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
     </UserControl.Resources>
-    <TabControl Margin="8" HorizontalContentAlignment="Center">
+    <TabControl Margin="8">
         <TabItem Header="Übersicht &amp; Verbindung">
-            <TabControl Margin="4" HorizontalContentAlignment="Center">
+            <TabControl Margin="4">
                 <TabItem Header="PC-/Projektsuche">
                     <local:ViCoSearchPage />
                 </TabItem>

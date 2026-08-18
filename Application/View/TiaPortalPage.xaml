@@ -77,8 +77,8 @@
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="240" />
-                            <DataGridTextColumn Header="Ordner" Binding="{Binding FolderPath}" Width="*" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="240" />
+                            <DataGridTextColumn Header="Ordner" Binding="{Binding FolderPath, Mode=OneWay}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -105,8 +105,8 @@
                               IsReadOnly="True"
                               EnableRowVirtualization="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Achse" Binding="{Binding Name}" Width="*" />
-                            <DataGridTextColumn Header="Typ" Binding="{Binding TechnologyType}" Width="160" />
+                            <DataGridTextColumn Header="Achse" Binding="{Binding Name, Mode=OneWay}" Width="*" />
+                            <DataGridTextColumn Header="Typ" Binding="{Binding TechnologyType, Mode=OneWay}" Width="160" />
                         </DataGrid.Columns>
                     </DataGrid>
 

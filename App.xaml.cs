@@ -11,6 +11,12 @@ namespace VIBN_Tools
         {
             base.OnStartup(e);
 
+            DispatcherUnhandledException += (_, args) =>
+                Application.ApplicationLogService.Instance.Error(
+                    "Unbehandelter UI-Fehler",
+                    "Die WPF-Oberfläche hat eine unbehandelte Ausnahme ausgelöst.",
+                    args.Exception);
+
             GlobalClasses.Services.Initialize();
 
         }

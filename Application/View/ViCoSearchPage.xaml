@@ -1,7 +1,7 @@
 <UserControl x:Class="VIBN_Tools.Application.View.ViCoSearchPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Margin="20">
+    <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -17,18 +17,18 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <RadioButton Grid.Column="0" VerticalAlignment="Center" Content="Projekt" IsChecked="{Binding IsProjectMode}" />
-            <RadioButton Grid.Column="1" Margin="12,0,16,0" VerticalAlignment="Center" Content="PC" IsChecked="{Binding IsWorkstationMode}" />
-            <TextBox Grid.Column="2" ToolTip="Projekt-, GM-/GU-Nummer oder PC eingeben" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-            <Button Grid.Column="3" MinWidth="120" Margin="8,0,0,0" Content="Neu laden" Command="{Binding RefreshCommand}" />
-            <Button Grid.Column="4" MinWidth="150" Margin="8,0,0,0" Content="Kanbanize abrufen" Command="{Binding RefreshOnlineCommand}" IsEnabled="{Binding CanRefreshOnline}" />
+            <RadioButton Grid.Column="0" VerticalAlignment="Center" FontSize="14" Content="Projekt" IsChecked="{Binding IsProjectMode}" />
+            <RadioButton Grid.Column="1" Margin="14,0,18,0" VerticalAlignment="Center" FontSize="14" Content="PC" IsChecked="{Binding IsWorkstationMode}" />
+            <TextBox Grid.Column="2" MinHeight="36" Padding="8,5" FontSize="14" VerticalContentAlignment="Center" ToolTip="Projekt-, GM-/GU-Nummer oder PC eingeben" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            <Button Grid.Column="3" MinWidth="120" MinHeight="36" Margin="8,0,0,0" FontSize="14" Content="Neu laden" Command="{Binding RefreshCommand}" />
+            <Button Grid.Column="4" MinWidth="150" MinHeight="36" Margin="8,0,0,0" FontSize="14" Content="Kanbanize abrufen" Command="{Binding RefreshOnlineCommand}" IsEnabled="{Binding CanRefreshOnline}" />
         </Grid>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="7*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2*" MinWidth="620" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <DataGrid Grid.Column="0"
@@ -38,35 +38,41 @@
                       IsReadOnly="True"
                       EnableRowVirtualization="True"
                       EnableColumnVirtualization="True"
+                      FontSize="13.5"
+                      RowHeight="34"
+                      ColumnHeaderHeight="38"
+                      HorizontalScrollBarVisibility="Auto"
                       FrozenColumnCount="2">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="90" />
-                    <DataGridTextColumn Header="PC" Binding="{Binding PcName, Mode=OneWay}" Width="105" />
-                    <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="165" />
-                    <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="240" />
-                    <DataGridTemplateColumn Header="Software" Width="190">
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="78" />
+                    <DataGridTextColumn Header="PC" Binding="{Binding PcName, Mode=OneWay}" Width="90" />
+                    <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="135" />
+                    <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="190" />
+                    <DataGridTemplateColumn Header="Software" Width="165">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding SoftwareInformation}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SoftwareInformation}" />
+                                <TextBlock Text="{Binding SoftwareInformation, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SoftwareInformation, Mode=OneWay}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="FEE" Binding="{Binding FeeInformation, Mode=OneWay}" Width="150" />
-                    <DataGridTextColumn Header="Hardware / LAN" Binding="{Binding HardwareInformation, Mode=OneWay}" Width="150" />
-                    <DataGridTemplateColumn Header="Roboter (Kanbanize)" Width="125">
+                    <DataGridTextColumn Header="FEE" Binding="{Binding FeeInformation, Mode=OneWay}" Width="100" />
+                    <DataGridTextColumn Header="Hardware / LAN" Binding="{Binding HardwareInformation, Mode=OneWay}" Width="120" />
+                    <DataGridTemplateColumn Header="Roboter" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding RobotCount}" TextAlignment="Center" ToolTip="{Binding RobotSummary}" />
+                                <TextBlock Text="{Binding RobotCount, Mode=OneWay}" TextAlignment="Center" ToolTip="{Binding RobotSummary, Mode=OneWay}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Online" Binding="{Binding OnlineStatus, Mode=OneWay}" Width="90" />
+                    <DataGridTextColumn Header="Online" Binding="{Binding OnlineStatus, Mode=OneWay}" Width="75" />
                 </DataGrid.Columns>
             </DataGrid>
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.DisplayName, Mode=OneWay}" TextWrapping="Wrap" />
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="#FFD0D5DC" ShowsPreview="True" />
+
+            <ScrollViewer Grid.Column="2" Padding="12,0,4,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel TextBlock.FontSize="14">
+                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.DisplayName, Mode=OneWay}" TextWrapping="Wrap" />
 
                     <Grid Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
@@ -78,13 +84,13 @@
                     </Grid>
 
                     <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="Software (laut Kanbanize)" />
-                    <ItemsControl ItemsSource="{Binding SelectedWorkstation.SoftwareDetails}">
+                    <ItemsControl ItemsSource="{Binding SelectedWorkstation.SoftwareDetails, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Margin="0,2" TextWrapping="Wrap">
-                                    <Run Text="{Binding DisplayName}" />
+                                    <Run Text="{Binding DisplayName, Mode=OneWay}" />
                                     <Run Text=" – " />
-                                    <Run Text="{Binding EvidenceLabel}" />
+                                    <Run Text="{Binding EvidenceLabel, Mode=OneWay}" />
                                 </TextBlock>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -96,9 +102,9 @@
                     <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.OnlineStatus, Mode=OneWay}" />
 
                     <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Aktives Projekt" />
-                    <ComboBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
+                    <ComboBox MinHeight="36" Padding="7,4" FontSize="14" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
 
-                    <TextBlock Margin="0,12,0,0" FontFamily="Consolas" FontSize="11" Text="{Binding PathInformation, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,12,0,0" FontFamily="Consolas" FontSize="12.5" Text="{Binding PathInformation, Mode=OneWay}" TextWrapping="Wrap" />
 
                     <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Monitore" />
                     <WrapPanel>
@@ -109,16 +115,16 @@
                     </WrapPanel>
 
                     <UniformGrid Margin="0,10,0,0" Columns="2">
-                        <Button Margin="0,3,3,3" Content="Remote Desktop" Command="{Binding ConnectRemoteCommand}" />
-                        <Button Margin="3" Content="TeamViewer" Command="{Binding OpenTeamViewerCommand}" />
-                        <Button Margin="0,3,3,3" Content="PC-Projektordner" Command="{Binding OpenPcProjectsCommand}" />
-                        <Button Margin="3" Content="Simulation" Command="{Binding OpenSimulationCommand}" />
-                        <Button Margin="0,3,3,3" Content="PLC-Projekt" Command="{Binding OpenCommissioningCommand}" />
-                        <Button Margin="3" Content="Planung" Command="{Binding OpenPlanningCommand}" />
+                        <Button MinHeight="36" Margin="0,3,3,3" Content="Remote Desktop" Command="{Binding ConnectRemoteCommand}" />
+                        <Button MinHeight="36" Margin="3" Content="TeamViewer" Command="{Binding OpenTeamViewerCommand}" />
+                        <Button MinHeight="36" Margin="0,3,3,3" Content="PC-Projektordner" Command="{Binding OpenPcProjectsCommand}" />
+                        <Button MinHeight="36" Margin="3" Content="Simulation" Command="{Binding OpenSimulationCommand}" />
+                        <Button MinHeight="36" Margin="0,3,3,3" Content="PLC-Projekt" Command="{Binding OpenCommissioningCommand}" />
+                        <Button MinHeight="36" Margin="3" Content="Planung" Command="{Binding OpenPlanningCommand}" />
                     </UniformGrid>
 
                     <Expander Margin="0,14,0,0" Header="Alle Kanbanize-Informationen">
-                        <ItemsControl ItemsSource="{Binding SelectedWorkstation.Details}">
+                        <ItemsControl ItemsSource="{Binding SelectedWorkstation.Details, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Margin="0,2" Text="{Binding}" TextWrapping="Wrap" />
@@ -130,14 +136,14 @@
             </ScrollViewer>
         </Grid>
 
-        <StackPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
+        <WrapPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
             <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Status:" />
             <Border Margin="8,0,0,0" Padding="7,3" Background="#FFE3E7ED" CornerRadius="3"><TextBlock Text="[B] Backlog" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFFFF2CC" CornerRadius="3"><TextBlock Text="[P] Planung" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFDDEBF7" CornerRadius="3"><TextBlock Text="[W] In Arbeit" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFE2F0D9" CornerRadius="3"><TextBlock Text="[D] Erledigt" /></Border>
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Foreground="#FF666666" Text="Software und Roboter werden aus Kanbanize-Karten ermittelt." />
-        </StackPanel>
-        <TextBlock Grid.Row="3" Margin="0,8,0,0" Text="{Binding StatusText}" />
+        </WrapPanel>
+        <TextBlock Grid.Row="3" Margin="0,8,0,0" FontSize="13.5" Text="{Binding StatusText}" />
     </Grid>
 </UserControl>

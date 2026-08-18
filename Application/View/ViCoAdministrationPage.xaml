@@ -56,8 +56,8 @@
                               IsReadOnly="True"
                               EnableRowVirtualization="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName}" Width="*" />
-                            <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="130" />
+                            <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="*" />
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="130" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </GroupBox>
