@@ -157,7 +157,7 @@
                     <StackPanel Grid.Row="3" Grid.Column="1" Margin="8,16,8,0">
                         <TextBlock Text="TIA-Bibliotheksordner" />
                         <TextBox Margin="0,4,0,12" Text="{Binding LibraryName}" />
-                        <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding OperationProgress}" />
+                        <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding OperationProgress, Mode=OneWay}" />
                     </StackPanel>
                     <Button Grid.Row="3"
                             Grid.Column="2"

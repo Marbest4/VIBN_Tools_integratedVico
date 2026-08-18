@@ -47,13 +47,6 @@ namespace VIBN_Tools.Settings
 
         private void CheckConnection()
         {
-            if (!Services.IsFeeSdkAvailable)
-            {
-                IsConnected = false;
-                IsConnecting = false;
-                return;
-            }
-
             // API Call for Connection State
             var state = Services.ApiInstance.ApiState;
 

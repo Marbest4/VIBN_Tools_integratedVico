@@ -49,7 +49,7 @@
                 </ux:AppHeader>
 
                 <ux:NavigationBar Grid.Row="2" TabStripPlacement="Left">
-                    <TabItem Header="Project Settings" ux:Icon.Kind="Settings" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Project Settings" ux:Icon.Kind="Settings">
                         <p:SettingsPage/>
                     </TabItem>
 
@@ -73,7 +73,7 @@
                         <p:ViCoAdministrationPage/>
                     </TabItem>
                     
-                    <TabItem Header="CAD Wizard" ux:Icon.Kind="Cad" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="CAD Wizard" ux:Icon.Kind="Cad">
                         <p:CadWizardPage/>
                     </TabItem>
                     
@@ -81,20 +81,20 @@
                         <p:ZuliConverterPage/>
                     </TabItem>
 
-                    <TabItem Header="Container Generation" ux:Icon.Kind="TaskListAssigned" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Container Generation" ux:Icon.Kind="TaskListAssigned">
                         <p:ContainerGenerationPage/>
                     </TabItem>
 
-                    <TabItem Header="Container2Fee" ux:Icon.Kind="WorkpieceStation" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Container2Fee" ux:Icon.Kind="WorkpieceStation">
                         <p:ContainerToFeePage/>
                     </TabItem>
                     
-                    <TabItem Header="Special Devices" ux:Icon.Kind="DeviceVideoCamera" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Special Devices" ux:Icon.Kind="DeviceVideoCamera">
                         <p:SpecialDevicePage/>
                     </TabItem>
                     
 
-                    <TabItem Header="Model Validation" ux:Icon.Kind="Wipe" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Model Validation" ux:Icon.Kind="Wipe">
                         <p:ModelValidationPage/>
                     </TabItem>
                  
@@ -102,12 +102,12 @@
                         <p:MiniToolsPage/>
                     </TabItem>-->
 
-                    <TabItem Header="Model Control" ux:Icon.Kind="RobotWorkpiece" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Model Control" ux:Icon.Kind="RobotWorkpiece">
                         <p:ModelControlPage/>
                     </TabItem>
 
 
-                    <TabItem Header="Interface Operation" ux:Icon.Kind="Node" IsEnabled="{Binding IsFeeSdkAvailable}">
+                    <TabItem Header="Interface Operation" ux:Icon.Kind="Node">
                         <p:InterfaceOperationPage/>
                     </TabItem>                  
 
@@ -117,10 +117,7 @@
 
                 </ux:NavigationBar>
 
-                <TextBlock Grid.Row="3"
-                           Margin="10,4"
-                           Foreground="DarkOrange"
-                           Text="{Binding FeeSdkStatusText}" />
+
             </Grid>
 
         </Border>

@@ -15,6 +15,22 @@ Die integrierten Funktionen sind in klar getrennte Schichten aufgeteilt:
 Die Prozessgrenze ist beabsichtigt: Das WPF-Hauptprogramm kann modern bleiben, während die klassische
 TIA-Openness-API weiterhin in dem von Siemens unterstützten .NET-Framework-Prozess geladen wird.
 
+## Bereinigung gegenüber den Referenzprojekten
+
+Der bestehende VIBN-Funktionscode bleibt unverändert. Ausschließlich die Navigation und die für die neuen
+Projekte notwendigen Projektverweise wurden ergänzt. Die großen Klassen der ViCo- und TiaBridge-Referenzen
+wurden nicht übernommen, sondern nach Verantwortlichkeiten zerlegt:
+
+| Referenz | Bereinigte Integration |
+| --- | --- |
+| `Canbanize.cs` (3.131 Zeilen) | Katalog-, Cache-, Lizenz-, Update- und Pfadservices in `VIBN_Tools.Infrastructure` |
+| `Tia.cs` / `TiaViewModel.cs` (jeweils über 1.000 Zeilen) | Contracts, Named-Pipe-Client, Library-Workflow, Bridge-Dispatcher und Openness-Session |
+| Separate PC-/Projektsuche (591/615 Zeilen) | Gemeinsames Such-ViewModel und unabhängiger Suchservice |
+| Statische Datei-/Remote-Helfer | Injizierbare Interfaces und zustandslose Infrastrukturservices |
+
+Keine neu integrierte Klasse überschreitet 500 Zeilen. Netzwerk-, Datei- und TIA-Vorgänge laufen asynchron;
+Dateikopien verwenden begrenzte Parallelität und die Ergebnislisten der WPF-Oberfläche Virtualisierung.
+
 ## Enthaltener Funktionsstand
 
 | ViCo-Referenzfunktion | Integration im WPF-Host |
@@ -61,9 +77,8 @@ dotnet run --project Tests/UiStartupSmokeTests/VIBN_Tools.UiStartup.SmokeTests.c
 dotnet build VIBN_Tools.TiaBridge/VIBN_Tools.TiaBridge.csproj --configuration Release --no-restore -warnaserror
 ```
 
-Der UI-Starttest initialisiert das vollständige Hauptfenster einschließlich aller ursprünglichen und migrierten
-Views. Ist das optionale fe.screen-sim-SDK nicht vollständig installiert, bleiben ViCo und TIA nutzbar. Die
-SDK-abhängigen Register werden in diesem Fall deaktiviert und die Ursache wird im Hauptfenster angezeigt.
+Der UI-Starttest initialisiert alle neu integrierten ViCo- und TIA-Views einschließlich ihrer ViewModels und
+WPF-Bindungen. Der ursprüngliche VIBN-Startpfad und seine fe.screen-sim-Initialisierung bleiben unverändert.
 
 ## Noch bewusst ausstehend
 
