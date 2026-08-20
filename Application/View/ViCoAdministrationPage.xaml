@@ -61,12 +61,28 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </GroupBox>
-                <StackPanel Grid.Row="1" Margin="0,8,0,0" Orientation="Horizontal">
-                    <ComboBox Width="160" ItemsSource="{Binding LicenseLevels}" SelectedItem="{Binding SelectedLevel}" />
-                    <Button MinWidth="120" Margin="8,0,0,0" Content="Level speichern" Command="{Binding SaveLicenseCommand}" IsEnabled="{Binding CanManageLicenses}" />
-                    <Button MinWidth="170" Margin="24,0,0,0" Content="Versionsordner öffnen" Command="{Binding OpenUpdateCommand}" />
-                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding LatestUpdate.Version}" />
-                </StackPanel>
+                <Grid Grid.Row="1" Margin="0,8,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <WrapPanel Grid.Row="0" VerticalAlignment="Center">
+                        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Neues Level:" />
+                        <ComboBox Width="150" ItemsSource="{Binding LicenseLevels}" SelectedItem="{Binding SelectedLevel}" />
+                        <TextBlock Margin="16,0,8,0" VerticalAlignment="Center" Text="Zusätzlicher Level9-Benutzer:" />
+                        <ComboBox Width="190"
+                                  ItemsSource="{Binding LicenseEntries}"
+                                  SelectedItem="{Binding AdditionalLevel9License}"
+                                  DisplayMemberPath="UserName"
+                                  ToolTip="Optional: Wird benötigt, wenn die Änderung sonst weniger als zwei Level9-Benutzer hinterlassen würde." />
+                        <Button MinWidth="120" Margin="8,0,0,0" Content="Level speichern" Command="{Binding SaveLicenseCommand}" IsEnabled="{Binding CanManageLicenses}" />
+                    </WrapPanel>
+                    <WrapPanel Grid.Row="1" Margin="0,8,0,0" VerticalAlignment="Center">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Level9CoverageText}" />
+                        <Button MinWidth="170" Margin="24,0,0,0" Content="Versionsordner öffnen" Command="{Binding OpenUpdateCommand}" />
+                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding LatestUpdate.Version}" />
+                    </WrapPanel>
+                </Grid>
             </Grid>
         </Grid>
 

@@ -1,33 +1,38 @@
-# VIBN Tools with integrated ViCo
+# VIBN Tools mit integriertem ViCo
 
-Windows desktop application for virtual commissioning workflows. The existing VIBN Tools UI remains the host application; ViCo and the isolated TIA Bridge are integrated as modular features.
+Windows-Desktopanwendung für Arbeitsabläufe der virtuellen Inbetriebnahme. Die bestehende VIBN-Tools-Oberfläche bleibt der Host; ViCo und die isolierte TIA Bridge sind als modulare Funktionen integriert.
+
+## Dokumentation
+
+Der vollständige Einstieg für Anwender, Entwickler und Betrieb befindet sich im [Dokumentationsindex](docs/README.md).
+
+- [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md)
+- [Entwicklerhandbuch](docs/ENTWICKLERHANDBUCH.md)
+- [Klassenreferenz](docs/KLASSENREFERENZ.md)
+- [Konfiguration und Fehlersuche](docs/KONFIGURATION_UND_BETRIEB.md)
+- [Lizenzverwaltung und Level9-Regel](docs/LIZENZVERWALTUNG.md)
+- [Datenflüsse](docs/DATENFLUESSE.md)
+- [Release-Abnahme](docs/ACCEPTANCE_CHECKLIST.md)
 
 ## Build
 
-Prerequisites:
+Voraussetzungen:
 
-- Windows desktop with .NET 8 SDK
-- the configured Grob.UX package source
-- fe.screen-sim V5 SDK; set `FEE_SCREEN_SIM_ROOT` if it is not installed at the default path
-- Siemens TIA Portal/Openness for live TIA workflows
-- access to the documented GROB network paths for live ViCo data
+- Windows mit .NET 8 SDK
+- konfigurierte Grob.UX-Paketquelle
+- fe.screen-sim V5 SDK; bei abweichender Installation `FEE_SCREEN_SIM_ROOT` setzen
+- Siemens TIA Portal/Openness für Live-TIA-Abläufe
+- Zugriff auf die konfigurierten GROB-Netzwerkpfade für Live-ViCo-Daten
 
 ```powershell
 dotnet restore VIBN_Tools_App.sln --configfile NuGet.Config
 dotnet build VIBN_Tools_App.sln --configuration Release --no-restore
 ```
 
-Run the local core verification with:
+Lokale Kernprüfungen:
 
 ```powershell
 dotnet run --project Tests/CoreSmokeTests/VIBN_Tools.Core.SmokeTests.csproj --configuration Release
 ```
 
-## Documentation
-
-- [User guide](docs/USER_GUIDE.md)
-- [Architecture and data sources](docs/ARCHITECTURE.md)
-- [Release acceptance checklist](docs/ACCEPTANCE_CHECKLIST.md)
-- [Integration notes](INTEGRATION.md)
-
-Secrets and credentials must never be written to the application log. The current legacy license and Remote Desktop compatibility are intentionally documented for replacement in the dedicated security phase.
+Schlüssel und Anmeldedaten dürfen nie in das Anwendungsprotokoll geschrieben werden. Die aktuelle Kompatibilität für Legacy-Lizenzen und den bisherigen Remote-Desktop-Ablauf ist für die spätere Sicherheitsphase dokumentiert.

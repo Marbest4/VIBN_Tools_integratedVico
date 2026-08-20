@@ -65,8 +65,20 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         {
             _selectedLicense = value;
             OnPropertyChanged();
+            AdditionalLevel9License = null;
             if (value is not null)
                 SelectedLevel = value.Level;
+        }
+    }
+
+    private ViCoLicenseEntry? _additionalLevel9License;
+    public ViCoLicenseEntry? AdditionalLevel9License
+    {
+        get => _additionalLevel9License;
+        set
+        {
+            _additionalLevel9License = value;
+            OnPropertyChanged();
         }
     }
 
@@ -105,6 +117,16 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     }
 
     public bool CanManageLicenses => ParseLevel(CurrentLevel) >= 8;
+
+    public int Level9UserCount => LicenseEntries
+        .Where(entry => string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase))
+        .Select(entry => WindowsUserIdentity.Normalize(entry.UserName))
+        .Where(user => user.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Count();
+
+    public string Level9CoverageText =>
+        $"Level9-Benutzer: {Level9UserCount} / mindestens {LicenseAdministrationPolicy.MinimumLevel9Users}";
 
     private string _licenseStatus = "Lizenzdaten wurden noch nicht geprüft.";
     public string LicenseStatus
@@ -147,6 +169,8 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         Replace(Meetings, await meetingTask);
         LatestUpdate = await updateTask;
         Replace(LicenseEntries, await licenseTask);
+        OnPropertyChanged(nameof(Level9UserCount));
+        OnPropertyChanged(nameof(Level9CoverageText));
         CurrentLevel = LicenseEntries.FirstOrDefault(entry =>
             WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level ?? "Nicht erkannt";
         LicenseStatus = CurrentLevel == "Nicht erkannt"
@@ -181,11 +205,31 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     {
         if (!CanManageLicenses || SelectedLicense is null || string.IsNullOrWhiteSpace(SelectedLevel))
             return;
+
+        var plan = LicenseAdministrationPolicy.PlanChange(
+            LicenseEntries,
+            SelectedLicense.UserName,
+            SelectedLevel,
+            AdditionalLevel9License?.UserName);
+        if (!plan.IsValid)
+        {
+            StatusText = plan.Message;
+            _log.Warning("Verwaltung", StatusText);
+            return;
+        }
+
         try
         {
-            await _licenses.SetLevelAsync(SelectedLicense.UserName, SelectedLevel);
-            _log.Information("Verwaltung", $"{SelectedLicense.UserName} wurde auf {SelectedLevel} gesetzt.");
+            // Promotions are persisted before a possible downgrade. Even a
+            // partial write therefore cannot intentionally leave only one Level9 user.
+            foreach (var change in plan.Changes)
+                await _licenses.SetLevelAsync(change.UserName, change.Level);
+
+            _log.Information(
+                "Verwaltung",
+                $"{string.Join(", ", plan.Changes.Select(change => $"{change.UserName}={change.Level}"))}. {plan.Message}");
             await RefreshAsync();
+            StatusText = plan.Message;
         }
         catch (Exception exception)
         {

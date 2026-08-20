@@ -24,6 +24,8 @@ try
     VerifyProjectIdentityAndPaths(temporaryRoot);
     Console.WriteLine("Running Remote Desktop profile smoke test...");
     VerifyRemoteDesktopProfile();
+    Console.WriteLine("Running Level9 administration policy smoke test...");
+    VerifyLicenseAdministrationPolicy();
     if (OperatingSystem.IsWindows())
     {
         Console.WriteLine("Running legacy license and update smoke test...");
@@ -233,6 +235,47 @@ static async Task VerifyAdministrationServicesAsync(string temporaryRoot)
     await File.WriteAllTextAsync(Path.Combine(version, "VICO_V2.exe"), string.Empty);
     var update = await new FileSystemViCoUpdateService(Path.Combine(temporaryRoot, "versions")).FindLatestAsync();
     Assert(update?.Version == "1.2.3", "ViCo update discovery failed.");
+}
+
+static void VerifyLicenseAdministrationPolicy()
+{
+    var oneLevel9 = new[]
+    {
+        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
+        new ViCoLicenseEntry("admin-b", "Level8", "memory")
+    };
+    var promotion = LicenseAdministrationPolicy.PlanChange(oneLevel9, "admin-b", "Level9");
+    Assert(promotion.IsValid && promotion.ResultingLevel9Users.Count == 2,
+        "Promoting a second distinct Level9 user must be accepted.");
+
+    var twoLevel9 = new[]
+    {
+        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
+        new ViCoLicenseEntry("admin-b", "Level9", "memory"),
+        new ViCoLicenseEntry("admin-c", "Level8", "memory")
+    };
+    var unsafeDowngrade = LicenseAdministrationPolicy.PlanChange(twoLevel9, "admin-a", "Level8");
+    Assert(!unsafeDowngrade.IsValid,
+        "Downgrading to a single Level9 user must be rejected.");
+
+    var safeReplacement = LicenseAdministrationPolicy.PlanChange(
+        twoLevel9,
+        "admin-a",
+        "Level8",
+        "admin-c");
+    Assert(safeReplacement.IsValid && safeReplacement.ResultingLevel9Users.Count == 2,
+        "Replacing a Level9 user atomically must be accepted.");
+    Assert(safeReplacement.Changes[0] == new LicenseLevelChange("admin-c", "Level9"),
+        "The replacement promotion must be persisted before the downgrade.");
+
+    var duplicateIdentity = new[]
+    {
+        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
+        new ViCoLicenseEntry("ADMIN-A", "Level9", "memory")
+    };
+    var duplicatePlan = LicenseAdministrationPolicy.PlanChange(duplicateIdentity, "admin-a", "Level9");
+    Assert(!duplicatePlan.IsValid,
+        "Domain-qualified and short names of the same account must count only once.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
