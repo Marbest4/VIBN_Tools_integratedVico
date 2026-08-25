@@ -15,30 +15,42 @@ Hier wird die Verbindung zu einem FEE-/Simulations-PC hergestellt.
 1. PC im Dropdown auswählen. `localhost` ist für lokale Arbeit immer enthalten.
 2. Gewünschte Ladeoptionen einstellen.
 3. **Connect** wählen.
-4. Statusmeldung und bei Fehlern das Diagnoseprotokoll prüfen.
+4. Erst die Meldung **„Mit … verbunden“** abwarten. Die Anwendung zeigt diesen Zustand erst, wenn FEE die Verbindung tatsächlich bestätigt hat.
+5. Bei Zeitüberschreitung oder Fehler bleibt **Connected to** auf `---`; Statusmeldung und Diagnoseprotokoll prüfen.
 
 Das Dropdown und die ViCo-PC-Suche verwenden dasselbe `WorkstationDirectory`. Die PC-/Benutzer-Zuordnung wird aus dem aktuellen Kanbanize-Cache übernommen; es gibt keine fest kompilierte Zuordnung. Deshalb kann ein PC erst nach einer Aktualisierung erscheinen, wenn er neu in Kanbanize angelegt wurde.
 
+## Kanbanize Karten
+
+Der Hauptreiter **Kanbanize Karten** erstellt einzelne Karten direkt in einem Board. Er benötigt weder eine VIBN- noch eine ViCo-Lizenzanfrage.
+
+1. **Boards aktualisieren** wählen und ein zugängliches Board auswählen.
+2. Lane auswählen; die Spaltenliste wird auf denselben Workflow eingeschränkt.
+3. Titel eingeben, optional externe ID, Deadline und Beschreibung ergänzen.
+4. Priorität `1` (hoch) bis `4` (niedrig) auswählen.
+5. **Karte erstellen** wählen und die Bestätigung mit Karten-ID abwarten.
+
+Die in Kanbanize hinterlegten Board-Berechtigungen entscheiden darüber, ob eine Karte erstellt werden darf. Ein fehlender API-Schlüssel oder fehlende Create-Card-Berechtigung wird klar in Statuszeile und Diagnoseprotokoll angezeigt. Die Felder enthalten absichtlich keine Lizenz-, Freigabe- oder Lizenzanfragefunktion.
+
 ## ViCo
 
-### Übersicht & Verbindung – PC-/Projektsuche
+### Übersicht & Verbindung – Suche
 
-Die Suche besitzt zwei Modi:
+Es gibt ein gemeinsames Suchfeld. Es findet PC-Name, Kanbanize-Benutzer, Projekt, GM- und GU-Nummer gleichzeitig. Die vorherige Unterscheidung zwischen PC- und Projektsuche ist deshalb nicht mehr nötig.
 
-- **Projekt** findet zu einer Projektnummer die zugehörigen PCs und Kanbanize-Informationen.
-- **PC** filtert direkt nach PC-Name, Anzeigename, Benutzer oder zugeordnetem Projekt.
+**Daten aktualisieren** fasst die früheren Schaltflächen zusammen: Bei konfiguriertem Kanbanize-Zugriff werden Online-Daten geladen und danach der lokale Cache neu aufgebaut. Ohne Online-Zugriff wird weiterhin nur der vorhandene Cache sicher neu geladen.
 
 Die wichtigsten Spalten sind:
 
 | Anzeige | Bedeutung |
 |---|---|
-| Status | `[B]` Backlog, `[P]` Planning, `[W]` Working, `[D]` Done |
+| Belegung | **Frei**, wenn ausschließlich Backlog/Erledigt vorliegt; **Belegt**, sobald Planung oder In Arbeit vorkommt |
 | PC / Benutzer | Remote-PC und der aus Kanbanize ermittelte Benutzer |
 | Projekte | Bis zu drei Projekte direkt; weitere werden zusammengefasst |
 | Software | TIA Portal, Beckhoff TwinCAT und/oder Rockwell Studio 5000 |
 | FEE / Hardware | Angaben der PC-Karte zu FEE, LAN und Hardware |
 | Roboter | Anzahl eindeutig zugeordneter Software-Robotik-Karten; Details im Tooltip |
-| Online | Zwischengespeichertes Ergebnis eines ICMP-Pings, keine Aussage über angemeldete Benutzer |
+| Online | Grün bei pingbar, rot bei offline; ein Ping ist keine Aussage über angemeldete Benutzer |
 
 `installiert` wird nur angezeigt, wenn die Quellkarte die Installation ausdrücklich nennt. Sonst steht `laut Kanbanize angegeben`.
 
@@ -84,7 +96,9 @@ Die Verwaltung zeigt:
 - verfügbare ViCo-Version;
 - vorhandene und angefragte Lizenzeinträge.
 
-Lizenzlevel ab Level8 dürfen Einträge bearbeiten. Eine Änderung wird nur gespeichert, wenn danach mindestens zwei unterschiedliche Windows-Benutzer Level9 besitzen. Falls eine Herabstufung diese Regel verletzen würde, im Feld **Zusätzlicher Level9-Benutzer** zuerst den Ersatz auswählen. Die Hochstufung wird vor der Herabstufung geschrieben.
+Der Reiter ist nur ab **Level7** sichtbar. Lizenzlevel ab Level8 dürfen Einträge bearbeiten. Eine Änderung wird nur gespeichert, wenn danach mindestens zwei unterschiedliche Windows-Benutzer Level9 besitzen. Falls eine Herabstufung diese Regel verletzen würde, im Feld **Zusätzlicher Level9-Benutzer** zuerst den Ersatz auswählen. Die Hochstufung wird vor der Herabstufung geschrieben.
+
+`lutzma` ist fest als Level9-Systemadministrator hinterlegt und wird beim Öffnen der Verwaltung auch in den kompatiblen Lizenzspeicher geschrieben. Dieser Benutzer kann dort nicht auf ein niedrigeres Level gesetzt werden.
 
 ## Bestehende VIBN-Werkzeuge
 

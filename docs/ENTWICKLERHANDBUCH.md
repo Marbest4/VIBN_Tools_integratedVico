@@ -33,10 +33,12 @@ Der zentrale Composition Root ist `Application/ViCoFeatureBootstrapper.cs`. Nur 
 
 1. `App.xaml` lädt Ressourcen und startet `MainWindow`.
 2. `Application/View/MainWindow.xaml` definiert die Hauptreiter.
-3. Die ViCo-Views beziehen ihre ViewModels über `ViCoFeatureBootstrapper`.
+3. Die ViCo- und Kanbanize-Views beziehen ihre ViewModels über `ViCoFeatureBootstrapper`.
 4. `InitializeWorkstationDirectoryAsync` lädt einmal den gemeinsamen PC-Bestand.
 5. Project Settings und ViCo Search verwenden dieselbe `IWorkstationDirectory`-Instanz.
 6. Views rufen asynchrone `InitializeAsync`-Methoden erst auf, wenn sie benötigt werden.
+
+Der Hauptreiter **Kanbanize Karten** ist kein Unterteil von ViCo-Lizenzen. Sein Datenfluss ist `KanbanizeCardPage` → `KanbanizeCardPageVM` → `IKanbanizeCardService` → `KanbanizeCardApiService`. Der API-Schlüssel wird nur im HTTP-Header verwendet; das Modul enthält keine Lizenz- oder Anfrageklassen.
 
 ## Programmierregeln
 
@@ -68,6 +70,14 @@ Der zentrale Composition Root ist `Application/ViCoFeatureBootstrapper.cs`. Nur 
 3. Command im passenden ViewModel anlegen; Aktivierbarkeit aus explizitem Zustand ableiten.
 4. Fehler in eine verständliche Statusmeldung und in `IApplicationLog` schreiben.
 5. XAML nur an das Command binden; keine Aktion im Click-Handler implementieren.
+
+### Neue Kanbanize-Kartenfunktion
+
+1. Neutrales Modell oder Validierung in `VIBN_Tools.Core/Kanbanize/` ergänzen.
+2. HTTP-Vertrag in `IKanbanizeCardService` halten; neue Endpunkte nur in `VIBN_Tools.Infrastructure/Kanbanize/` implementieren.
+3. Alle externen Schreibvorgänge vor dem Senden validieren und nach Erfolg Status/Log schreiben.
+4. Board-IDs nie fest in XAML oder ViewModel schreiben; aus der API laden.
+5. Keine Lizenzfelder, -anfragen oder Schlüsselanzeige in das Modul aufnehmen.
 
 ### Neue TIA-Operation
 
@@ -108,5 +118,7 @@ Vor einer Veröffentlichung zusätzlich die WPF-Start-/Interaktionstests und die
 - Abbruch, leere Daten und nicht erreichbare Netzwerkpfade sind behandelt.
 - Benutzerzuordnung stammt aus `WorkstationDirectory`, nicht aus einer neuen festen Tabelle.
 - Level9-Änderungen laufen über `LicenseAdministrationPolicy`.
+- `lutzma` bleibt über `MandatoryLevel9User` auf Level9; der Verwaltungsreiter ist ab Level7 sichtbar.
+- Kanbanize-Karten nutzen `IKanbanizeCardService` und enthalten keine Lizenzlogik.
 - Fehler sind bedienbar formuliert und technisch protokolliert.
 - Mindestens ein automatisierter Test schützt die neue Fachregel.

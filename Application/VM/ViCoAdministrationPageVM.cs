@@ -5,6 +5,10 @@ using VIBN_Tools.GlobalClasses;
 
 namespace VIBN_Tools.Application.VM;
 
+/// <summary>
+/// Coordinates visible ViCo administration data and delegates every persisted
+/// license change to the central policy before touching the legacy store.
+/// </summary>
 public sealed class ViCoAdministrationPageVM : MvvmBase
 {
     private readonly IViCoLicenseService _licenses;
@@ -116,7 +120,7 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         }
     }
 
-    public bool CanManageLicenses => ParseLevel(CurrentLevel) >= 8;
+    public bool CanManageLicenses => LicenseAdministrationPolicy.ParseLevel(CurrentLevel) >= 8;
 
     public int Level9UserCount => LicenseEntries
         .Where(entry => string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase))
@@ -171,11 +175,14 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         Replace(LicenseEntries, await licenseTask);
         OnPropertyChanged(nameof(Level9UserCount));
         OnPropertyChanged(nameof(Level9CoverageText));
-        CurrentLevel = LicenseEntries.FirstOrDefault(entry =>
-            WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level ?? "Nicht erkannt";
+        var persistedLevel = LicenseEntries.FirstOrDefault(entry =>
+            WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level;
+        CurrentLevel = LicenseAdministrationPolicy.GetEffectiveLevel(_currentUser, persistedLevel);
         LicenseStatus = CurrentLevel == "Nicht erkannt"
             ? $"Für {WindowsUserIdentity.Normalize(_currentUser)} wurde keine Freigabe gefunden."
-            : $"{WindowsUserIdentity.Normalize(_currentUser)} wurde mit {CurrentLevel} erkannt.";
+            : LicenseAdministrationPolicy.IsMandatoryLevel9User(_currentUser)
+                ? $"{WindowsUserIdentity.Normalize(_currentUser)} ist gemäß Systemrichtlinie Level9."
+                : $"{WindowsUserIdentity.Normalize(_currentUser)} wurde mit {CurrentLevel} erkannt.";
         StatusText = "ViCo-Dashboard aktualisiert.";
         _log.Information("Verwaltung", LicenseStatus);
     }
@@ -269,12 +276,15 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
             var approvedTask = _licenses.LoadApprovedAsync();
             var requestsTask = _licenses.LoadRequestsAsync();
             await Task.WhenAll(approvedTask, requestsTask);
-            return (await approvedTask)
+            var approved = await approvedTask;
+            await EnsureMandatoryLevel9UsersAsync(approved);
+            var merged = approved
                 .Concat(await requestsTask)
                 .GroupBy(entry => WindowsUserIdentity.Normalize(entry.UserName), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.OrderBy(entry => entry.Level == "Requested" ? 1 : 0).First())
                 .OrderBy(entry => entry.UserName, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+            return LicenseAdministrationPolicy.ApplyMandatoryLevel9Users(merged);
         }
         catch (Exception exception)
         {
@@ -284,11 +294,31 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         }
     }
 
-    private static int ParseLevel(string value) =>
-        value.StartsWith("Level", StringComparison.OrdinalIgnoreCase) &&
-        int.TryParse(value[5..], out var level)
-            ? level
-            : -1;
+    /// <summary>
+    /// Makes the requested permanent Level9 assignment durable in the compatible
+    /// file store. A read failure is logged but never hides the policy account.
+    /// </summary>
+    private async Task EnsureMandatoryLevel9UsersAsync(IReadOnlyList<ViCoLicenseEntry> approved)
+    {
+        foreach (var requiredUser in LicenseAdministrationPolicy.MandatoryLevel9Users)
+        {
+            var isAlreadyLevel9 = approved.Any(entry =>
+                WindowsUserIdentity.Equals(entry.UserName, requiredUser) &&
+                string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase));
+            if (isAlreadyLevel9)
+                continue;
+
+            try
+            {
+                await _licenses.SetLevelAsync(requiredUser, "Level9");
+                _log.Information("Verwaltung", $"{requiredUser} wurde gemäß Systemrichtlinie auf Level9 gesetzt.");
+            }
+            catch (Exception exception)
+            {
+                _log.Error("Verwaltung", $"{requiredUser} konnte nicht dauerhaft auf Level9 gesetzt werden.", exception);
+            }
+        }
+    }
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
     {

@@ -14,6 +14,7 @@ using static VIBN_Tools.Settings.ProjectSettings;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>Coordinates project settings and confirms FEE connections before showing them as active.</summary>
     public class SettingsPageVM : MvvmBase
     {
 
@@ -373,21 +374,47 @@ namespace VIBN_Tools.Application.VM
             _connectionService.LoadFeeDataOnConnect = LoadFeeData;
             var stopwatch = Stopwatch.StartNew();
             ConnectionStatus = $"Verbindung zu {SelectedServer} wird aufgebaut …";
+            // Clear stale UI state before the SDK confirms the new endpoint.
+            ConnectedServer = "---";
             _log.Information("Project Settings", ConnectionStatus);
             try
             {
+                if (_connectionService.IsConnected)
+                {
+                    Services.ApiInstance.Disconnect();
+                    if (!await _connectionService.WaitForDisconnectedAsync(TimeSpan.FromSeconds(3)))
+                    {
+                        stopwatch.Stop();
+                        ConnectionStatus = "Die bestehende FEE-Verbindung konnte nicht sauber getrennt werden.";
+                        _log.Warning("Project Settings", ConnectionStatus);
+                        return;
+                    }
+                }
+
                 Services.ApiInstance.Connect(SelectedServer, "admin", "admin");
+                var connected = await _connectionService.WaitForConnectedAsync(TimeSpan.FromSeconds(10));
                 stopwatch.Stop();
+                if (!connected)
+                {
+                    await DisconnectAfterFailedConnectionAsync();
+                    ConnectedServer = "---";
+                    ConnectionStatus = $"Verbindung zu {SelectedServer} konnte nicht bestätigt werden (Zeitüberschreitung).";
+                    _log.Warning("Project Settings", ConnectionStatus);
+                    return;
+                }
+
+                ConnectedServer = SelectedServer;
                 ConnectionStatus = $"Mit {SelectedServer} verbunden ({stopwatch.Elapsed.TotalSeconds:F1} s).";
                 _log.Information("Project Settings", ConnectionStatus);
             }
             catch (Exception exception)
             {
                 stopwatch.Stop();
+                await DisconnectAfterFailedConnectionAsync();
+                ConnectedServer = "---";
                 ConnectionStatus = $"Verbindung zu {SelectedServer} fehlgeschlagen.";
                 _log.Error("Project Settings", ConnectionStatus, exception);
             }
-            await Task.CompletedTask;
         }
 
 
@@ -465,7 +492,23 @@ namespace VIBN_Tools.Application.VM
 
         private void OnConnected()
         {
-            ConnectedServer = SelectedServer;
+            // The periodic service only raises this after the SDK reports
+            // NetworkState.Connected; still avoid displaying an empty endpoint.
+            if (!string.IsNullOrWhiteSpace(SelectedServer))
+                ConnectedServer = SelectedServer;
+        }
+
+        private async Task DisconnectAfterFailedConnectionAsync()
+        {
+            try
+            {
+                Services.ApiInstance.Disconnect();
+                await _connectionService.WaitForDisconnectedAsync(TimeSpan.FromSeconds(2));
+            }
+            catch
+            {
+                // The original connection exception is more useful to the caller.
+            }
         }
 
     }

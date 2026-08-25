@@ -55,6 +55,8 @@ internal static class Program
             var administrationViewModel = (ViCoAdministrationPageVM)administrationPage.DataContext;
             administrationViewModel.LicenseEntries.Add(new ViCoLicenseEntry(@"grob\user", "Level9", "test"));
 
+            var kanbanizeCardPage = new KanbanizeCardPage();
+
             FrameworkElement[] integratedViews =
             [
                 projectPage,
@@ -62,6 +64,7 @@ internal static class Program
                 new ViCoCopyPage(),
                 new TiaPortalPage(),
                 administrationPage,
+                kanbanizeCardPage,
                 new DiagnosticsPanel()
             ];
 
@@ -77,6 +80,7 @@ internal static class Program
                 SavePreview(searchPage, Path.Combine(AppContext.BaseDirectory, "vico-search-preview.png"));
                 SavePreview(projectPage, Path.Combine(AppContext.BaseDirectory, "vico-projects-preview.png"));
                 SavePreview(workspacePage, Path.Combine(AppContext.BaseDirectory, "vico-workspace-preview.png"));
+                SavePreview(kanbanizeCardPage, Path.Combine(AppContext.BaseDirectory, "kanbanize-cards-preview.png"));
             }
 
             Dispatcher.CurrentDispatcher.Invoke(

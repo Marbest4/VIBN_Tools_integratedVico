@@ -1,4 +1,5 @@
 using VIBN_Tools.Core.ViCo;
+using VIBN_Tools.Core.Kanbanize;
 using VIBN_Tools.Infrastructure.ViCo;
 using VIBN_Tools.Tia.Client;
 using VIBN_Tools.Tia.Contracts;
@@ -18,6 +19,8 @@ try
     await VerifyFileCopyAsync(temporaryRoot);
     Console.WriteLine("Running legacy workstation catalog smoke test...");
     await VerifyLegacyWorkstationCatalogAsync(temporaryRoot);
+    Console.WriteLine("Running workstation occupancy and unified search smoke test...");
+    VerifyWorkstationOccupancyAndUnifiedSearch();
     Console.WriteLine("Running shared workstation directory smoke test...");
     await VerifyWorkstationDirectoryAsync();
     Console.WriteLine("Running ViCo project identity and path smoke test...");
@@ -26,6 +29,8 @@ try
     VerifyRemoteDesktopProfile();
     Console.WriteLine("Running Level9 administration policy smoke test...");
     VerifyLicenseAdministrationPolicy();
+    Console.WriteLine("Running Kanbanize card draft policy smoke test...");
+    VerifyKanbanizeCardDraftPolicy();
     if (OperatingSystem.IsWindows())
     {
         Console.WriteLine("Running legacy license and update smoke test...");
@@ -122,7 +127,7 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
     var workstation = snapshot.Workstations[0];
     Assert(workstation.PcName == "GM12345", "Workstation name parsing failed.");
     Assert(workstation.UserName == "zkds-simulation-p01", "Kanbanize user parsing failed.");
-    Assert(workstation.Status == "In Arbeit", "Kanbanize status parsing failed.");
+    Assert(workstation.Status == "Belegt", "Active Kanbanize cards must mark the workstation as occupied.");
     Assert(workstation.Projects.Count == 1, "Project card parsing failed.");
     Assert(workstation.AutomationSoftware.Count == 3, "TIA, Beckhoff and Rockwell should be detected.");
     Assert(workstation.SoftwareInformation.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase),
@@ -131,6 +136,37 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
         "Robot name, status or deduplication failed.");
     Assert(new ViCoWorkstationSearch().Search(snapshot.Workstations, "GM9000", ViCoSearchMode.Project).Count == 1,
         "Project-oriented workstation search failed.");
+}
+
+static void VerifyWorkstationOccupancyAndUnifiedSearch()
+{
+    var free = new ViCoWorkstation(
+        "GM10001 Free PC",
+        "GM10001",
+        "zkds-free",
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        new[] { "[B] GM1000/01-001", "[D] GM1000/01-002" },
+        new[] { "[B] GM1000/01-001", "[D] GM1000/01-002" });
+    var occupied = new ViCoWorkstation(
+        "GM10002 Busy PC",
+        "GM10002",
+        "zkds-busy",
+        string.Empty,
+        string.Empty,
+        string.Empty,
+        new[] { "[P] GM2000/01-001", "[D] GM2000/01-002" },
+        new[] { "[P] GM2000/01-001", "[D] GM2000/01-002" });
+
+    Assert(free.Status == "Frei", "Backlog/done-only cards must mark a workstation as free.");
+    Assert(occupied.Status == "Belegt", "Planning must take precedence over done cards.");
+
+    var search = new ViCoWorkstationSearch();
+    Assert(search.Search(new[] { free, occupied }, "zkds-busy", ViCoSearchMode.All).Single() == occupied,
+        "Unified search must find a Kanbanize user without selecting a separate mode.");
+    Assert(search.Search(new[] { free, occupied }, "GM1000/01-001", ViCoSearchMode.All).Single() == free,
+        "Unified search must continue to find project numbers.");
 }
 
 static async Task VerifyWorkstationDirectoryAsync()
@@ -241,7 +277,7 @@ static void VerifyLicenseAdministrationPolicy()
 {
     var oneLevel9 = new[]
     {
-        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
+        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
         new ViCoLicenseEntry("admin-b", "Level8", "memory")
     };
     var promotion = LicenseAdministrationPolicy.PlanChange(oneLevel9, "admin-b", "Level9");
@@ -250,8 +286,8 @@ static void VerifyLicenseAdministrationPolicy()
 
     var twoLevel9 = new[]
     {
-        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
-        new ViCoLicenseEntry("admin-b", "Level9", "memory"),
+        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
+        new ViCoLicenseEntry("admin-a", "Level9", "memory"),
         new ViCoLicenseEntry("admin-c", "Level8", "memory")
     };
     var unsafeDowngrade = LicenseAdministrationPolicy.PlanChange(twoLevel9, "admin-a", "Level8");
@@ -270,18 +306,36 @@ static void VerifyLicenseAdministrationPolicy()
 
     var duplicateIdentity = new[]
     {
-        new ViCoLicenseEntry(@"grob\admin-a", "Level9", "memory"),
-        new ViCoLicenseEntry("ADMIN-A", "Level9", "memory")
+        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
+        new ViCoLicenseEntry("LUTZMA", "Level9", "memory")
     };
-    var duplicatePlan = LicenseAdministrationPolicy.PlanChange(duplicateIdentity, "admin-a", "Level9");
+    var duplicatePlan = LicenseAdministrationPolicy.PlanChange(duplicateIdentity, "lutzma", "Level9");
     Assert(!duplicatePlan.IsValid,
         "Domain-qualified and short names of the same account must count only once.");
+
+    Assert(LicenseAdministrationPolicy.GetEffectiveLevel(@"grob\lutzma", null) == "Level9",
+        "lutzma must be an effective Level9 administrator even before the compatible store is refreshed.");
+    var mandatoryUserDowngrade = LicenseAdministrationPolicy.PlanChange(twoLevel9, "lutzma", "Level8");
+    Assert(!mandatoryUserDowngrade.IsValid,
+        "The mandatory lutzma Level9 assignment must not be downgradable through the UI.");
+}
+
+static void VerifyKanbanizeCardDraftPolicy()
+{
+    var valid = new KanbanizeCardDraft(1541, 28125, 29373, "Neue Karte", "Beschreibung", 3, "GM1234", null);
+    Assert(KanbanizeCardDraftPolicy.Validate(valid) is null,
+        "A complete Kanbanize card draft should be valid.");
+    Assert(KanbanizeCardDraftPolicy.Validate(valid with { Title = " " }) is not null,
+        "A Kanbanize card title must be required.");
+    Assert(KanbanizeCardDraftPolicy.Validate(valid with { Priority = 5 }) is not null,
+        "Kanbanize card priority must be bounded.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
 {
+    var licenses = new MemoryLicenseService(new ViCoLicenseEntry(@"grob\user", "Level9", "memory"));
     var viewModel = new VIBN_Tools.Application.VM.ViCoAdministrationPageVM(
-        new MemoryLicenseService(new ViCoLicenseEntry(@"grob\user", "Level9", "memory")),
+        licenses,
         new EmptyMeetingService(),
         new EmptyUpdateService(),
         new NoOpPathLauncher(),
@@ -290,6 +344,10 @@ static async Task VerifyAdministrationIdentityAsync()
 
     Assert(viewModel.CurrentLevel == "Level9" && viewModel.CanManageLicenses,
         "A domain-qualified Level9 license should enable administration for the short Windows user.");
+    Assert(licenses.SavedChanges.Any(change =>
+            WindowsUserIdentity.Equals(change.UserName, "lutzma") &&
+            string.Equals(change.Level, "Level9", StringComparison.OrdinalIgnoreCase)),
+        "Opening administration must persist the mandatory lutzma Level9 assignment when possible.");
 }
 
 static async Task VerifyTiaLibraryWorkflowAsync(string temporaryRoot)
@@ -386,20 +444,32 @@ sealed class SnapshotCatalog(params ViCoWorkstation[] workstations) : IViCoWorks
         Task.FromResult(new ViCoWorkstationSnapshot(workstations, Array.Empty<string>()));
 }
 
-sealed class MemoryLicenseService(params ViCoLicenseEntry[] entries) : IViCoLicenseService
+sealed class MemoryLicenseService : IViCoLicenseService
 {
+    private readonly ViCoLicenseEntry[] _entries;
+
+    public MemoryLicenseService(params ViCoLicenseEntry[] entries)
+    {
+        _entries = entries;
+    }
+
     public bool IsConfigured => true;
 
+    public List<LicenseLevelChange> SavedChanges { get; } = new();
+
     public Task<IReadOnlyList<ViCoLicenseEntry>> LoadApprovedAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(entries);
+        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(_entries);
 
     public Task<IReadOnlyList<ViCoLicenseEntry>> LoadRequestsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(Array.Empty<ViCoLicenseEntry>());
 
     public Task RequestCurrentUserAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task SetLevelAsync(string userName, string level, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public Task SetLevelAsync(string userName, string level, CancellationToken cancellationToken = default)
+    {
+        SavedChanges.Add(new LicenseLevelChange(userName, level));
+        return Task.CompletedTask;
+    }
 }
 
 sealed class EmptyMeetingService : IUpcomingMeetingService

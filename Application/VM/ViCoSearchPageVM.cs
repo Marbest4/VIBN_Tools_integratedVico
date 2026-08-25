@@ -6,6 +6,7 @@ using VIBN_Tools.GlobalClasses;
 
 namespace VIBN_Tools.Application.VM;
 
+/// <summary>Presentation-only state for one searchable ViCo workstation row.</summary>
 public sealed class ViCoWorkstationRowVM : MvvmBase
 {
     public ViCoWorkstationRowVM(ViCoWorkstation model)
@@ -39,9 +40,29 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
         }
     }
 
-    public void SetOnline(bool isOnline) => OnlineStatus = isOnline ? "Online" : "Offline";
+    private string _onlineStatusBackground = "#FFF3F5F7";
+    public string OnlineStatusBackground
+    {
+        get => _onlineStatusBackground;
+        private set
+        {
+            _onlineStatusBackground = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Updates the compact availability cell without putting WPF types into the view model.</summary>
+    public void SetOnline(bool isOnline)
+    {
+        OnlineStatus = isOnline ? "Online" : "Offline";
+        OnlineStatusBackground = isOnline ? "#FFC6EFCE" : "#FFFFC7CE";
+    }
 }
 
+/// <summary>
+/// Coordinates unified workstation search, cache refresh, online availability
+/// and the actions that open a selected workstation/project.
+/// </summary>
 public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
 {
     private readonly IViCoWorkstationCatalog _catalog;
@@ -86,8 +107,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         _synchronizeWorkstations = synchronizeWorkstations;
         _log = log ?? NullApplicationLog.Instance;
 
-        RefreshCommand = GetCommandBindingAsync(RefreshAsync);
-        RefreshOnlineCommand = GetCommandBindingAsync(RefreshOnlineAsync);
+        RefreshCommand = GetCommandBindingAsync(RefreshFromBestAvailableSourceAsync);
         ConnectRemoteCommand = GetCommandBinding(ConnectRemote);
         OpenTeamViewerCommand = GetCommandBinding(() => _launcher.Open("https://web.teamviewer.com/remote-support?tab=Sessions"));
         OpenPcProjectsCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.WorkstationProjects));
@@ -99,8 +119,6 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     public ObservableCollection<ViCoWorkstationRowVM> Results { get; } = new();
     public ObservableCollection<string> Projects { get; } = new();
     public ICommand RefreshCommand { get; }
-    public ICommand RefreshOnlineCommand { get; }
-    public bool CanRefreshOnline => _onlineRefresh.IsConfigured;
     public ICommand ConnectRemoteCommand { get; }
     public ICommand OpenTeamViewerCommand { get; }
     public ICommand OpenPcProjectsCommand { get; }
@@ -128,7 +146,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         }
     }
 
-    private ViCoSearchMode _searchMode = ViCoSearchMode.Project;
+    private ViCoSearchMode _searchMode = ViCoSearchMode.All;
     public ViCoSearchMode SearchMode
     {
         get => _searchMode;
@@ -136,22 +154,8 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         {
             _searchMode = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(IsProjectMode));
-            OnPropertyChanged(nameof(IsWorkstationMode));
             ApplySearch();
         }
-    }
-
-    public bool IsProjectMode
-    {
-        get => SearchMode == ViCoSearchMode.Project;
-        set { if (value) SearchMode = ViCoSearchMode.Project; }
-    }
-
-    public bool IsWorkstationMode
-    {
-        get => SearchMode == ViCoSearchMode.Workstation;
-        set { if (value) SearchMode = ViCoSearchMode.Workstation; }
     }
 
     private ViCoWorkstationRowVM? _selectedWorkstation;
@@ -230,7 +234,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         if (_initialized)
             return;
         _initialized = true;
-        await RefreshAsync();
+        await RefreshCachedDataAsync();
         if (_onlineRefresh.IsConfigured)
             _ = RunPeriodicRefreshAsync(_lifetimeCancellation.Token);
     }
@@ -245,7 +249,45 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         _lifetimeCancellation.Dispose();
     }
 
-    private async Task RefreshAsync()
+    /// <summary>
+    /// Uses a configured online source first, then always reloads the resulting
+    /// local cache. Without an API key this still provides a useful cache refresh.
+    /// </summary>
+    private async Task RefreshFromBestAvailableSourceAsync()
+    {
+        if (IsBusy)
+            return;
+        if (!_onlineRefresh.IsConfigured)
+        {
+            await RefreshCachedDataAsync();
+            return;
+        }
+
+        IsBusy = true;
+        StatusText = "Kanbanize-Daten werden aktualisiert …";
+        var onlineUpdateSucceeded = false;
+        try
+        {
+            await _onlineRefresh.RefreshAsync();
+            onlineUpdateSucceeded = true;
+            _log.Information("Kanbanize", "PC-, Projekt- und Robotikdaten wurden aktualisiert.");
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Kanbanize", "Die Online-Aktualisierung ist fehlgeschlagen; der vorhandene Cache wird verwendet.", exception);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        await RefreshCachedDataAsync(onlineUpdateSucceeded
+            ? null
+            : "Online-Aktualisierung fehlgeschlagen; vorhandener Cache wurde geladen.");
+    }
+
+    /// <summary>Reads the existing cache and rebuilds search/path state without a network write.</summary>
+    private async Task RefreshCachedDataAsync(string? completionMessage = null)
     {
         if (IsBusy)
             return;
@@ -261,9 +303,9 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             _allWorkstations = snapshot.Workstations;
             _synchronizeWorkstations(_allWorkstations);
             ApplySearch();
-            StatusText = snapshot.Warnings.Count == 0
+            StatusText = completionMessage ?? (snapshot.Warnings.Count == 0
                 ? $"{_allWorkstations.Count} Arbeitsstationen geladen. Kanbanize-Benutzer wurden synchronisiert."
-                : $"{_allWorkstations.Count} Arbeitsstationen geladen; {snapshot.Warnings.Count} Datenquelle(n) nicht erreichbar.";
+                : $"{_allWorkstations.Count} Arbeitsstationen geladen; {snapshot.Warnings.Count} Datenquelle(n) nicht erreichbar.");
             _log.Information("ViCo-Suche", StatusText);
             foreach (var warning in snapshot.Warnings)
                 _log.Warning("ViCo-Suche", "Eine Datenquelle konnte nicht gelesen werden.", warning);
@@ -279,36 +321,6 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         }
     }
 
-    private async Task RefreshOnlineAsync()
-    {
-        if (IsBusy)
-            return;
-        if (!_onlineRefresh.IsConfigured)
-        {
-            StatusText = "Kanbanize-Zugriff ist auf diesem Rechner nicht konfiguriert.";
-            return;
-        }
-
-        IsBusy = true;
-        StatusText = "Kanbanize-Daten werden aktualisiert …";
-        try
-        {
-            await _onlineRefresh.RefreshAsync();
-            _log.Information("Kanbanize", "PC-, Projekt- und Robotikdaten wurden aktualisiert.");
-        }
-        catch (Exception exception)
-        {
-            StatusText = "Kanbanize-Aktualisierung fehlgeschlagen.";
-            _log.Error("Kanbanize", StatusText, exception);
-            return;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-        await RefreshAsync();
-    }
-
     private async Task RunPeriodicRefreshAsync(CancellationToken cancellationToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
@@ -321,7 +333,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
                 try
                 {
                     await _onlineRefresh.RefreshAsync(cancellationToken);
-                    await RefreshAsync();
+                    await RefreshCachedDataAsync();
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {

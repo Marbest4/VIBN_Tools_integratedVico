@@ -14,6 +14,7 @@ Diese Referenz erklärt Zuständigkeiten und sinnvolle Erweiterungspunkte. Sie e
 | `IFolderSelectionService`, `WpfFolderSelectionService` | UI-unabhängiger Vertrag und WPF-Ordnerdialog | ViewModels einen Ordner auswählen lassen sollen |
 | `ViCoRemoteCredentialStore` | kompatible Bereitstellung der RDP-Anmeldedaten | der spätere sichere Credential-Speicher migriert wird |
 | `LegacyLicenseCompatibility` | Auflösung des vorhandenen Kompatibilitätsschlüssels | das Lizenzformat in der Sicherheitsphase migriert wird |
+| `KanbanizeCardPage` / `KanbanizeCardPageVM` | einzelne Kanbanize-Karte erstellen, ohne Lizenzworkflow | Kartenfelder oder Bedienablauf ergänzt werden |
 
 Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `.xaml.cs` beschränkt sich auf Initialisierung und UI-Lebenszyklus; Fachlogik gehört in ViewModel/Core.
 
@@ -27,6 +28,8 @@ Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `
 | `ViCoCopyPageVM` | Transferauswahl, Fortschritt, Abbruch und gemeinsamer Workspace-Kontext |
 | `TiaPortalPageVM` | Bridge-Lebenszyklus, TIA-/PLC-Auswahl, Baumdaten und Import-/Export-Workflows |
 | `ViCoAdministrationPageVM` | Outlook, Update, Lizenzanzeige und Ausführung validierter Lizenzänderungspläne |
+| `ViCoWorkspacePageVM` | prüft das aktuelle Level und blendet Verwaltung unter Level7 aus |
+| `KanbanizeCardPageVM` | Boards, Lanes, Workflow-Spalten, Kartendraft, Validierung und asynchrone Erstellung |
 
 ## `VIBN_Tools.Core/ViCo`
 
@@ -56,6 +59,7 @@ Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `
 | `FileCopy.cs` | Kopierauftrag, Fortschritt und Verträge für Kopieren/Öffnen |
 | `WorkspaceContext.cs` | geteilte ViCo-Auswahl zwischen Suche, Projekten und Transfer; Projektstrukturvertrag |
 | `Administration.cs` | Lizenz-, Termin- und Updateverträge sowie `LicenseAdministrationPolicy` |
+| `Kanbanize/CardCreation.cs` | Board-/Positionsmodelle, Kartenentwurf, Validierung und HTTP-unabhängiger Kartenvertrag |
 | `Diagnostics.cs` | Logmodell, Level, `IApplicationLog` und Null-Implementierung für Tests |
 
 Core ist der richtige Ort für Regeln, die unabhängig davon gelten, ob Daten aus Dateien, HTTP oder später einer Datenbank kommen.
@@ -80,6 +84,7 @@ Core ist der richtige Ort für Regeln, die unabhängig davon gelten, ob Daten au
 | `OutlookMeetingService` | liest heutige Termine über Outlook-Interop |
 | `FileSystemViCoUpdateService` | findet die neueste Version im Versionsverzeichnis |
 | `WindowsPathLauncher` | öffnet Datei-/Ordnerziele über Windows |
+| `KanbanizeCardApiService` | lädt Boards/Positionen und erstellt eine Karte über Kanbanize v2; keine Lizenzlogik |
 
 Parseränderungen für das vorhandene Cacheformat gehören in `LegacyWorkstationCatalog`; Änderungen an der Kanbanize-API-Abfrage in `KanbanizeRefreshService`. Diese Trennung verhindert, dass die UI vom Transportformat abhängt.
 
@@ -103,6 +108,7 @@ Parseränderungen für das vorhandene Cacheformat gehören in `LegacyWorkstation
 | Verzeichnis / ViewModel | Inhalt und Erweiterungspunkt |
 |---|---|
 | `Settings`, `SettingsPageVM` | Projekt-/FEE-Verbindung und gemeinsame Einstellungen; PC-Quelle nicht duplizieren |
+| `Settings/FeeConnectionService` | überwacht SDK-Zustand und bestätigt Connect erst bei `NetworkState.Connected` |
 | `CAD Wizard`, `CadWizardPageVM` | CAD-Mapping und CAD-Arbeitsablauf |
 | `ZuliConverter`, `ZuliConverterPageVM` | Konvertierungsservice und formatabhängige Strategien |
 | `ContainerGeneration`, `ContainerGenerationPageVM` | Generator, Einstellungen, Workspace und KI-Zuordnung; neue Generatorlogik als Dienst |
@@ -123,7 +129,7 @@ Einige ursprüngliche ViewModels sind historisch groß. Sie wurden bei der ViCo-
 
 | Bereich | Zweck |
 |---|---|
-| `Tests/CoreSmokeTests` | Parser, Suche, Favoriten, Transfer, RDP-Profil, Identität, Level9-Regel und TIA-Protokoll |
+| `Tests/CoreSmokeTests` | Parser, einheitliche Suche, Belegung, Favoriten, Transfer, RDP-Profil, Level9-Regel, Kartenvalidierung und TIA-Protokoll |
 | `Tests/UiStartupSmokeTests` | WPF-Start, Ressourcen und wichtige Interaktionen/Bindings |
 | `Tests/GoldenMaster` | Schutz bestehender generierter Ergebnisse |
 | `Tests/ContainerGenerationCompile` | Kompilierbarkeit generierter Containerlogik |

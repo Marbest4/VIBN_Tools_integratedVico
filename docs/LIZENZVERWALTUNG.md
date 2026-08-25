@@ -10,6 +10,8 @@ Level8 und Level9 dürfen in der aktuellen Kompatibilitätslogik Einträge verwa
 
 Eine einzelne Person kann nicht durch unterschiedliche Schreibweisen doppelt gezählt werden. Eine unzulässige Änderung wird vor jedem Dateizugriff abgebrochen und im Diagnoseprotokoll vermerkt.
 
+Der Verwaltungsreiter wird ab Level7 angezeigt. `lutzma` ist zusätzlich als zwingendes Level9-Konto festgelegt. Beim Öffnen der Verwaltung wird der Eintrag bei erreichbarem Lizenzspeicher dauerhaft auf Level9 geschrieben; eine Herabstufung dieses Kontos wird abgewiesen.
+
 ## Bedienung
 
 - Zweiten Administrator hochstufen: Benutzer markieren, `Level9` wählen, speichern.
@@ -33,6 +35,12 @@ public const int MinimumLevel9Users = 2;
 
 Dieser Wert ist absichtlich **nicht** in XAML oder im ViewModel dupliziert. Oberfläche, Statusanzeige und Speichervalidierung beziehen sich auf dieselbe Core-Regel. Bei einer fachlich freigegebenen Änderung muss außerdem `VerifyLicenseAdministrationPolicy` in `Tests/CoreSmokeTests/Program.cs` angepasst werden.
 
+Das feste Konto ist unmittelbar darüber in derselben Klasse definiert:
+
+```csharp
+public const string MandatoryLevel9User = "lutzma";
+```
+
 ## Zuständige Klassen
 
 | Klasse | Aufgabe |
@@ -43,5 +51,6 @@ Dieser Wert ist absichtlich **nicht** in XAML oder im ViewModel dupliziert. Ober
 | `LegacyLicenseService` | kompatibles Lesen/Schreiben der vorhandenen verschlüsselten Dateien |
 | `WindowsUserIdentity` | vereinheitlicht Domain- und Kurzschreibweisen |
 | `ViCoAdministrationPage.xaml` | Auswahlfelder, Deckungsanzeige und Speicheraktion |
+| `ViCoWorkspacePageVM` | zeigt den Verwaltungsreiter erst ab effektiver Stufe Level7 |
 
 Die vorhandene Verschlüsselung ist ein Kompatibilitätsmechanismus und ersetzt kein modernes Berechtigungsbackend. Eine Migration der Sicherheit ist weiterhin ein eigener, späterer Arbeitsschritt.

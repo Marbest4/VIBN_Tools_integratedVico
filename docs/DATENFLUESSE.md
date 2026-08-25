@@ -59,6 +59,20 @@ flowchart TD
     Z --> N["Lizenzbestand neu laden"]
 ```
 
+## Kanbanize-Karte erstellen
+
+```mermaid
+flowchart LR
+    U["Benutzer"] --> VM["KanbanizeCardPageVM"]
+    VM --> P["KanbanizeCardDraftPolicy"]
+    P -->|gültig| A["KanbanizeCardApiService"]
+    P -->|ungültig| S["Statusmeldung"]
+    A --> K["Kanbanize v2 POST /cards"]
+    K --> R["Karten-ID und Statusmeldung"]
+```
+
+Boards, Lanes und Spalten werden live geladen. Die API erhält nur den Kartendraft über HTTPS und den API-Schlüssel im Header; Lizenzdaten sind an diesem Datenfluss nicht beteiligt.
+
 ## Diagnose
 
 ViewModels melden bedienbare Texte an `IApplicationLog`. `ApplicationLogService` hält höchstens 500 sichtbare Einträge und leitet dieselben Ereignisse an NLog weiter. Dadurch bleibt die Oberfläche begrenzt, während rotierende Dateien eine spätere Analyse erlauben.

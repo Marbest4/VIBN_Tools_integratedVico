@@ -4,6 +4,8 @@ namespace VIBN_Tools.Core.ViCo;
 
 public enum ViCoSearchMode
 {
+    /// <summary>Searches PC name, user, project and available card details together.</summary>
+    All,
     Project,
     Workstation
 }
@@ -65,10 +67,17 @@ public sealed record ViCoWorkstation(
 
     public string AdditionalProjects => Projects.Count > 3 ? $"+{Projects.Count - 3}" : string.Empty;
 
-    public string Status => string.Join(", ", Details
+    /// <summary>Raw project states retained for diagnostic/detail displays.</summary>
+    public string ProjectStatusSummary => string.Join(", ", Details
         .Select(ProjectIdentity.GetStatus)
         .Where(value => value.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Operational occupancy. Planning or working work takes precedence over
+    /// backlog/done cards because those cards do not make a workstation free.
+    /// </summary>
+    public string Status => ProjectIdentity.GetOccupancyStatus(Details);
 
     public int RobotCount => RobotDetails.Count > 0
         ? RobotDetails.Count
@@ -249,6 +258,7 @@ public static class WindowsUserIdentity
         string.Equals(Normalize(left), Normalize(right), StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>Normalizes project identifiers and maps raw Kanbanize markers to scheduling state.</summary>
 public static class ProjectIdentity
 {
     private static readonly string[] StatusTokens =
@@ -291,5 +301,24 @@ public static class ProjectIdentity
         if (value.Contains("#Done#", StringComparison.OrdinalIgnoreCase) || value.StartsWith("[D]", StringComparison.OrdinalIgnoreCase))
             return "Erledigt";
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Maps all cards assigned to a workstation to the single status relevant
+    /// for scheduling: active planning/work means occupied, otherwise a pure
+    /// backlog/done set is free.
+    /// </summary>
+    public static string GetOccupancyStatus(IEnumerable<string> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var states = values
+            .Select(GetStatus)
+            .Where(state => state.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (states.Contains("In Arbeit") || states.Contains("Planung"))
+            return "Belegt";
+        if (states.Contains("Backlog") || states.Contains("Erledigt"))
+            return "Frei";
+        return "Unbekannt";
     }
 }

@@ -15,7 +15,7 @@ Ohne Unternehmensnetz können lokale Oberfläche und Tests funktionieren, währe
 | Einstellung | Ort | Bedeutung |
 |---|---|---|
 | `FEE_SCREEN_SIM_ROOT` | Umgebungsvariable / `VIBN_Tools.csproj` | Installationswurzel des fe.screen-sim SDK; Standard ist die im Projekt angegebene V5-Version |
-| `VIBN_VICO_KANBANIZE_API_KEY` | Umgebungsvariable | bevorzugter API-Schlüssel für die ViCo-Online-Aktualisierung |
+| `VIBN_VICO_KANBANIZE_API_KEY` | Umgebungsvariable | bevorzugter API-Schlüssel für ViCo-Online-Aktualisierung und Kanbanize-Karten |
 | `VIBN_VICO_LICENSE_KEY` | Umgebungsvariable | überschreibt den Schlüssel des kompatiblen Altformats |
 | Projekt-, Cache-, Lizenz-, Versionspfade | `VIBN_Tools.Infrastructure/ViCo/ViCoPathsOptions.cs` | zentrale ViCo-Verzeichnisse |
 | TIA Bridge | `Application/ViCoFeatureBootstrapper.cs` | Executable-Unterordner, Pipe pro Hauptprozess, lokale TIA-Erkennung |
@@ -47,12 +47,13 @@ Die konkreten UNC-Standardwerte stehen nur in `ViCoPathsOptions.cs`, damit sie n
 | Lizenzen | kompatible verschlüsselte Dateien | beim Öffnen/Aktualisieren der Verwaltung |
 | Termine | lokales Outlook-Profil | Verwaltung aktualisieren |
 | TIA-Versionen | lokale Siemens-PublicAPI-Verzeichnisse | ViewModel-Erzeugung |
+| Kartenpositionen / Kartenerstellung | Kanbanize v2 API | beim Öffnen/Aktualisieren des Kartenreiters bzw. auf Benutzeraktion |
 
 ## Häufige Fehler
 
 ### PC fehlt im Project-Settings-Dropdown
 
-1. In ViCo **Online aktualisieren** ausführen.
+1. In ViCo **Daten aktualisieren** ausführen.
 2. Prüfen, ob die PC-Karte auf Board 1541 erwartungsgemäß aufgebaut ist.
 3. Diagnose auf Kanbanize-/Cachefehler prüfen.
 4. Prüfen, ob das Cacheverzeichnis erreichbar und beschreibbar ist.
@@ -69,7 +70,11 @@ Den innersten `InnerException`-Text und den gebundenen Property-Namen erfassen. 
 
 ### Connect oder Projektpfad funktioniert nicht
 
-PC-/Projektselektion, Netzverbindung und den betreffenden UNC-Pfad prüfen. Die Statuszeile ist für Anwender formuliert; das Diagnoseprotokoll enthält die technische Ursache.
+Nach **Connect** wird maximal 10 Sekunden auf den tatsächlichen FEE-Zustand `Connected` gewartet. Bei Zeitüberschreitung wird die Verbindung getrennt, `Connected to` bleibt `---` und die Statuszeile meldet den Fehler. PC-/Projektselektion, Netzverbindung und den betreffenden UNC-Pfad prüfen. Die Statuszeile ist für Anwender formuliert; das Diagnoseprotokoll enthält die technische Ursache.
+
+### Kanbanize-Karte kann nicht erstellt werden
+
+Board, Lane, Spalte und Titel prüfen. Der API-Schlüssel muss für das Board die Berechtigung **Create Card** besitzen. Die Kartenfunktion teilt den ViCo-API-Schlüssel, hat aber keine Lizenzanfrage oder Lizenzabhängigkeit. Details stehen im [Kartenhandbuch](KANBANIZE_KARTEN.md).
 
 ### TIA Bridge verbindet sich nicht
 

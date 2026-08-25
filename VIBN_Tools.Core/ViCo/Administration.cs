@@ -19,10 +19,60 @@ public sealed record LicenseChangePlan(
 public static class LicenseAdministrationPolicy
 {
     /// <summary>
+    /// Account that must always remain an actual and effective Level9 administrator.
+    /// The administration view persists this policy account when the compatible
+    /// license store is reachable.
+    /// </summary>
+    public const string MandatoryLevel9User = "lutzma";
+
+    /// <summary>
     /// Minimum number of distinct Windows identities that must retain Level9.
     /// This is the single source of truth for the UI, save operation and tests.
     /// </summary>
     public const int MinimumLevel9Users = 2;
+
+    public static IReadOnlyList<string> MandatoryLevel9Users { get; } = new[] { MandatoryLevel9User };
+
+    /// <summary>Returns the level after applying non-negotiable administrator assignments.</summary>
+    public static string GetEffectiveLevel(string userName, string? persistedLevel) =>
+        IsMandatoryLevel9User(userName) ? "Level9" : persistedLevel ?? "Nicht erkannt";
+
+    /// <summary>Tests Windows identities after domain/short-name normalization.</summary>
+    public static bool IsMandatoryLevel9User(string userName) =>
+        MandatoryLevel9Users.Any(required => WindowsUserIdentity.Equals(required, userName));
+
+    /// <summary>
+    /// Adds or upgrades policy administrators in the visible license list. The
+    /// caller can still persist the result through <see cref="IViCoLicenseService"/>.
+    /// </summary>
+    public static IReadOnlyList<ViCoLicenseEntry> ApplyMandatoryLevel9Users(
+        IEnumerable<ViCoLicenseEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        var result = entries.ToList();
+        foreach (var requiredUser in MandatoryLevel9Users)
+        {
+            var index = result.FindIndex(entry =>
+                !string.Equals(entry.Level, "Requested", StringComparison.OrdinalIgnoreCase) &&
+                WindowsUserIdentity.Equals(entry.UserName, requiredUser));
+            if (index >= 0)
+                result[index] = result[index] with { Level = "Level9" };
+            else
+                result.Add(new ViCoLicenseEntry(requiredUser, "Level9", "Systemrichtlinie"));
+        }
+
+        return result
+            .OrderBy(entry => entry.UserName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>Parses the numeric part of a legacy <c>LevelN</c> value.</summary>
+    public static int ParseLevel(string? value) =>
+        value is not null &&
+        value.StartsWith("Level", StringComparison.OrdinalIgnoreCase) &&
+        int.TryParse(value[5..], out var level)
+            ? level
+            : -1;
 
     /// <summary>
     /// Calculates the resulting license state before any file is written.
@@ -37,16 +87,27 @@ public static class LicenseAdministrationPolicy
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(level))
             return Invalid("Benutzer und Lizenzlevel müssen ausgewählt sein.");
 
+        var normalizedUser = WindowsUserIdentity.Normalize(userName);
+        if (normalizedUser.Length == 0)
+            return Invalid("Der Benutzername ist ungültig.");
+        if (IsMandatoryLevel9User(normalizedUser) &&
+            !string.Equals(level, "Level9", StringComparison.OrdinalIgnoreCase))
+        {
+            return Invalid($"{MandatoryLevel9User} bleibt gemäß Systemrichtlinie auf Level9.");
+        }
+
         var levels = currentEntries
             .Where(entry => !string.Equals(entry.Level, "Requested", StringComparison.OrdinalIgnoreCase))
             .GroupBy(entry => WindowsUserIdentity.Normalize(entry.UserName), StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Key.Length > 0)
             .ToDictionary(
                 group => group.Key,
-                group => group.First().Level,
+                group => group.OrderByDescending(entry =>
+                    string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase)).First().Level,
                 StringComparer.OrdinalIgnoreCase);
 
-        var normalizedUser = WindowsUserIdentity.Normalize(userName);
+        foreach (var requiredUser in MandatoryLevel9Users)
+            levels[WindowsUserIdentity.Normalize(requiredUser)] = "Level9";
         levels[normalizedUser] = level;
 
         var changes = new List<LicenseLevelChange>();

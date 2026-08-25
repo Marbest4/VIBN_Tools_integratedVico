@@ -7,8 +7,10 @@ Windows-Desktopanwendung für Arbeitsabläufe der virtuellen Inbetriebnahme. Die
 Der vollständige Einstieg für Anwender, Entwickler und Betrieb befindet sich im [Dokumentationsindex](docs/README.md).
 
 - [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md)
+- [Kanbanize Karten](docs/KANBANIZE_KARTEN.md)
 - [Entwicklerhandbuch](docs/ENTWICKLERHANDBUCH.md)
 - [Klassenreferenz](docs/KLASSENREFERENZ.md)
+- [Quellcode-Dokumentation](docs/QUELLCODE_DOKUMENTATION.md)
 - [Konfiguration und Fehlersuche](docs/KONFIGURATION_UND_BETRIEB.md)
 - [Lizenzverwaltung und Level9-Regel](docs/LIZENZVERWALTUNG.md)
 - [Datenflüsse](docs/DATENFLUESSE.md)

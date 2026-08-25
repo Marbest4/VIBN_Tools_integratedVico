@@ -53,6 +53,10 @@
                         <p:SettingsPage/>
                     </TabItem>
 
+                    <TabItem Header="Kanbanize Karten" ux:Icon.Kind="TaskListAssigned">
+                        <p:KanbanizeCardPage/>
+                    </TabItem>
+
                     <TabItem Header="ViCo" ux:Icon.Kind="TaskListAssigned">
                         <p:ViCoWorkspacePage/>
                     </TabItem>

@@ -5,6 +5,7 @@ Diese Seite ist der Einstiegspunkt für Anwender, Entwickler und den Betrieb.
 ## Für Anwender
 
 - [Benutzerhandbuch](BENUTZERHANDBUCH.md): Oberfläche, Reiter, typische Arbeitsabläufe und Bedeutung der Anzeigen.
+- [Kanbanize Karten](KANBANIZE_KARTEN.md): neue Karten erstellen, Zielposition wählen und Fehler einordnen.
 - [Lizenzverwaltung](LIZENZVERWALTUNG.md): Berechtigungen und die Mindestbesetzung mit zwei Level9-Benutzern.
 - [Konfiguration, Betrieb und Fehlersuche](KONFIGURATION_UND_BETRIEB.md): Voraussetzungen, Datenquellen, Protokolle und bekannte Abhängigkeiten.
 
@@ -12,6 +13,7 @@ Diese Seite ist der Einstiegspunkt für Anwender, Entwickler und den Betrieb.
 
 - [Entwicklerhandbuch](ENTWICKLERHANDBUCH.md): Architektur, Startablauf, MVVM-Regeln, Build, Tests und Erweiterungsrezepte.
 - [Klassenreferenz](KLASSENREFERENZ.md): Zuständigkeit und Erweiterungspunkt der wichtigen Klassen und Verzeichnisse.
+- [Quellcode-Dokumentation](QUELLCODE_DOKUMENTATION.md): Kommentierkonventionen und Wegweiser zu den wichtigsten Implementierungen.
 - [Datenflüsse](DATENFLUESSE.md): Ablauf von PC-Synchronisation, Remote-Verbindung, TIA Bridge und Lizenzänderung.
 - [Release-Abnahme](ACCEPTANCE_CHECKLIST.md): Prüfliste vor einer Veröffentlichung.
 
@@ -23,9 +25,11 @@ Die älteren englischen Dokumente [USER_GUIDE.md](USER_GUIDE.md) und [ARCHITECTU
 |---|---|
 | Aufbau der Hauptnavigation | `Application/View/MainWindow.xaml` |
 | Zusammensetzung der ViCo-Dienste | `Application/ViCoFeatureBootstrapper.cs` |
+| Karten in Kanbanize erstellen | `Application/VM/KanbanizeCardPageVM.cs`, `VIBN_Tools.Core/Kanbanize/`, `VIBN_Tools.Infrastructure/Kanbanize/` |
 | ViCo-Oberflächenlogik | `Application/VM/ViCo*PageVM.cs`, `Application/VM/TiaPortalPageVM.cs` |
 | ViCo-Fachregeln und Verträge | `VIBN_Tools.Core/ViCo/` |
 | Netzwerk-, Datei- und Windows-Anbindung | `VIBN_Tools.Infrastructure/ViCo/` |
 | TIA-Prozessgrenze | `VIBN_Tools.Tia.Contracts/`, `VIBN_Tools.Tia.Client/`, `VIBN_Tools.TiaBridge/` |
 | Level9-Mindestanzahl | `VIBN_Tools.Core/ViCo/Administration.cs`, `LicenseAdministrationPolicy.MinimumLevel9Users` |
+| Festes Level9-Konto | `LicenseAdministrationPolicy.MandatoryLevel9User` (`lutzma`) |
 | Automatisierte Kernprüfungen | `Tests/CoreSmokeTests/Program.cs` |

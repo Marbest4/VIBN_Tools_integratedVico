@@ -11,17 +11,11 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <RadioButton Grid.Column="0" VerticalAlignment="Center" FontSize="14" Content="Projekt" IsChecked="{Binding IsProjectMode}" />
-            <RadioButton Grid.Column="1" Margin="14,0,18,0" VerticalAlignment="Center" FontSize="14" Content="PC" IsChecked="{Binding IsWorkstationMode}" />
-            <TextBox Grid.Column="2" MinHeight="36" Padding="8,5" FontSize="14" VerticalContentAlignment="Center" ToolTip="Projekt-, GM-/GU-Nummer oder PC eingeben" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-            <Button Grid.Column="3" MinWidth="120" MinHeight="36" Margin="8,0,0,0" FontSize="14" Content="Neu laden" Command="{Binding RefreshCommand}" />
-            <Button Grid.Column="4" MinWidth="150" MinHeight="36" Margin="8,0,0,0" FontSize="14" Content="Kanbanize abrufen" Command="{Binding RefreshOnlineCommand}" IsEnabled="{Binding CanRefreshOnline}" />
+            <TextBox Grid.Column="0" MinHeight="36" Padding="8,5" FontSize="14" VerticalContentAlignment="Center" ToolTip="PC, Kanbanize-Benutzer, Projekt-, GM- oder GU-Nummer eingeben" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            <Button Grid.Column="1" MinWidth="190" MinHeight="36" Margin="8,0,0,0" FontSize="14" Content="Daten aktualisieren" ToolTip="Aktualisiert Kanbanize-Daten und lädt anschließend den lokalen Cache; ohne API-Zugriff wird nur der Cache geladen." Command="{Binding RefreshCommand}" />
         </Grid>
 
         <Grid Grid.Row="1">
@@ -44,7 +38,7 @@
                       HorizontalScrollBarVisibility="Auto"
                       FrozenColumnCount="2">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="78" />
+                    <DataGridTextColumn Header="Belegung" Binding="{Binding Status, Mode=OneWay}" Width="82" />
                     <DataGridTextColumn Header="PC" Binding="{Binding PcName, Mode=OneWay}" Width="90" />
                     <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="135" />
                     <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="190" />
@@ -64,7 +58,18 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Online" Binding="{Binding OnlineStatus, Mode=OneWay}" Width="75" />
+                    <DataGridTemplateColumn Header="Online" Width="82">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Margin="3"
+                                        Padding="5,3"
+                                        Background="{Binding OnlineStatusBackground, Mode=OneWay}"
+                                        CornerRadius="3">
+                                    <TextBlock HorizontalAlignment="Center" Text="{Binding OnlineStatus, Mode=OneWay}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -99,7 +104,12 @@
                     <TextBlock Text="{Binding SelectedWorkstation.RobotSummary, Mode=OneWay}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.FeeInformation, Mode=OneWay}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,4,0,0" Text="{Binding SelectedWorkstation.HardwareInformation, Mode=OneWay}" TextWrapping="Wrap" />
-                    <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.OnlineStatus, Mode=OneWay}" />
+                    <Border Margin="0,4,0,0"
+                            Padding="7,4"
+                            Background="{Binding SelectedWorkstation.OnlineStatusBackground, Mode=OneWay}"
+                            CornerRadius="3">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding SelectedWorkstation.OnlineStatus, Mode=OneWay}" />
+                    </Border>
 
                     <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Aktives Projekt" />
                     <ComboBox MinHeight="36" Padding="7,4" FontSize="14" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
@@ -137,11 +147,13 @@
         </Grid>
 
         <WrapPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
-            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Status:" />
+            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Kartenstatus:" />
             <Border Margin="8,0,0,0" Padding="7,3" Background="#FFE3E7ED" CornerRadius="3"><TextBlock Text="[B] Backlog" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFFFF2CC" CornerRadius="3"><TextBlock Text="[P] Planung" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFDDEBF7" CornerRadius="3"><TextBlock Text="[W] In Arbeit" /></Border>
             <Border Margin="6,0,0,0" Padding="7,3" Background="#FFE2F0D9" CornerRadius="3"><TextBlock Text="[D] Erledigt" /></Border>
+            <Border Margin="16,0,0,0" Padding="7,3" Background="#FFE2F0D9" CornerRadius="3"><TextBlock Text="Frei: nur Backlog/Erledigt" /></Border>
+            <Border Margin="6,0,0,0" Padding="7,3" Background="#FFFCE4D6" CornerRadius="3"><TextBlock Text="Belegt: Planung/In Arbeit" /></Border>
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Foreground="#FF666666" Text="Software und Roboter werden aus Kanbanize-Karten ermittelt." />
         </WrapPanel>
         <TextBlock Grid.Row="3" Margin="0,8,0,0" FontSize="13.5" Text="{Binding StatusText}" />

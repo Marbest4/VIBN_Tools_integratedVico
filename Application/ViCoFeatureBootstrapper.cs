@@ -2,7 +2,9 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Principal;
 using VIBN_Tools.Application.VM;
+using VIBN_Tools.Core.Kanbanize;
 using VIBN_Tools.Core.ViCo;
+using VIBN_Tools.Infrastructure.Kanbanize;
 using VIBN_Tools.Infrastructure.ViCo;
 using VIBN_Tools.Tia.Client;
 using VIBN_Tools.Settings;
@@ -69,9 +71,7 @@ public static class ViCoFeatureBootstrapper
         var remoteDesktop = new WindowsRemoteDesktopService(
             options.WorkingDirectory,
             new ViCoRemoteCredentialStore());
-        var apiKey = Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = KanbanizeService.KanbanizeService.ApiKey;
+        var apiKey = ResolveKanbanizeApiKey();
 
         return new ViCoSearchPageVM(
             SharedWorkstationCatalog,
@@ -89,6 +89,18 @@ public static class ViCoFeatureBootstrapper
             ApplicationLogService.Instance);
     }
 
+    /// <summary>
+    /// Creates the standalone card workflow. It shares the existing Kanbanize
+    /// credentials with ViCo, but has no dependency on ViCo licenses.
+    /// </summary>
+    public static KanbanizeCardPageVM CreateKanbanizeCardViewModel()
+    {
+        IKanbanizeCardService cards = new KanbanizeCardApiService(
+            new HttpClient(),
+            ResolveKanbanizeApiKey());
+        return new KanbanizeCardPageVM(cards, ApplicationLogService.Instance);
+    }
+
     public static ViCoAdministrationPageVM CreateAdministrationViewModel()
     {
         var options = ViCoPathsOptions.CreateDefault();
@@ -104,6 +116,19 @@ public static class ViCoFeatureBootstrapper
             ApplicationLogService.Instance);
     }
 
+    /// <summary>Creates the authorization gate for the ViCo workspace navigation.</summary>
+    public static ViCoWorkspacePageVM CreateWorkspaceViewModel()
+    {
+        var options = ViCoPathsOptions.CreateDefault();
+        return new ViCoWorkspacePageVM(
+            new LegacyLicenseService(
+                options.ApprovedLicensesRoot,
+                options.LicenseRequestsRoot,
+                LegacyLicenseCompatibility.ResolveKey()),
+            WindowsIdentity.GetCurrent().Name,
+            ApplicationLogService.Instance);
+    }
+
     private static async Task<IViCoRelatedPathResolver> CreatePathResolverAsync(
         ViCoPathsOptions options,
         CancellationToken cancellationToken) =>
@@ -113,6 +138,14 @@ public static class ViCoFeatureBootstrapper
             cancellationToken,
             options.CommissioningProjectsRoot,
             options.PlanningProjectsRoot);
+
+    private static string? ResolveKanbanizeApiKey()
+    {
+        var configured = Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY");
+        return string.IsNullOrWhiteSpace(configured)
+            ? KanbanizeService.KanbanizeService.ApiKey
+            : configured;
+    }
 
     private static IReadOnlyList<string> FindInstalledTiaVersions()
     {

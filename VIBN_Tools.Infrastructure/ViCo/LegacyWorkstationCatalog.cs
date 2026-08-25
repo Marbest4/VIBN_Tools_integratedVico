@@ -3,6 +3,7 @@ using VIBN_Tools.Core.ViCo;
 
 namespace VIBN_Tools.Infrastructure.ViCo;
 
+/// <summary>Parses the compatible Kanbanize cache files into neutral workstation models.</summary>
 public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
 {
     private readonly string _cacheRoot;
@@ -284,6 +285,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             .Trim();
 }
 
+/// <summary>Searches workstation data without exposing cache parsing details to the UI.</summary>
 public sealed class ViCoWorkstationSearch : IViCoWorkstationSearch
 {
     public IReadOnlyList<ViCoWorkstation> Search(
@@ -296,11 +298,31 @@ public sealed class ViCoWorkstationSearch : IViCoWorkstationSearch
             return workstations.OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase).ToArray();
 
         return workstations
-            .Where(workstation => mode == ViCoSearchMode.Workstation
-                ? Normalize(workstation.DisplayName + workstation.PcName).Contains(normalized, StringComparison.Ordinal)
-                : workstation.Projects.Any(project => Normalize(project).Contains(normalized, StringComparison.Ordinal)))
+            .Where(workstation => Matches(workstation, normalized, mode))
             .OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static bool Matches(ViCoWorkstation workstation, string normalizedQuery, ViCoSearchMode mode)
+    {
+        if (mode == ViCoSearchMode.Project)
+            return workstation.Projects.Any(project => Normalize(project).Contains(normalizedQuery, StringComparison.Ordinal));
+        if (mode == ViCoSearchMode.Workstation)
+            return Normalize(workstation.DisplayName + workstation.PcName + workstation.UserName)
+                .Contains(normalizedQuery, StringComparison.Ordinal);
+
+        // The single visible search intentionally covers every useful identifier
+        // so operators do not need to decide up front whether a value is a PC,
+        // project number or Kanbanize user.
+        var searchable = string.Join(" ", new[]
+        {
+            workstation.DisplayName,
+            workstation.PcName,
+            workstation.UserName,
+            string.Join(" ", workstation.Projects),
+            string.Join(" ", workstation.Details)
+        });
+        return Normalize(searchable).Contains(normalizedQuery, StringComparison.Ordinal);
     }
 
     private static string Normalize(string value) =>

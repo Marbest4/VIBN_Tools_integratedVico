@@ -7,6 +7,7 @@
              SnapsToDevicePixels="True"
              TextOptions.TextFormattingMode="Display">
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
@@ -38,7 +39,8 @@
         <TabItem Header="TIA Portal">
             <local:TiaPortalPage />
         </TabItem>
-        <TabItem Header="Verwaltung">
+        <TabItem Header="Verwaltung"
+                 Visibility="{Binding CanViewAdministration, Converter={StaticResource BooleanToVisibilityConverter}}">
             <local:ViCoAdministrationPage />
         </TabItem>
     </TabControl>
