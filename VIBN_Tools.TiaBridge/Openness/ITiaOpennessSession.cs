@@ -12,6 +12,8 @@ public interface ITiaOpennessSession : IDisposable
 
     void SelectPlc(int plcIndex);
 
+    IReadOnlyList<TiaHardwareModuleInfo> ListHardware();
+
     TiaProjectTree ListProgramBlocks();
 
     TiaProjectTree ListDataTypes();

@@ -17,9 +17,13 @@ public static class ViCoFeatureBootstrapper
     private static readonly ViCoWorkspaceContext WorkspaceContext = new();
     private static readonly LegacyWorkstationCatalog SharedWorkstationCatalog =
         new(SharedOptions.ServerCacheRoot);
+    private static readonly IViCoUserRoleStore SharedUserRoleStore = CreateUserRoleStore();
 
     public static IWorkstationDirectory WorkstationDirectory { get; } =
         new WorkstationDirectory(SharedWorkstationCatalog);
+
+    /// <summary>Single shared source of truth for all VIBN Tools role checks.</summary>
+    public static IViCoUserRoleStore UserRoleStore => SharedUserRoleStore;
 
     public static Task InitializeWorkstationDirectoryAsync(CancellationToken cancellationToken = default) =>
         WorkstationDirectory.RefreshAsync(cancellationToken);
@@ -38,22 +42,31 @@ public static class ViCoFeatureBootstrapper
 
     public static TiaPortalPageVM CreateTiaPortalViewModel()
     {
-        var pipeName = $"VIBN_Tools.TiaBridge.{Environment.ProcessId}";
-        var bridgeExecutable = Path.Combine(
-            AppContext.BaseDirectory,
-            "TiaBridge",
-            "VIBN_Tools.TiaBridge.exe");
-
-        var client = new NamedPipeTiaBridgeClient(new TiaBridgeClientOptions(
-            pipeName,
-            BridgeExecutablePath: bridgeExecutable));
+        var client = CreateTiaBridgeClient();
 
         return new TiaPortalPageVM(
             client,
             new TiaLibraryService(client),
             new WpfFolderSelectionService(),
-            FindInstalledTiaVersions());
+            FindInstalledTiaVersions(),
+            ApplicationLogService.Instance);
     }
+
+    /// <summary>Creates an independent bridge process for a TIA-facing page.</summary>
+    public static ITiaBridgeClient CreateTiaBridgeClient()
+    {
+        var pipeName = $"VIBN_Tools.TiaBridge.{Environment.ProcessId}.{Guid.NewGuid():N}";
+        var bridgeExecutable = Path.Combine(
+            AppContext.BaseDirectory,
+            "TiaBridge",
+            "VIBN_Tools.TiaBridge.exe");
+        return new NamedPipeTiaBridgeClient(new TiaBridgeClientOptions(
+            pipeName,
+            BridgeExecutablePath: bridgeExecutable));
+    }
+
+    public static SpecialDevicePageVM CreateSpecialDeviceViewModel() =>
+        new(CreateTiaBridgeClient(), FindInstalledTiaVersions(), ApplicationLogService.Instance);
 
     public static ViCoCopyPageVM CreateCopyViewModel()
     {
@@ -68,9 +81,7 @@ public static class ViCoFeatureBootstrapper
     public static ViCoSearchPageVM CreateSearchViewModel()
     {
         var options = ViCoPathsOptions.CreateDefault();
-        var remoteDesktop = new WindowsRemoteDesktopService(
-            options.WorkingDirectory,
-            new ViCoRemoteCredentialStore());
+        var remoteDesktop = new WindowsRemoteDesktopService(options.WorkingDirectory);
         var apiKey = ResolveKanbanizeApiKey();
 
         return new ViCoSearchPageVM(
@@ -79,11 +90,13 @@ public static class ViCoFeatureBootstrapper
             cancellationToken => CreatePathResolverAsync(options, cancellationToken),
             new NetworkAvailabilityService(),
             remoteDesktop,
+            new WindowsRemoteSessionService(),
             new WindowsPathLauncher(),
             new KanbanizeRefreshService(
                 new HttpClient(),
                 apiKey,
                 options.ServerCacheRoot),
+            new KanbanizeWorkstationConfigurationService(new HttpClient(), apiKey),
             WorkspaceContext,
             workstations => WorkstationDirectory.Synchronize(workstations),
             ApplicationLogService.Instance);
@@ -91,7 +104,7 @@ public static class ViCoFeatureBootstrapper
 
     /// <summary>
     /// Creates the standalone card workflow. It shares the existing Kanbanize
-    /// credentials with ViCo, but has no dependency on ViCo licenses.
+    /// credentials with ViCo, but has no dependency on ViCo role visibility.
     /// </summary>
     public static KanbanizeCardPageVM CreateKanbanizeCardViewModel()
     {
@@ -108,10 +121,7 @@ public static class ViCoFeatureBootstrapper
     {
         var options = ViCoPathsOptions.CreateDefault();
         return new ViCoAdministrationPageVM(
-            new LegacyLicenseService(
-                options.ApprovedLicensesRoot,
-                options.LicenseRequestsRoot,
-                LegacyLicenseCompatibility.ResolveKey()),
+            SharedUserRoleStore,
             new OutlookMeetingService(),
             new FileSystemViCoUpdateService(options.VersionsRoot),
             new WindowsPathLauncher(),
@@ -122,14 +132,50 @@ public static class ViCoFeatureBootstrapper
     /// <summary>Creates the authorization gate for the ViCo workspace navigation.</summary>
     public static ViCoWorkspacePageVM CreateWorkspaceViewModel()
     {
-        var options = ViCoPathsOptions.CreateDefault();
         return new ViCoWorkspacePageVM(
-            new LegacyLicenseService(
-                options.ApprovedLicensesRoot,
-                options.LicenseRequestsRoot,
-                LegacyLicenseCompatibility.ResolveKey()),
+            SharedUserRoleStore,
             WindowsIdentity.GetCurrent().Name,
             ApplicationLogService.Instance);
+    }
+
+    private static IViCoUserRoleStore CreateUserRoleStore()
+    {
+        return new JsonViCoUserRoleStore(
+            SharedOptions.RolesFile,
+            LoadLegacyRolesForOneTimeMigrationAsync);
+    }
+
+    /// <summary>
+    /// Reads the predecessor's encrypted assignments once when roles.json is
+    /// absent. The active application never creates requests or license files.
+    /// </summary>
+    private static async Task<IReadOnlyList<ViCoUserRole>> LoadLegacyRolesForOneTimeMigrationAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var legacy = new LegacyRoleMigrationReader(
+                SharedOptions.LegacyRoleAssignmentsRoot,
+                LegacyRoleMigrationCompatibility.ResolveKey());
+            if (!legacy.CanRead)
+                return Array.Empty<ViCoUserRole>();
+
+            var assignments = await legacy.LoadAsync(cancellationToken);
+            return assignments
+                .Select(assignment => new ViCoUserRole(
+                    assignment.UserName,
+                    assignment.Level,
+                    "Migration"))
+                .ToArray();
+        }
+        catch (Exception exception)
+        {
+            ApplicationLogService.Instance.Warning(
+                "Rollenverwaltung",
+                "Historische Rollen konnten nicht migriert werden; die zentrale roles.json wird unverändert verwendet.",
+                exception.Message);
+            return Array.Empty<ViCoUserRole>();
+        }
     }
 
     private static async Task<IViCoRelatedPathResolver> CreatePathResolverAsync(

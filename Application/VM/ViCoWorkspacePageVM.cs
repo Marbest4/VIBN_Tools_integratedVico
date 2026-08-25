@@ -4,19 +4,20 @@ using VIBN_Tools.GlobalClasses;
 namespace VIBN_Tools.Application.VM;
 
 /// <summary>
-/// Supplies only workspace-level state. Individual ViCo pages retain their own
-/// view models, while this class controls whether administration is visible.
+/// Supplies only workspace-level access state. Individual ViCo pages retain
+/// their own view models; this class determines whether the Level8+ management
+/// page may be shown.
 /// </summary>
 public sealed class ViCoWorkspacePageVM : MvvmBase
 {
-    private readonly IViCoLicenseService _licenses;
+    private readonly IViCoUserRoleStore _roles;
     private readonly string _currentUser;
     private readonly IApplicationLog _log;
     private bool _initialized;
 
-    public ViCoWorkspacePageVM(IViCoLicenseService licenses, string currentUser, IApplicationLog? log = null)
+    public ViCoWorkspacePageVM(IViCoUserRoleStore roles, string currentUser, IApplicationLog? log = null)
     {
-        _licenses = licenses ?? throw new ArgumentNullException(nameof(licenses));
+        _roles = roles ?? throw new ArgumentNullException(nameof(roles));
         _currentUser = currentUser ?? string.Empty;
         _log = log ?? NullApplicationLog.Instance;
     }
@@ -49,27 +50,27 @@ public sealed class ViCoWorkspacePageVM : MvvmBase
             return;
         _initialized = true;
 
-        if (!_licenses.IsConfigured)
-        {
-            AccessStatus = "Verwaltung ist ausgeblendet: Lizenzspeicher nicht konfiguriert.";
-            return;
-        }
-
         try
         {
-            var entries = await _licenses.LoadApprovedAsync();
-            var persistedLevel = entries.FirstOrDefault(entry =>
-                WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level;
-            var effectiveLevel = LicenseAdministrationPolicy.GetEffectiveLevel(_currentUser, persistedLevel);
-            CanViewAdministration = LicenseAdministrationPolicy.ParseLevel(effectiveLevel) >= 7;
+            var roles = _roles.IsConfigured
+                ? await _roles.LoadAsync()
+                : ViCoRolePolicy.ApplyMandatoryRoles(Array.Empty<ViCoUserRole>());
+            var persistedLevel = roles.FirstOrDefault(role =>
+                WindowsUserIdentity.Equals(role.UserName, _currentUser))?.Level;
+            var effectiveLevel = ViCoRolePolicy.GetEffectiveLevel(_currentUser, persistedLevel);
+            CanViewAdministration = ViCoRolePolicy.ParseLevel(effectiveLevel) >= 8;
             AccessStatus = CanViewAdministration
                 ? $"Verwaltung ist mit {effectiveLevel} verfügbar."
-                : "Verwaltung ist erst ab Level7 sichtbar.";
+                : "Verwaltung ist erst ab Level8 sichtbar.";
             _log.Information("ViCo", AccessStatus);
         }
         catch (Exception exception)
         {
-            AccessStatus = "Verwaltung ist ausgeblendet: Lizenzdaten konnten nicht gelesen werden.";
+            var fallbackLevel = ViCoRolePolicy.GetEffectiveLevel(_currentUser, null);
+            CanViewAdministration = ViCoRolePolicy.ParseLevel(fallbackLevel) >= 8;
+            AccessStatus = CanViewAdministration
+                ? "Verwaltung ist mit der Systemrolle verfügbar; die zentrale Rollenliste ist nicht erreichbar."
+                : "Verwaltung ist ausgeblendet: Die zentrale Rollenliste konnte nicht gelesen werden.";
             _log.Error("ViCo", AccessStatus, exception);
         }
     }

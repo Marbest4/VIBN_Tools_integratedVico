@@ -1,107 +1,77 @@
 # VIBN Tools – Gesamtübersicht der Solution
 
-Dieses Handbuch beschreibt die vollständige Desktopanwendung, nicht nur ViCo. Die bestehende VIBN-Funktionalität bleibt in ihren eigenen Reitern erhalten; ViCo und Kanbanize ergänzen sie um Projekt-, PC- und Arbeitsvorbereitung.
+## Zielbild
 
-## Gemeinsamer Arbeitsablauf
+Die Solution verbindet die bestehende VIBN-Tools-Oberfläche mit ViCo, Kanbanize und TIA Portal, ohne die bisherige VIBN-Funktionalität in eine unübersichtliche Monolithklasse zu verschieben. Neue fachliche Regeln liegen in `VIBN_Tools.Core`, externe Zugriffe in `VIBN_Tools.Infrastructure`, WPF-Koordination in `Application/VM` und TIA Openness in einem separaten Bridge-Prozess.
 
-1. In **Project Settings** das lokale oder entfernte FEE-/Simulationsprojekt verbinden.
-2. Den passenden Fachreiter wählen, Eingabedaten laden und die Vorschau bzw. Validierung prüfen.
-3. Eine schreibende Aktion erst nach Prüfung der Auswahl ausführen.
-4. Statuszeile und das globale **Diagnoseprotokoll** bei Abweichungen prüfen.
+## Funktionslandkarte
 
-Die Funktionen greifen teilweise auf dasselbe verbundene FEE-Modell zu. Ein Wechsel des Reiters trennt eine bestehende Verbindung nicht automatisch.
+| Bereich | Benutzerziel | Wichtige Module |
+| --- | --- | --- |
+| Project Settings | FEE-PC wählen, Verbindung bestätigen, Projektbasis anlegen | `SettingsPageVM`, `FeeConnectionService`, `WorkstationDirectory` |
+| ViCo Übersicht | Arbeitsplätze, Belegung, Projekte, Konfiguration, RDP und Pfade | `ViCoSearchPageVM`, `ViCoWorkstationRowVM`, `LegacyWorkstationCatalog` |
+| ViCo Projekte/Transfer | Projekte öffnen, Favoriten speichern, Dateien übertragen | `ViCoPageVM`, `ViCoCopyPageVM`, `BoundedFileCopyService` |
+| ViCo TIA | PLC-/Bibliotheks-/Achsen-/Hardwarefunktionen | `TiaPortalPageVM`, TIA Client/Bridge |
+| ViCo Verwaltung | Rollen, Outlook-Termine, Versionen | `ViCoAdministrationPageVM`, `JsonViCoUserRoleStore` |
+| Kanbanize | sichere VIBN-Übernahme und eigene Karten | `VibnWorkplaceSynchronizationService`, `KanbanizeCardApiService` |
+| Special Devices | manuelle und TIA-basierte Geräteerzeugung | `SpecialDevicePageVM`, `SpecialDeviceHardwareImportVM`, `DeviceFactory` |
+| bestehende VIBN-Reiter | CAD, Zuli, Container, Modell und Schnittstellen | bestehende ViewModels und FEE-Services |
 
-## Hauptreiter und Bedienung
-
-| Reiter | Zweck | Typischer Ablauf | Technischer Einstieg |
-|---|---|---|---|
-| **Project Settings** | FEE-/Simulationsprojekt auswählen und verbinden | PC wählen, Optionen festlegen, **Connect**; erst nach bestätigter Meldung arbeiten | `Settings/`, `Application/VM/SettingsPageVM.cs` |
-| **Kanbanize Karten** | VIBN-Karten sicher ins Arbeitsplätze-Board übernehmen oder einzelne Karten anlegen | Zuerst **Boards aktualisieren**; im Automatikreiter prüfen und bewusst synchronisieren; eigene Karten im zweiten Reiter | `VIBN_Tools.Core/Kanbanize/`, `VIBN_Tools.Infrastructure/Kanbanize/` |
-| **ViCo** | Arbeitsplätze, Projekte, Transfer, TIA und Verwaltung bündeln | PC/Projekt suchen, passende Aktion wählen; Transfer/TIA/Verwaltung nach Bedarf öffnen | `VIBN_Tools.Core/ViCo/`, `VIBN_Tools.Infrastructure/ViCo/` |
-| **CAD Wizard** | CAD-nahe FEE-Strukturen aufbauen | Joints, Sensoren, Förderer oder Templates erzeugen; leere Knoten bzw. Namen anschließend prüfen | `CAD Wizard/`, `CadWizardPageVM.cs` |
-| **Zuli Converter** | ZuLi-/Schnittstellendaten in das gewählte Zielformat überführen | Quelldatei öffnen, Optionen prüfen, Importdatei erzeugen | `ZuliConverter/`, `ZuliConverterPageVM.cs` |
-| **Container Generation** | Container aus Interface- und Anforderungsdaten erzeugen, prüfen und exportieren | Interface/Requirements laden, Einstellungen laden, generieren, Workspace prüfen, exportieren | `ContainerGeneration/`, `ContainerGenerationPageVM.cs` |
-| **Container2Fee** | Container-XML den FEE-Objekten zuordnen und ins Modell übertragen | XML laden, Simulationsobjekte suchen, Zuordnungen prüfen, Generierung starten | `ContainerToFee/`, `ContainerToFeePageVM.cs` |
-| **Special Devices** | Spezialgeräte aus dem Katalog konfigurieren und anlegen | Hersteller/Typ wählen, Werte prüfen, hinzufügen bzw. erzeugen | `SpecialDevices/`, `SpecialDevicePageVM.cs` |
-| **Model Validation** | Modellregeln ausführen und Befunde strukturieren | FEE-Daten aktualisieren, Gruppen/Filter prüfen, Befunde bestätigen oder korrigieren | `ModelValidation/`, `ModelValidationPageVM.cs` |
-| **Model Control** | Roboter, Achsen und steuerbare FEE-Objekte bedienen | FEE-Daten aktualisieren, Objekt auswählen, Bewegung/Operation bewusst auslösen | `ModelControl/`, `RobotControl/`, `ModelControlPageVM.cs` |
-| **Interface Operation** | FEE-Schnittstellen und Signale verbinden bzw. zusammenführen | beide Schnittstellen auswählen, Signale filtern, Vorschau prüfen, verbinden/übernehmen | `InterfaceOperation/`, `InterfaceOperationPageVM.cs` |
-| **AI-Test** | Trainingsdaten, Vorhersagen, Konflikte und Auswertung der Containerzuordnung bearbeiten | Trainingsordner prüfen, trainieren/auswerten, Konflikte korrigieren, Berichte exportieren | `ContainerGeneration/AI/`, `AITrainingTestPageVM.cs` |
-
-Der ausgeblendete Reiter **MiniTools** ist keine aktive Produktfunktion.
-
-## Kanbanize: zwei bewusst getrennte Arbeitsweisen
-
-### VIBN → Arbeitsplätze
-
-Dieser Reiter bildet den früheren Canbanize-Automatikablauf in sicherer Form ab:
-
-1. Quelle und Zielboard, Ziel-Lane und Zielspalte prüfen. Die historischen Standardwerte werden nur als Vorauswahl verwendet.
-2. **Prüfen** lädt aktuelle Karten beider Boards und zeigt ausschließlich eine Vorschau.
-3. Die Automation berücksichtigt nur aktive VIBN-Karten mit `Grundinbetriebnahme`; `Vorlage` und die historische Archivspalte werden ausgeschlossen.
-4. **Synchronisieren** erstellt fehlende Zielkarten mit Quellkarten-ID als `custom_id` und Elternverknüpfung.
-5. Bei genau einer vorhandenen Zielkarte mit derselben Quellkarten-ID wird nur deren Deadline angeglichen.
-
-Es gibt keine Lösch-, Verschiebe-, Umbenennungs-, Beschreibungs- oder Lizenzaktion. Mehrere Zielkarten mit identischer Quellkarten-ID gelten als Konflikt und werden nicht verändert. Ein zweiter Lauf erzeugt deshalb keine Duplikate.
-
-### Eigene Karte
-
-Die manuelle Kartenerstellung bleibt vollständig unabhängig: Board, Lane, Spalte, Titel, externe ID, Priorität, Deadline und Beschreibung werden bewusst vom Benutzer gewählt. Sie hat keine Lizenzanfragefunktion.
-
-## ViCo im Überblick
-
-| Unterbereich | Funktion |
-|---|---|
-| **Übersicht & Verbindung** | einheitliche Suche nach PC, Benutzer, GM/GU oder Projekt; Remote Desktop, TeamViewer sowie Projekt-/Simulation-/SPS-/Planungspfade |
-| **Projekte & Favoriten** | Simulationsprojektablage durchsuchen, Ordner öffnen und Favoriten im kompatiblen Format verwalten |
-| **Transfer** | Projektbestandteile mit begrenzter Parallelität zwischen Verzeichnissen kopieren |
-| **TIA Portal** | über separaten Bridge-Prozess mit TIA Openness arbeiten; Bibliotheken importieren/exportieren und Achsen konfigurieren |
-| **Verwaltung** | Termine, ViCo-Version und Lizenzbestand; sichtbar ab Level7, Bearbeitung ab Level8 |
-
-Die ViCo-Belegung ist **grün** bei `Frei` und **rot** bei `Belegt`. Planung oder In Arbeit hat Vorrang vor Backlog/Erledigt. Der Online-Status ist separat und prüft nur die Ping-Erreichbarkeit.
-
-## Solution- und Codeaufteilung
+## Projektstruktur
 
 ```text
-VIBN_Tools (WPF-Host)
-├─ Application/             Views, ViewModels, Navigation, Diagnoseprotokoll
-├─ Settings/                FEE-Verbindung und Projekteinstellungen
-├─ CAD Wizard/              CAD-basierte Generierungshilfen
-├─ ZuliConverter/           ZuLi-Konvertierung und Exportstrategien
-├─ ContainerGeneration/     Import, Regeln, Workspace, Export, KI
-├─ ContainerToFee/          Container-Modelle, Factories und FEE-Übertragung
-├─ SpecialDevices/          Geräte-Katalog, Factory und konkrete Gerätetypen
-├─ ModelValidation/         Regeln, Change-Routing und Befunde
-├─ ModelControl/            Achsen, Objekte, Roboter und Bewegungsabläufe
-├─ InterfaceOperation/      Schnittstellen- und Signaloperationen
-├─ RobotControl/            wiederverwendbare Roboterbewegungen
-└─ GlobalClasses/           gemeinsame MVVM-, FEE-SDK- und Hilfstypen
+Application/
+  View/                         WPF-XAML und zugehörige Lebenszyklusklassen
+  VM/                           ViewModels und Bedienabläufe
+  ViCoFeatureBootstrapper.cs    zentraler Composition Root für neue ViCo-/TIA-Dienste
 
-VIBN_Tools.Core             fachliche ViCo-/Kanbanize-Verträge und Regeln
-VIBN_Tools.Infrastructure   Datei-, Netzwerk-, Windows- und Kanbanize-Adapter
-VIBN_Tools.Tia.Contracts    serialisierbare Named-Pipe-DTOs
-VIBN_Tools.Tia.Client       Client zur isolierten TIA Bridge
-VIBN_Tools.TiaBridge        separater Openness-Prozess
-Tests/                      Core-, WPF-, Golden-Master- und Compile-Tests
+VIBN_Tools.Core/
+  ViCo/                         Modelle, Verträge, Rollen- und Arbeitsplatzregeln
+  Kanbanize/                    Kartenmodelle, Validierung und Synchronisierungsregel
+
+VIBN_Tools.Infrastructure/
+  ViCo/                         Datei-, Windows-, RDP-, Cache-, Kanbanize- und Rollenadapter
+  Kanbanize/                    Businessmap-/Kanbanize-v2-HTTP-Adapter
+
+VIBN_Tools.Tia.Contracts/       serialisierbare TIA-DTOs und Kommandonamen
+VIBN_Tools.Tia.Client/          Typed Named-Pipe-Client und Bibliotheksservice
+VIBN_Tools.TiaBridge/           isolierter .NET-Framework-/TIA-Openness-Prozess
+
+SpecialDevices/                 Gerätefactory, Katalog und konkrete Gerätekategorien
+Tests/CoreSmokeTests/           fachliche und transportnahe Smoke-Tests
+Tests/UiStartupSmokeTests/      WPF-XAML-/Binding-Starttest und Anleitungsbilder
+docs/                           Anwender-, Betriebs- und Entwicklerdokumentation
 ```
 
-`Application/ViCoFeatureBootstrapper.cs` ist der Composition Root für ViCo, TIA und Kanbanize. Neue externe Dienste werden dort über ein Core-Interface mit ihrer Infrastrukturimplementierung verbunden. Die bestehenden VIBN-Reiter verwenden historisch gewachsene Dienste direkt; neue Umbauten sollen schrittweise über klare Verträge und Tests erfolgen.
+## Abhängigkeitsrichtung
 
-## Wo erweitere ich was?
+```text
+WPF View → ViewModel → Core-Vertrag → Infrastructure-Adapter
+                                     ↘ TIA Client → Named Pipe → TIA Bridge → Openness
+```
 
-| Bedarf | Richtiger Ort |
-|---|---|
-| neue Oberfläche oder Hauptreiter | `Application/View/` und passendes `Application/VM/`; Navigation in `MainWindow.xaml` |
-| neue reine ViCo-/Kanbanize-Regel | `VIBN_Tools.Core/ViCo` bzw. `VIBN_Tools.Core/Kanbanize` |
-| HTTP-, UNC-, Windows- oder Dateizugriff | `VIBN_Tools.Infrastructure` oder klar abgegrenzter bestehender Dienst |
-| neue TIA-Operation | Contracts → Client → Bridge Dispatcher → Openness-Session |
-| neues Spezialgerät | Gerätetyp in `SpecialDevices/Devices`, danach `DeviceCatalog`/`DeviceFactory` |
-| neuer Container | passende Containerbasis oder Factory in `ContainerToFee`; Generierungsregel in `ContainerGeneration/BusinessLogic` |
-| neue Modellprüfung | `ModelValidation` als isolierte Validierungsregel statt in der View |
-| neue UI-Aktion | Command im passenden ViewModel, verständliche Statusmeldung und Diagnoseeintrag |
+`Core` kennt weder WPF noch UNC-Pfade, Windows-Prozesse oder HTTP. Dadurch können Rollen, Terminberechnung, Suchlogik und Duplikatschutz ohne produktive Systeme getestet werden.
 
-## Kommentare, Lesbarkeit und Tests
+## Wichtige fachliche Regeln
 
-Öffentliche Fachverträge, nicht offensichtliche Sicherheits-/Nebenläufigkeitsregeln und externe Systemgrenzen besitzen XML- oder Inline-Kommentare. Historisch gewachsener Code wird nicht mit redundantem Zeilenkommentar überdeckt; die Klassenreferenz und sprechende Typen erklären die Verantwortung.
+- Kanbanize hat Vorrang vor alten PC-/Benutzer-Zuordnungen. `KONFIGURATION / USER` ist die bevorzugte Quelle.
+- Frei bedeutet ausschließlich Backlog/Erledigt; Planung oder In Arbeit bedeutet Belegt.
+- Offline-PCs haben keine Remote- oder Pfadbuttons.
+- Die VIBN-Synchronisierung nutzt die Quellkarten-ID als eindeutige Ziel-ID. Sie erstellt keine Duplikate und verändert niemals Titel, Position, Beschreibung oder fremde Felder bestehender Karten.
+- Die Zeitplanung lautet: Start = Quell-Deadline − 14 Tage; Ende/Deadline = Deadline der eindeutigen VIBN-Vorlage + 56 Tage.
+- `lutzma` ist fest Level9; mindestens zwei unterschiedliche Level9-Benutzer sind beim Speichern erforderlich.
+- TIA-Daten werden nur gelesen, bis der Benutzer eine explizite Import-/Speicher-/FEE-Erzeugungsaktion ausführt.
 
-Für jede neue Fachregel gehört mindestens ein Test nach `Tests/CoreSmokeTests`. XAML-Bindings auf schreibgeschützte Werte müssen `Mode=OneWay` verwenden. Der WPF-Startup-Test schützt zusätzlich gegen XAML- und Binding-Ausnahmen.
+## Erweiterungspunkte
+
+| Änderung | richtiger Ort |
+| --- | --- |
+| neue reine Arbeitsplatz-/Rollenregel | `VIBN_Tools.Core/ViCo` |
+| neuer Kanbanize-Fachablauf | `VIBN_Tools.Core/Kanbanize` und dazugehöriger HTTP-Adapter |
+| neuer Wert der KONFIGURATION-Karte | Core-Modell, `LegacyWorkstationCatalog`, Editor-VM und gezielter Adaptertest |
+| neue RDP-/Windows-Funktion | Core-Interface plus `DesktopWorkstationServices.cs` |
+| neue TIA-Operation | Contracts → Client → Bridge Dispatcher → `TiaOpennessSession` → ViewModel |
+| neues Special Device | `SpecialDevices/Devices`, `DeviceCatalog`/`DeviceFactory`, optional Zuordnungsvorschlag |
+| bestehende VIBN-Funktion | im zugehörigen vorhandenen ViewModel, ohne ViCo-Transportlogik hineinzuziehen |
+
+Die ausführlichen Regeln befinden sich im [Entwicklerhandbuch](ENTWICKLERHANDBUCH.md) und in der [Klassenreferenz](KLASSENREFERENZ.md).

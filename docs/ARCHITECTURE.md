@@ -2,37 +2,34 @@
 
 ## Boundaries
 
-- `VIBN_Tools.Core`: immutable ViCo models, interfaces, search, workstation directory and business rules.
-- `VIBN_Tools.Infrastructure`: file-system, Kanbanize, Remote Desktop, Outlook, update and legacy-license adapters.
-- `VIBN_Tools.Tia.Contracts`: typed process protocol.
-- `VIBN_Tools.Tia.Client`: lifecycle and named-pipe client for the bridge.
-- `VIBN_Tools.TiaBridge`: isolated .NET Framework process loading the selected TIA Openness version.
-- `Application`: WPF view models, views, composition and the bounded in-memory diagnosis log.
+- `Application`: WPF views, view models, composition root and application log.
+- `VIBN_Tools.Core`: platform-neutral ViCo/Kanbanize models, policies and interfaces.
+- `VIBN_Tools.Infrastructure`: filesystem, cache, HTTP, Windows RDP/session and JSON role adapters.
+- `VIBN_Tools.Tia.Contracts`: serializable protocol DTOs.
+- `VIBN_Tools.Tia.Client`: typed named-pipe client.
+- `VIBN_Tools.TiaBridge`: isolated Siemens Openness process.
 
-The original VIBN Tools feature classes are not refactored as part of the ViCo integration. This keeps the migration regression surface bounded.
+## Source of truth matrix
 
-## Data source matrix
-
-| Information | Source | Refresh | Meaning |
-|---|---|---|---|
-| PCs, users, projects, FEE, LAN, software | Kanbanize board 1541 cache | startup, manual and periodic | Values stated on workstation cards |
-| Robot count, name and status | Kanbanize board 846 cache | manual and periodic | Unique matching software-robotics cards |
-| Online state | ICMP ping | after a debounced search, cached for 30 s | Network response only |
-| Simulation/PLC/planning paths | configured UNC roots and cache indexes | view refresh | Best matching project path |
-| License level | compatible encrypted files on configured UNC roots | administration refresh | Existing ViCo authorization level |
-| TIA installation | local Siemens PublicAPI directories | view creation | Installed local TIA Openness versions |
-
-`WorkstationDirectory` is the single source of truth for the Project Settings dropdown and ViCo workstation users. Kanbanize values replace older assignments; there is no compiled PC-to-user table.
+| Data | Source | Rule |
+| --- | --- | --- |
+| Workstations and user assignment | Kanbanize workstation cache | `KONFIGURATION / USER` overrides older card text |
+| Workstation configuration | existing `KONFIGURATION` subtasks | only existing subtask descriptions are editable |
+| Online state | bounded ICMP ping | offline suppresses remote/path actions |
+| Remote session / last logon | read-only `quser` | lack of permission means “Not available”, not offline |
+| Workplace card schedule | VIBN source + single VIBN template deadline | source −14 days, template +56 days |
+| Authorization | central `roles.json` | `lutzma` is Level9; at least two Level9 users on save |
+| TIA hardware | selected PLC via Openness | read-only module and byte address data before FEE creation |
 
 ## Reliability and performance
 
-- project and network access is asynchronous;
-- copy concurrency is bounded;
-- DataGrid row and column virtualization remains enabled;
-- availability checks are limited to eight concurrent pings, delayed by 300 ms while typing and cached for 30 seconds;
-- Kanbanize cache files are replaced atomically;
-- the visible diagnosis buffer is capped at 500 records and file logs rotate.
+- Core policies are testable without live services.
+- Cache files and role files are written atomically.
+- Workstation ping and remote-session queries have separate bounded concurrency.
+- Kanbanize synchronization is idempotent through source `custom_id` and uses narrow payloads.
+- TIA stays outside the WPF process and bridge failures are caught at view-model boundaries.
+- WPF grids use virtualization and deferred tab templates are covered by a UI startup test.
 
-## Known follow-up: security phase
+## Remote Desktop credential boundary
 
-The existing ViCo encrypted license format and one-click Remote Desktop credential workflow are retained for compatibility. They must be migrated in the dedicated security phase without changing user workflows. Kanbanize/API credentials, Remote Desktop passwords and license keys must be removed from source-controlled compatibility paths as part of that phase.
+The application writes only a host, the Kanbanize-selected user and the prompt mode into an `.rdp` profile. Passwords are never part of the source tree, cache, role data or Kanbanize payloads. Windows Credential Manager owns credentials locally for the signed-in Windows user: the prompted RDP action establishes or changes them, and the automatic action reuses them.

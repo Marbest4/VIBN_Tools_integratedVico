@@ -1,41 +1,33 @@
-# VIBN Tools mit integriertem ViCo
+# VIBN Tools
 
-Windows-Desktopanwendung für Arbeitsabläufe der virtuellen Inbetriebnahme. Die bestehende VIBN-Tools-Oberfläche bleibt der Host; ViCo und die isolierte TIA Bridge sind als modulare Funktionen integriert.
+VIBN Tools ist die WPF-Desktopanwendung für Modellierung, virtuelle Inbetriebnahme und die dazugehörigen ViCo-Arbeitsabläufe. Die vorhandenen VIBN-Werkzeuge bleiben erhalten. ViCo, Kanbanize und die TIA-Bridge sind als getrennte, testbare Module integriert.
 
-## Dokumentation
+## Einstieg
 
-Der vollständige Einstieg für Anwender, Entwickler und Betrieb befindet sich im [Dokumentationsindex](docs/README.md).
+- [Anwenderhandbuch](docs/BENUTZERHANDBUCH.md) – vollständige Bedienung aller Reiter, Beispiele und Screenshots.
+- [Gesamtübersicht der Solution](docs/GESAMTLOESUNG.md) – Funktionslandkarte und Zuständigkeiten.
+- [Kanbanize Karten](docs/KANBANIZE_KARTEN.md) – sichere VIBN-zu-Arbeitsplätze-Synchronisierung und manuelle Karten.
+- [Rollenverwaltung](docs/ROLLENVERWALTUNG.md) – Level, Sichtbarkeiten und die Level9-Mindestregel.
+- [Konfiguration und Betrieb](docs/KONFIGURATION_UND_BETRIEB.md) – Voraussetzungen, Datenquellen, Protokolle und Fehlersuche.
+- [Entwicklerhandbuch](docs/ENTWICKLERHANDBUCH.md) und [Klassenreferenz](docs/KLASSENREFERENZ.md) – Architektur, Erweiterungspunkte und Codewegweiser.
 
-- [Gesamtübersicht der vollständigen Solution](docs/GESAMTLOESUNG.md)
-- [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md)
-- [Kanbanize Karten](docs/KANBANIZE_KARTEN.md)
-- [Entwicklerhandbuch](docs/ENTWICKLERHANDBUCH.md)
-- [Klassenreferenz](docs/KLASSENREFERENZ.md)
-- [Quellcode-Dokumentation](docs/QUELLCODE_DOKUMENTATION.md)
-- [Konfiguration und Fehlersuche](docs/KONFIGURATION_UND_BETRIEB.md)
-- [Lizenzverwaltung und Level9-Regel](docs/LIZENZVERWALTUNG.md)
-- [Datenflüsse](docs/DATENFLUESSE.md)
-- [Release-Abnahme](docs/ACCEPTANCE_CHECKLIST.md)
+## Wichtige Eigenschaften
 
-## Build
+- ViCo verwendet einen gemeinsamen, dynamischen PC-/Benutzerbestand aus Kanbanize; es gibt keine fest kompilierte PC-Benutzer-Zuordnung.
+- Die ViCo-Übersicht zeigt nur aktive Projekte aus Planung und In Arbeit. Backlog und Abschluss bleiben in den vollständigen Kanbanize-Informationen sichtbar.
+- Der normale Button **Remote Desktop** behält die automatische Anmeldung bei und verwendet ausschließlich die lokal gespeicherten Windows-RDP-Anmeldedaten. **Remote Desktop mit Anmeldedaten** öffnet den Windows-Anmeldedialog zur Ersteinrichtung oder Änderung.
+- Kanbanize synchronisiert keine Duplikate und ändert bei vorhandenen generierten Karten ausschließlich den berechneten Starttermin und die Deadline.
+- Die TIA-Openness-Kommunikation läuft in einem separaten Bridge-Prozess; ein TIA-Fehler beendet nicht die WPF-Anwendung.
+- Rollen ersetzen Lizenzanfragen. Level7 schaltet CAD Wizard, Container Generation und Container2Fee frei; Level8 zusätzlich AI-Test und Kanbanize; die ViCo-Verwaltung ist ab Level8 sichtbar und ab Level9 schreibbar.
 
-Voraussetzungen:
+## Build und lokale Prüfungen
 
-- Windows mit .NET 8 SDK
-- konfigurierte Grob.UX-Paketquelle
-- fe.screen-sim V5 SDK; bei abweichender Installation `FEE_SCREEN_SIM_ROOT` setzen
-- Siemens TIA Portal/Openness für Live-TIA-Abläufe
-- Zugriff auf die konfigurierten GROB-Netzwerkpfade für Live-ViCo-Daten
+Die vollständige Solution ist `VIBN_Tools_App.sln`. Für einen Build werden Windows, .NET 8, Grob.UX und das FEE-SDK benötigt. Für reale TIA-Funktionen muss außerdem eine unterstützte Siemens-TIA-Portal-/Openness-Installation vorhanden sein.
 
 ```powershell
-dotnet restore VIBN_Tools_App.sln --configfile NuGet.Config
-dotnet build VIBN_Tools_App.sln --configuration Release --no-restore
-```
-
-Lokale Kernprüfungen:
-
-```powershell
+dotnet build VIBN_Tools_App.sln --configuration Release
 dotnet run --project Tests/CoreSmokeTests/VIBN_Tools.Core.SmokeTests.csproj --configuration Release
+dotnet run --project Tests/UiStartupSmokeTests/VIBN_Tools.UiStartup.SmokeTests.csproj --configuration Release
 ```
 
-Schlüssel und Anmeldedaten dürfen nie in das Anwendungsprotokoll geschrieben werden. Die aktuelle Kompatibilität für Legacy-Lizenzen und den bisherigen Remote-Desktop-Ablauf ist für die spätere Sicherheitsphase dokumentiert.
+Die lokalen Smoke-Tests verwenden keine produktiven Kanbanize-Boards und keine realen TIA-Projekte. Die zusätzliche Live-Abnahme ist in [ACCEPTANCE_CHECKLIST.md](docs/ACCEPTANCE_CHECKLIST.md) beschrieben.

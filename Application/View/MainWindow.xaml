@@ -21,6 +21,18 @@
                 <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
                 <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <Style TargetType="{x:Type TabItem}" BasedOn="{StaticResource {x:Type TabItem}}">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="HeaderTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock MinWidth="145" Text="{Binding}" TextAlignment="Center" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -53,7 +65,9 @@
                         <p:SettingsPage/>
                     </TabItem>
 
-                    <TabItem Header="Kanbanize Karten" ux:Icon.Kind="TaskListAssigned">
+                    <TabItem Header="Kanbanize Karten"
+                             ux:Icon.Kind="TaskListAssigned"
+                             Visibility="{Binding CanUseLevel8Features, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <p:KanbanizeCardPage/>
                     </TabItem>
 
@@ -61,7 +75,9 @@
                         <p:ViCoWorkspacePage/>
                     </TabItem>
                     
-                    <TabItem Header="CAD Wizard" ux:Icon.Kind="Cad">
+                    <TabItem Header="CAD Wizard"
+                             ux:Icon.Kind="Cad"
+                             Visibility="{Binding CanUseLevel7Features, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <p:CadWizardPage/>
                     </TabItem>
                     
@@ -69,11 +85,15 @@
                         <p:ZuliConverterPage/>
                     </TabItem>
 
-                    <TabItem Header="Container Generation" ux:Icon.Kind="TaskListAssigned">
+                    <TabItem Header="Container Generation"
+                             ux:Icon.Kind="TaskListAssigned"
+                             Visibility="{Binding CanUseLevel7Features, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <p:ContainerGenerationPage/>
                     </TabItem>
 
-                    <TabItem Header="Container2Fee" ux:Icon.Kind="WorkpieceStation">
+                    <TabItem Header="Container2Fee"
+                             ux:Icon.Kind="WorkpieceStation"
+                             Visibility="{Binding CanUseLevel7Features, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <p:ContainerToFeePage/>
                     </TabItem>
                     
@@ -99,7 +119,9 @@
                         <p:InterfaceOperationPage/>
                     </TabItem>                  
 
-                    <TabItem Header="AI-Test" ux:Icon.Kind="Magazines">
+                    <TabItem Header="AI-Test"
+                             ux:Icon.Kind="Magazines"
+                             Visibility="{Binding CanUseLevel8Features, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <p:AITrainingTestPage/>
                     </TabItem>
 

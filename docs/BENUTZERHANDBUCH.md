@@ -1,150 +1,192 @@
 # Benutzerhandbuch
 
-## Zweck des Programms
+## Zweck und Grundprinzip
 
-VIBN Tools bündelt Werkzeuge für virtuelle Inbetriebnahme, FEE-/Simulationsprojekte und die ViCo-Arbeitsabläufe in einer WPF-Desktopanwendung. Die bisherigen VIBN-Werkzeuge bleiben eigenständige Reiter. ViCo ergänzt PC-/Projektsuche, Remote-Zugriff, Favoriten, Transfer, TIA Portal und Verwaltung.
+VIBN Tools bündelt vorhandene Werkzeuge für Modellierung, FEE und virtuelle Inbetriebnahme mit ViCo, Kanbanize und TIA Portal. Die bisherigen VIBN-Reiter bleiben eigenständige Funktionsbereiche. ViCo ergänzt sie um einen zentralen Blick auf Arbeitsplätze, Projekte, Remote-Zugriff und Arbeitsvorbereitung.
 
-Eine Beschreibung aller aktiven VIBN-Reiter mit typischen Arbeitsabläufen enthält die [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Dieses Handbuch vertieft vor allem Einstellungen, Kanbanize und ViCo.
+Die Anwendung arbeitet defensiv: externe Aktionen werden erst nach einer bewussten Schaltfläche ausgeführt, Offline-PCs erhalten keine Remote-/Pfadaktionen und Fehler erscheinen in der Statuszeile sowie im Diagnoseprotokoll.
 
-## Grundbedienung
+## Reiterübersicht
 
-Die Hauptnavigation steht links. Der Reiter **ViCo** besitzt eine zweite, thematisch gruppierte Navigation. Am unteren Fensterrand kann das **Diagnoseprotokoll** aufgeklappt werden. Lange Tabellen sind virtualisiert; Sortieren, Auswählen und Scrollen laden nicht sämtliche Zeilen gleichzeitig in die Oberfläche.
+| Reiter | Zweck | Mindestrolle |
+| --- | --- | --- |
+| Project Settings | Online-FEE-PC wählen, Verbindung prüfen, Projektbasis anlegen | alle |
+| Kanbanize Karten | VIBN-Karten ins Arbeitsplätze-Board synchronisieren; eigene Karten erstellen | Level8 |
+| ViCo | PC-/Projektsuche, Transfer, TIA Portal und Verwaltung | alle; Verwaltung ab Level8 |
+| CAD Wizard | Joints, Sensoren, Templates und CAD-Hilfen | Level7 |
+| Zuli Converter | Zuli-Datei einlesen und Interface-Datei erzeugen | alle |
+| Container Generation | Container aus Interface- und Requirements-Dateien prüfen und generieren | Level7 |
+| Container2Fee | Container XML mit FEE-Simulationsobjekten verbinden | Level7 |
+| Special Devices | Geräte manuell oder aus TIA-Hardware vorbereiten und in FEE erzeugen | alle |
+| Model Validation | Modell-/FEE-Daten prüfen | alle |
+| Model Control | Roboter, Achsen, Objekte und Simulation steuern | alle |
+| Interface Operation | Schnittstellen und Signale laden, verbinden und bearbeiten | alle |
+| AI-Test | Trainings-/Testbereich | Level8 |
 
-### Project Settings
+Die Berechtigungen sind im Detail in der [Rollenverwaltung](ROLLENVERWALTUNG.md) beschrieben.
 
-Hier wird die Verbindung zu einem FEE-/Simulations-PC hergestellt.
+## Empfohlener Arbeitsablauf
 
-1. PC im Dropdown auswählen. `localhost` ist für lokale Arbeit immer enthalten.
-2. Gewünschte Ladeoptionen einstellen.
-3. **Connect** wählen.
-4. Erst die Meldung **„Mit … verbunden“** abwarten. Die Anwendung zeigt diesen Zustand erst, wenn FEE die Verbindung tatsächlich bestätigt hat.
-5. Bei Zeitüberschreitung oder Fehler bleibt **Connected to** auf `---`; Statusmeldung und Diagnoseprotokoll prüfen.
+1. In **Project Settings** den gewünschten Online-PC filtern, auswählen und die FEE-Verbindung aufbauen.
+2. In **ViCo → Übersicht & Verbindung** den Arbeitsplatz oder das Projekt suchen und Kanbanize-Daten aktualisieren, falls notwendig.
+3. Falls eine Karte benötigt wird, im Hauptreiter **Kanbanize Karten** zuerst die Vorschau ausführen und erst danach bewusst synchronisieren.
+4. Für TIA-nahe Schritte **ViCo → TIA Portal** oder **Special Devices → TIA-Hardware lesen** verwenden.
+5. Änderungen, Fehler und externe Zugriffe am unteren Rand im Diagnoseprotokoll nachvollziehen.
 
-Das Dropdown und die ViCo-PC-Suche verwenden dasselbe `WorkstationDirectory`. Die PC-/Benutzer-Zuordnung wird aus dem aktuellen Kanbanize-Cache übernommen; es gibt keine fest kompilierte Zuordnung. Deshalb kann ein PC erst nach einer Aktualisierung erscheinen, wenn er neu in Kanbanize angelegt wurde.
+## Project Settings
 
-## Kanbanize Karten
+Das Eingabefeld **Online-PC filtern** filtert sofort nach Namen. Das Dropdown enthält ausschließlich erreichbare PCs aus dem gemeinsamen ViCo-Arbeitsplatzverzeichnis. Offline-PCs werden absichtlich nicht angeboten.
 
-Der Hauptreiter **Kanbanize Karten** hat zwei getrennte Arbeitsweisen und benötigt weder eine VIBN- noch eine ViCo-Lizenzanfrage.
+1. Bei Bedarf **Liste aktualisieren** drücken.
+2. PC auswählen; die Statuszeile zeigt anschließend die Erreichbarkeit.
+3. **Connect** drücken.
+4. Erst nach der technischen Bestätigung zeigt **Connected to** den PC und die Statuszeile meldet „verbunden“.
 
-### VIBN → Arbeitsplätze
-
-Dieser Reiter übernimmt die bisherige Canbanize-Automatik sicher in die integrierte Anwendung.
-
-1. **Boards aktualisieren** wählen. Quelle, Zielboard, Ziel-Lane und Zielspalte kontrollieren.
-2. **Prüfen** wählen. Das Ergebnis ist ausschließlich eine Vorschau und verändert keine Karte.
-3. Neue Karten, Deadline-Anpassungen, unveränderte Karten und Konflikte kontrollieren.
-4. Erst dann **Synchronisieren** wählen.
-
-Die Quelle sind VIBN-Karten mit `Grundinbetriebnahme`; Vorlagen und die historische Archivspalte werden nicht übernommen. Eine Zielkarte wird über die Quellkarten-ID als `custom_id` erkannt. Fehlt sie, entsteht eine verknüpfte Karte. Existiert genau eine Karte, wird – sofern aktiviert – nur ihre Deadline an die Quelle angepasst. Titel, Beschreibung, Position, Status und manuelle Änderungen bestehender Karten bleiben unverändert. Mehrere Zielkarten mit derselben Quell-ID erscheinen rot als Konflikt und werden nicht verändert.
-
-Der zweite Lauf ist dadurch idempotent: bereits erstellte Karten werden nicht dupliziert.
-
-### Eigene Karte
-
-1. **Boards aktualisieren** wählen und ein zugängliches Board auswählen.
-2. Lane auswählen; die Spaltenliste wird auf denselben Workflow eingeschränkt.
-3. Titel eingeben, optional externe ID, Deadline und Beschreibung ergänzen.
-4. Priorität `1` (hoch) bis `4` (niedrig) auswählen.
-5. **Karte erstellen** wählen und die Bestätigung mit Karten-ID abwarten.
-
-Die in Kanbanize hinterlegten Board-Berechtigungen entscheiden darüber, ob eine Karte erstellt werden darf. Ein fehlender API-Schlüssel oder fehlende Create-Card-Berechtigung wird klar in Statuszeile und Diagnoseprotokoll angezeigt. Die Felder enthalten absichtlich keine Lizenz-, Freigabe- oder Lizenzanfragefunktion.
+Scheitert die Verbindung oder läuft der Timeout ab, bleibt `Connected to: ---` sichtbar. Die Fehlerursache steht im Diagnoseprotokoll. **Create Project Base** setzt die bestehende Projektbasisfunktion erst nach einer passenden FEE-Verbindung ein.
 
 ## ViCo
 
-### Übersicht & Verbindung – Suche
+### Übersicht & Verbindung
 
-Es gibt ein gemeinsames Suchfeld. Es findet PC-Name, Kanbanize-Benutzer, Projekt, GM- und GU-Nummer gleichzeitig. Die vorherige Unterscheidung zwischen PC- und Projektsuche ist deshalb nicht mehr nötig.
+Die Unterseite **PC-/Projektsuche** besitzt ein gemeinsames Suchfeld. Es findet PC-Namen, Kanbanize-Benutzer, Projekt-, GM- und GU-Nummern; eine Vorabentscheidung „PC oder Projekt“ ist daher nicht mehr nötig.
 
-**Daten aktualisieren** fasst die früheren Schaltflächen zusammen: Bei konfiguriertem Kanbanize-Zugriff werden Online-Daten geladen und danach der lokale Cache neu aufgebaut. Ohne Online-Zugriff wird weiterhin nur der vorhandene Cache sicher neu geladen.
+![ViCo-Arbeitsplatzsuche mit Konfiguration und Remote-Informationen](screenshots/vico-search.png)
 
-Die wichtigsten Spalten sind:
+Die Tabelle zeigt:
 
-| Anzeige | Bedeutung |
-|---|---|
-| Belegung | **Frei**, wenn ausschließlich Backlog/Erledigt vorliegt; **Belegt**, sobald Planung oder In Arbeit vorkommt |
-| PC / Benutzer | Remote-PC und der aus Kanbanize ermittelte Benutzer |
-| Projekte | Bis zu drei Projekte direkt; weitere werden zusammengefasst |
-| Software | TIA Portal, Beckhoff TwinCAT und/oder Rockwell Studio 5000 |
-| FEE / Hardware | Angaben der PC-Karte zu FEE, LAN und Hardware |
-| Roboter | Anzahl eindeutig zugeordneter Software-Robotik-Karten; Details im Tooltip |
-| Online | Grün bei pingbar, rot bei offline; ein Ping ist keine Aussage über angemeldete Benutzer |
+| Spalte | Bedeutung |
+| --- | --- |
+| Belegung | **Frei** (grün), wenn nur Backlog/Erledigt vorliegt; **Belegt** (rot), sobald Planung oder In Arbeit vorliegt |
+| PC | dynamischer Arbeitsplatzname |
+| Projekt(e) | ausschließlich Projekte in Planung oder In Arbeit |
+| Software | TIA Portal, Beckhoff TwinCAT und/oder Rockwell Studio 5000 aus der KONFIGURATION-Karte bzw. Kanbanize |
+| Standort, Projekt-IP, Sonstiges | Werte aus der Karte `KONFIGURATION` und ihren Unteraufgaben |
+| RDP-Sitzung | aktiver Remote-Benutzer oder „Keine aktive Sitzung“ |
+| Letzte Anmeldung | zuletzt ermittelte Anmeldung mit Benutzer und Zeit |
+| Benutzer | bevorzugter Remote-Benutzer aus der KONFIGURATION-Karte |
+| Online | Grün für erreichbar, Rot für offline |
 
-`installiert` wird nur angezeigt, wenn die Quellkarte die Installation ausdrücklich nennt. Sonst steht `laut Kanbanize angegeben`.
+Die Legende verwendet `[B]` für Backlog, `[P]` für Planung, `[W]` für In Arbeit und `[D]` für Erledigt. Backlog und Erledigt erscheinen absichtlich nicht mehr als aktive Projektspalte, sondern im ausklappbaren Bereich **Alle Kanbanize-Informationen**.
 
-Nach Auswahl einer Ergebniszeile und – bei mehreren Treffern – eines Projekts stehen die passenden Aktionen zur Verfügung:
+Wenn Windows die Abfrage einer Remote-Sitzung nicht erlaubt, stehen RDP-Sitzung und letzte Anmeldung auf **Nicht abrufbar**. Dies ist kein Offline-Status. Bei Start unter einem Konto mit ausreichender Remote-Abfrageberechtigung werden die Informationen normal angezeigt.
 
-- Remote Desktop starten;
-- TeamViewer starten;
-- Projektablage des PCs öffnen;
-- Simulationsprojekt öffnen;
-- SPS-/Inbetriebnahmeprojekt öffnen;
-- Planungsordner öffnen.
+### Remote Desktop und Pfade
 
-Für Remote Desktop hat der Benutzer der Kanbanize-Karte Vorrang. Die Anwendung erzeugt ein temporäres RDP-Profil mit den gewählten Monitoren und nutzt den kompatiblen Anmeldeablauf des bisherigen ViCo-Tools.
+Nach Auswahl eines Online-PCs stehen bis zu vier lokale Monitore sowie diese Aktionen bereit:
 
-### Übersicht & Verbindung – Projekte & Favoriten
+- **Remote Desktop** verwendet die automatische Anmeldung mit dem priorisierten Kanbanize-Benutzer und den für diesen PC lokal gespeicherten Windows-RDP-Anmeldedaten.
+- **Remote Desktop mit Anmeldedaten** startet dieselbe Remote-Verbindung, zeigt aber bewusst den Windows-Anmeldedialog. Dort kann die korrekte Anmeldung eingegeben und für spätere automatische Starts gespeichert werden.
+- **PC-Projektordner**, **Simulation**, **PLC-Projekt** und **Planung** öffnen den zugehörigen Pfad für das ausgewählte Projekt.
 
-Dieser Bereich durchsucht die Simulationsprojektablage, öffnet ein Projektverzeichnis und verwaltet die mit dem bisherigen ViCo-Format kompatible Favoritenliste. **Speichern** speichert die Favoritenliste, nicht das ausgewählte Projekt selbst.
+Bei einem Offline-PC sind diese Buttons nicht sichtbar. Dadurch kann keine fehlerhafte Remote- oder UNC-Aktion ausgelöst werden.
 
-### Transfer
+Für einen neuen PC oder Windows-Benutzer einmal **Remote Desktop mit Anmeldedaten** verwenden, die vom Tool angezeigte Benutzerzuordnung prüfen und im Windows-Dialog **Anmeldedaten speichern** aktivieren. Danach startet **Remote Desktop** ohne Dialog. Die Zugangsdaten liegen nur im Windows-Anmeldeinformationsspeicher des angemeldeten Benutzers – nie im VIBN-Quellcode, Kanbanize-Cache oder Rollenbestand.
 
-Der Transfer kopiert ausgewählte Projektbestandteile zwischen Quell- und Zielverzeichnis. Kopiervorgänge sind asynchron und ihre Parallelität ist begrenzt, damit Oberfläche, Datenträger und Netzlaufwerke ansprechbar bleiben. Vor dem Start Quelle, Ziel und Auswahl kontrollieren; vorhandene Dateien werden nach der im Dialog angezeigten Strategie behandelt.
+### Arbeitsplatz-Konfiguration bearbeiten
+
+Die rechte Seite enthält die vorhandenen Unteraufgaben einer Kanbanize-Karte mit dem exakten Titel `KONFIGURATION`:
+
+- `USER:`
+- `STANDORT:`
+- `SW:`
+- `PROJEKT-IP:`
+- `SONSTIGES:`
+
+Werte bearbeiten und **Speichern** drücken. Das Tool ändert ausschließlich die Beschreibung der vorhandenen Unteraufgabe. Fehlt eine Unteraufgabe, wird sie grau dargestellt und nicht erstellt. Andere Kartenattribute, Kartenpositionen, Titel oder Beschreibungen bleiben unverändert.
+
+### Projekte & Favoriten und Transfer
+
+**Projekte & Favoriten** durchsucht Simulationsprojekte, öffnet die Auswahl und verwaltet kompatible ViCo-Favoriten. **Transfer** kopiert ausgewählte Dateien/Ordner mit begrenzter Parallelität. Diese Begrenzung hält die Desktop-Oberfläche auch bei größeren Übertragungen reaktionsfähig.
 
 ### TIA Portal
 
-TIA-Funktionen laufen bewusst in einem separaten Bridge-Prozess, weil TIA Openness versionsgebundene .NET-Framework-Abhängigkeiten verwendet.
+1. lokale TIA-Version wählen;
+2. **Verbinden** drücken und die gefundene PLC auswählen;
+3. optional Programmbereiche, Datentypen, Achsen oder die Hardware-Konfiguration laden;
+4. Änderungen erst über die dafür vorgesehene Speichern-/Importaktion durchführen.
 
-Typischer Ablauf:
-
-1. lokal installierte TIA-Version auswählen;
-2. TIA-Projekt verbinden bzw. öffnen;
-3. Programmbausteine und Datentypen importieren oder exportieren;
-4. optional Achsbibliotheksablauf ausführen;
-5. Status und Diagnoseprotokoll prüfen.
-
-Die Bridge speichert Änderungen erst über die dafür vorgesehene Aktion. Ein nicht gestartetes TIA Portal, eine fehlende Openness-Berechtigung oder eine nicht passende Version wird als Fehler an die Hauptanwendung zurückgegeben.
+Die TIA-Bridge läuft separat. Eine fehlende Openness-Berechtigung, eine falsche Version oder ein nicht geöffnetes Projekt führt zu einer Status-/Protokollmeldung, nicht zu einem Absturz der Hauptanwendung.
 
 ### Verwaltung
 
-Die Verwaltung zeigt:
+Der Reiter ist ab Level8 sichtbar. Level9 kann Benutzer anlegen, entfernen und die Stufe ändern. `lutzma` ist stets Level9 und es müssen immer mindestens zwei verschiedene Level9-Benutzer bestehen. Details: [Rollenverwaltung](ROLLENVERWALTUNG.md).
 
-- aktuellen Windows-Benutzer und erkanntes Lizenzlevel;
-- heutige Outlook-Termine;
-- verfügbare ViCo-Version;
-- vorhandene und angefragte Lizenzeinträge.
+## Kanbanize Karten
 
-Der Reiter ist nur ab **Level7** sichtbar. Lizenzlevel ab Level8 dürfen Einträge bearbeiten. Eine Änderung wird nur gespeichert, wenn danach mindestens zwei unterschiedliche Windows-Benutzer Level9 besitzen. Falls eine Herabstufung diese Regel verletzen würde, im Feld **Zusätzlicher Level9-Benutzer** zuerst den Ersatz auswählen. Die Hochstufung wird vor der Herabstufung geschrieben.
+![Kanbanize-Vorschau für die sichere VIBN-Synchronisierung](screenshots/kanbanize-cards.png)
 
-`lutzma` ist fest als Level9-Systemadministrator hinterlegt und wird beim Öffnen der Verwaltung auch in den kompatiblen Lizenzspeicher geschrieben. Dieser Benutzer kann dort nicht auf ein niedrigeres Level gesetzt werden.
+Der Reiter hat zwei bewusst getrennte Arbeitsweisen.
+
+### VIBN → Arbeitsplätze
+
+1. **Boards aktualisieren** und Quell-/Zielboard, Ziel-Lane und Zielspalte auswählen.
+2. **Prüfen** drücken. Die Vorschau zeigt Neueinträge, Zeitplanänderungen, unveränderte Karten und Konflikte.
+3. Erst nach fachlicher Prüfung **Synchronisieren** drücken.
+
+Für jede zulässige VIBN-Karte mit `Grundinbetriebnahme` gilt:
+
+- Start der Zielkarte = Deadline dieser VIBN-Karte minus 14 Tage.
+- Ende/Deadline der Zielkarte = Deadline der genau einen VIBN-Karte mit `Grundinbetriebnahme` und `Vorlage` plus 56 Tage.
+
+Die Synchronisierung verwendet die Quellkarten-ID als stabile Ziel-ID. Mehrere Zielkarten mit derselben Quell-ID gelten als Konflikt. In diesem Fall sowie bei fehlender/mehrdeutiger Vorlage wird nichts geändert. Bestehende Zielkarten werden weder verschoben noch umbenannt noch gelöscht; nur Starttermin und Deadline einer eindeutigen generierten Karte dürfen angepasst werden.
+
+### Eigene Karte
+
+Im zweiten Unterreiter kann weiterhin freiwillig eine normale Kanbanize-Karte erstellt werden. Board, Lane, Spalte, Titel, Beschreibung, Priorität, externe ID und Deadline werden explizit gewählt. Diese Funktion ist unabhängig von der VIBN-Synchronisierung.
+
+Weitere Details stehen in [KANBANIZE_KARTEN.md](KANBANIZE_KARTEN.md).
+
+## Special Devices
+
+![TIA-Hardware wird vor dem Erzeugen in einer Warteschlange geprüft](screenshots/special-devices.png)
+
+### Manuelle Geräte
+
+Hersteller, Gerätetyp, Präfix und Byteadressen auswählen. Das Gerät wird zunächst nur in die **Warteschlange** gelegt. Erst **In FEE erzeugen** schreibt es in die verbundene Simulation.
+
+### TIA-Hardware übernehmen
+
+1. **TIA-Hardware lesen** öffnen.
+2. TIA-Version wählen, **Mit TIA verbinden** und PLC auswählen.
+3. **Hardware auslesen** drücken.
+4. In der Tabelle Modul, TIA-Typ, Eingangs-/Ausgangsbyte, Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
+5. Erforderlichenfalls Logik, Byteadressen und Robotertyp korrigieren.
+6. Gewünschte Zeilen markieren und **Ausgewählte Geräte in Warteschlange übernehmen** drücken.
+7. Im Reiter **Warteschlange** kontrollieren und erst danach **In FEE erzeugen** ausführen.
+
+Die FEE-Erzeugung ist absichtlich serialisiert. Fehlgeschlagene Geräte bleiben in der Warteschlange, damit sie geprüft und erneut ausgeführt werden können.
 
 ## Bestehende VIBN-Werkzeuge
 
-Die vollständige, funktionsbezogene Anleitung für diese Reiter steht in der [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Die folgende Tabelle dient als Kurzorientierung.
+### CAD Wizard
 
-| Reiter | Aufgabe |
-|---|---|
-| CAD Wizard | CAD-Daten und Zuordnungen für das Simulationsmodell aufbereiten |
-| Zuli Converter | Eingabedaten über formatabhängige Konvertierungsstrategien umwandeln |
-| Container Generation | FEE-Container, Strukturen und optional KI-gestützte Zuordnungen erzeugen |
-| Container2Fee | Containerinformationen in FEE-Objekte bzw. FEE-Strukturen übertragen |
-| Special Devices | Spezielle Geräte über Katalog und Geräte-Factory erzeugen/konfigurieren |
-| Model Validation | Modellregeln und FEE-Strukturen prüfen und Befunde anzeigen |
-| Model Control | Achsen, Objekte, Roboter und Bewegungsabläufe im Modell steuern |
-| Interface Operation | Schnittstellenoperationen zwischen Simulationskomponenten ausführen |
-| AI-Test | Trainings-/Testabläufe für die KI-gestützte Containerzuordnung erproben |
+Für die gewählte FEE-/Projektvorlage werden Joints, Sensoren und Templates erzeugt; anschließend lassen sich leere Nodes entfernen oder Markierungen in Namen schreiben. Vor einer generierenden Aktion immer die richtige Projektverbindung und Vorlage prüfen.
 
-Die genaue Verfügbarkeit einzelner Schaltflächen hängt vom verbundenen FEE-Projekt, ausgewählten Objekt, installierten SDK und aktuellen Arbeitszustand ab.
+### Zuli Converter
 
-## Diagnoseprotokoll und Fehlersuche
+Zuli-Datei wählen, die angezeigten Optionen prüfen und **Create Interface File** ausführen. Die Statusinformationen zeigen den Fortschritt und die erzeugten Inhalte.
 
-Das Diagnoseprotokoll ist von jedem Reiter aus erreichbar. Es zeigt die letzten 500 Einträge und bietet Kopieren, Leeren und Öffnen des Logordners. Dateiprotokolle liegen unter `%LOCALAPPDATA%\GROB\VIBN_Tools\Logs` und rotieren täglich.
+### Container Generation
 
-Bei einem Fehler immer festhalten:
+1. **Open Interface File** wählen und die Zuli-/Interface-Datei laden.
+2. **Open Req. XML** wählen und die Requirements-Datei laden.
+3. Optional unter **Grouping Settings** die Gruppierung und Ersetzungsregel prüfen.
+4. In der Containerliste Filter und Prüfstatus verwenden. Orange oder anders markierte Einträge erfordern eine fachliche Entscheidung.
+5. Bei erneut importierten Daten den **Reimport-Vergleich** prüfen, einzelne Änderungen übernehmen oder verwerfen.
+6. Erst danach die Generierung starten und Status/Zuordnungen kontrollieren.
 
-1. Zeitpunkt und Reiter;
-2. ausgeführte Aktion und Auswahl;
-3. sichtbare Statusmeldung;
-4. passenden Protokolleintrag;
-5. bei TIA zusätzlich TIA-Version und Bridge-Status.
+`Strg+Z` macht die letzte bearbeitbare Aktion rückgängig, `Strg+Y` bzw. `Strg+Umschalt+Z` wiederholt sie.
 
-Kennwörter, API- und Lizenzschlüssel dürfen weder in Screenshots noch in Tickets oder Protokolle kopiert werden.
+### Container2Fee
+
+Container XML öffnen, Simulationsobjekte suchen und die vorgeschlagenen FEE-Objekte nacheinander auswählen, erzeugen, überspringen oder abbrechen. Bereits zugeordnete Objekte sind sichtbar markiert. Der abschließende Button startet die Erzeugung erst, wenn die Auswahl vollständig ist.
+
+### Model Validation, Model Control und Interface Operation
+
+Diese Reiter arbeiten auf dem aktuell verbundenen FEE-Modell. Model Validation aktualisiert und prüft Daten; Model Control steuert die jeweils ausgewählten Robotik-/Achsen-/Objektfunktionen; Interface Operation lädt und verbindet Schnittstellen und Signale. Vor schreibenden Aktionen immer das Zielmodell und die Auswahl in der Statusanzeige kontrollieren.
+
+## Diagnose und Fehlerbehebung
+
+Das Log-Fenster am unteren Fensterrand sammelt Informationen, Warnungen und Fehler aus Project Settings, ViCo, Kanbanize, TIA und Special Devices. Bei einer Rückfrage bitte Zeitpunkt, Bereich, Statusmeldung und – wenn zulässig – die Fehlerdetails aus dem Protokoll angeben. Keine Kennwörter oder API-Schlüssel in Tickets, Screenshots oder Logs aufnehmen.
+
+Die detaillierte Fehlerliste ist in [KONFIGURATION_UND_BETRIEB.md](KONFIGURATION_UND_BETRIEB.md) enthalten. Die Screenshots dieses Handbuchs verwenden ausschließlich synthetische Testdaten.

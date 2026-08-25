@@ -104,11 +104,11 @@
                                       Margin="0,5,0,10"
                                       ItemsSource="{Binding Priorities}"
                                       SelectedItem="{Binding SelectedPriority}" />
-                            <CheckBox Content="Deadlines aus Quelle synchronisieren"
+                            <CheckBox Content="Berechneten Zeitplan synchronisieren"
                                       IsChecked="{Binding SynchronizeDeadlines}" />
                             <TextBlock Margin="0,10,0,0"
                                        Foreground="#FF666666"
-                                       Text="Bestehende Karten werden weder verschoben, umbenannt noch gelöscht. Bei eindeutiger Zuordnung wird ausschließlich die Deadline angepasst."
+                                       Text="Start = Quell-Deadline − 14 Tage. Ende/Deadline = Deadline der eindeutigen VIBN-Vorlage + 56 Tage. Bestehende Karten werden weder verschoben, umbenannt noch gelöscht."
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </GroupBox>
@@ -128,7 +128,7 @@
                             <WrapPanel VerticalAlignment="Center">
                                 <TextBlock Margin="0,0,14,0" FontWeight="SemiBold" Text="Vorschau:" />
                                 <TextBlock Margin="0,0,12,0" Text="{Binding CreateCount, StringFormat={}Neu: {0}}" />
-                                <TextBlock Margin="0,0,12,0" Text="{Binding DeadlineUpdateCount, StringFormat={}Deadline: {0}}" />
+                                <TextBlock Margin="0,0,12,0" Text="{Binding DeadlineUpdateCount, StringFormat={}Zeitplan: {0}}" />
                                 <TextBlock Margin="0,0,12,0" Text="{Binding UnchangedCount, StringFormat={}Unverändert: {0}}" />
                                 <TextBlock Margin="0,0,12,0" Text="{Binding ConflictCount, StringFormat={}Konflikte: {0}}" />
                                 <TextBlock Text="{Binding ExcludedSourceCardCount, StringFormat={}Ausgeschlossen: {0}}" />
@@ -174,8 +174,11 @@
                             <DataGridTextColumn Header="VIBN-Karte" Binding="{Binding SourceTitle, Mode=OneWay}" Width="2*" MinWidth="240" />
                             <DataGridTextColumn Header="Quell-ID" Binding="{Binding SourceCardId, Mode=OneWay}" Width="90" />
                             <DataGridTextColumn Header="Quell-Deadline" Binding="{Binding SourceDeadline, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Geplanter Start" Binding="{Binding CalculatedStart, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Geplantes Ende" Binding="{Binding CalculatedEnd, Mode=OneWay}" Width="145" />
                             <DataGridTextColumn Header="Ziel-ID" Binding="{Binding TargetCardId, Mode=OneWay}" Width="90" />
-                            <DataGridTextColumn Header="Ziel-Deadline" Binding="{Binding TargetDeadline, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Ziel-Start" Binding="{Binding TargetStart, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Ziel-Ende" Binding="{Binding TargetDeadline, Mode=OneWay}" Width="145" />
                             <DataGridTextColumn Header="Hinweis" Binding="{Binding Details, Mode=OneWay}" Width="2*" MinWidth="270" />
                         </DataGrid.Columns>
                     </DataGrid>

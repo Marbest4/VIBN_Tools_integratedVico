@@ -15,7 +15,7 @@ namespace VIBN_Tools.Application.View
                 ProjectSettings,
                 Connection,
                 ViCoFeatureBootstrapper.WorkstationDirectory,
-                ApplicationLogService.Instance);
+                log: ApplicationLogService.Instance);
         }
     }
 }

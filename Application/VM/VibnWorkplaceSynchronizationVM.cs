@@ -15,7 +15,10 @@ public sealed class VibnWorkplaceSynchronizationRowVM
         SourceTitle = item.SourceCard.Title;
         SourceCardId = item.SourceCard.Id;
         SourceDeadline = FormatDeadline(item.SourceCard.Deadline);
+        CalculatedStart = FormatDeadline(item.Schedule?.StartDate);
+        CalculatedEnd = FormatDeadline(item.Schedule?.EndDate);
         TargetCardId = item.TargetCard?.Id.ToString() ?? "—";
+        TargetStart = FormatDeadline(item.TargetCard?.StartDate);
         TargetDeadline = FormatDeadline(item.TargetCard?.Deadline);
         Details = item.Message;
     }
@@ -25,7 +28,7 @@ public sealed class VibnWorkplaceSynchronizationRowVM
     public string ActionText => Action switch
     {
         VibnWorkplaceSynchronizationAction.Create => "Neu",
-        VibnWorkplaceSynchronizationAction.UpdateDeadline => "Deadline",
+        VibnWorkplaceSynchronizationAction.UpdateDeadline => "Zeitplan",
         VibnWorkplaceSynchronizationAction.Unchanged => "Unverändert",
         VibnWorkplaceSynchronizationAction.Conflict => "Konflikt",
         _ => Action.ToString()
@@ -46,7 +49,13 @@ public sealed class VibnWorkplaceSynchronizationRowVM
 
     public string SourceDeadline { get; }
 
+    public string CalculatedStart { get; }
+
+    public string CalculatedEnd { get; }
+
     public string TargetCardId { get; }
+
+    public string TargetStart { get; }
 
     public string TargetDeadline { get; }
 
@@ -59,7 +68,8 @@ public sealed class VibnWorkplaceSynchronizationRowVM
 /// <summary>
 /// Owns only the VIBN-to-workplace replication workflow. Keeping it separate
 /// from manual card creation makes its deliberately narrow write scope easy to
-/// audit: create a missing linked card or patch its deadline, nothing else.
+/// audit: create a missing linked card or patch its calculated schedule,
+/// nothing else.
 /// </summary>
 public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
 {
@@ -378,7 +388,7 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
             foreach (var failure in result.Failures)
                 _log.Warning("Kanbanize Synchronisierung", failure);
             StatusText = $"Synchronisierung abgeschlossen: {result.CreatedCount} neu, " +
-                         $"{result.DeadlineUpdateCount} Deadline(s) angepasst, {result.Failures.Count} Fehler. " +
+                         $"{result.DeadlineUpdateCount} Zeitplan(e) angepasst, {result.Failures.Count} Fehler. " +
                          DescribePreview(refreshedPreview);
             _log.Information("Kanbanize Synchronisierung", StatusText);
         }
@@ -447,7 +457,7 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
             (board.Name + " " + board.Description).Contains(nameFragment, StringComparison.OrdinalIgnoreCase));
 
     private static string DescribePreview(VibnWorkplaceSynchronizationPreview preview) =>
-        $"Prüfung: {preview.CreateCount} neu, {preview.DeadlineUpdateCount} Deadline(s), " +
+        $"Prüfung: {preview.CreateCount} neu, {preview.DeadlineUpdateCount} Zeitplan(e), " +
         $"{preview.UnchangedCount} unverändert, {preview.ConflictCount} Konflikt(e), " +
         $"{preview.ExcludedSourceCardCount} Quelle(n) ausgeschlossen.";
 

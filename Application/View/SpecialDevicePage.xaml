@@ -1,200 +1,180 @@
-﻿<UserControl x:Class="VIBN_Tools.Application.View.SpecialDevicePage"
+<UserControl x:Class="VIBN_Tools.Application.View.SpecialDevicePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:ux="http://Grob.com/wpf.ux"
-             xmlns:uxb="http://Grob.com/wpf.ux.behaviors"
-             xmlns:local="clr-namespace:VIBN_Tools.Application.View"
-             xmlns:g="clr-namespace:VIBN_Tools.GlobalClasses"
-             xmlns:vm="clr-namespace:VIBN_Tools.Application.VM"
-             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
-
-    <UserControl.DataContext>
-        <vm:SpecialDevicePageVM/>
-    </UserControl.DataContext>
-
+             FontSize="14"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True"
+             TextOptions.TextFormattingMode="Display">
     <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <!--<ResourceDictionary  Source="pack://application:,,,/Grob.UX;component/Styles/ScrollBarStyles.xaml"/>-->
-                <ResourceDictionary Source="pack://application:,,,/Grob.UX;component/Styles/General.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        </ResourceDictionary>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </UserControl.Resources>
 
-    
-    
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Vertical" Grid.Column="0">
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock FontSize="24" FontWeight="SemiBold" Text="Special Devices" />
+            <TextBlock Margin="0,4,0,0" Foreground="#FF666666" Text="Geräte manuell konfigurieren oder Hardware aus einem geöffneten TIA-Projekt lesen, einer Logik zuordnen und anschließend kontrolliert in FEE erzeugen." TextWrapping="Wrap" />
+        </StackPanel>
 
-            <!-- Manually Add Device to DevicesList -->
-            <GroupBox Margin="5" Grid.Row="0" Grid.Column="0">
-            <GroupBox.Header>
-                <TextBlock Style="{StaticResource H3Style}" Text="Manuel Add Device"/>
-            </GroupBox.Header>
-
-                <Grid>
+        <TabControl Grid.Row="1">
+            <TabItem Header="Manuell hinzufügen">
+                <Grid Margin="14">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="360" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!--ComboBox Device Manufacturer-->
-                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="5" Text="Manufacturer:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                    <ux:ComboBox Grid.Row="0" Grid.Column="1" Margin="5" Watermark="Select Manufacturer" VerticalAlignment="Center"
-                                 ItemsSource="{Binding Manufacturers, UpdateSourceTrigger=PropertyChanged}" SelectedItem="{Binding SelectedManufacturer}"/>
-
-
-                    <!--ComboBox Device-->
-                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="5" Text="Device:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center" />
-                    <ux:ComboBox Grid.Row="1" Grid.Column="1" Margin="5" Watermark="Select Device" VerticalAlignment="Center" ItemsSource="{Binding DeviceTypes, UpdateSourceTrigger=PropertyChanged}" 
-                                 SelectedItem="{Binding SelectedDevice}" />
-
-                    <!--Combobox Robot Type-->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="5" Text="Robot-Type:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                    <ux:ComboBox Grid.Row="2" Grid.Column="1" Margin="5" Watermark="Select Robot-Type" VerticalAlignment="Center" ItemsSource="{Binding RobotTypes}" 
-                                 SelectedItem="{Binding SelectedRobotType}" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-                    <!--Device Prefix-->
-                    <TextBlock Grid.Row="5" Grid.Column="0" Margin="5" Text="Prefix:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                    <ux:TextBox Grid.Row="5" Grid.Column="1" Margin="5" Text="{Binding DevicePrefix}" GotKeyboardFocus="SelectOnFocus" IsEnabled="{Binding IsEnabledDevicePrefix}"/>
-
-                    <!--Device Startaddress-->
-                    <TextBlock Grid.Row="7" Grid.Column="0" Margin="5" Text="Startaddress:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                    <Grid Grid.Row="7" Grid.Column="1">
+                    <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="Hersteller" />
+                    <ComboBox Grid.Row="0" Grid.Column="1" MinHeight="34" ItemsSource="{Binding Manufacturers}" SelectedItem="{Binding SelectedManufacturer}" />
+                    <TextBlock Grid.Row="1" Margin="0,12,0,0" VerticalAlignment="Center" Text="Gerätetyp" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" MinHeight="34" ItemsSource="{Binding DeviceTypes}" SelectedItem="{Binding SelectedDevice}" />
+                    <TextBlock Grid.Row="2" Margin="0,12,0,0" VerticalAlignment="Center" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" Text="Robotertyp" />
+                    <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,12,0,0" MinHeight="34" ItemsSource="{Binding RobotTypes}" SelectedItem="{Binding SelectedRobotType}" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Grid.Row="3" Margin="0,12,0,0" VerticalAlignment="Center" Text="Präfix" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Margin="0,12,0,0" MinHeight="34" IsEnabled="{Binding IsEnabledDevicePrefix}" Text="{Binding DevicePrefix, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="4" Margin="0,12,0,0" VerticalAlignment="Center" Text="Byteadressen" />
+                    <Grid Grid.Row="4" Grid.Column="1" Margin="0,12,0,0" IsEnabled="{Binding IsEnabledDeviceAddress}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="40"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="100" />
                         </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Column="0" Margin="5" Text="In:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                        <ux:TextBox Grid.Column="1" Margin="5" Text="{Binding DeviceAddressInput}" GotKeyboardFocus="SelectOnFocus" uxb:ArithmeticCalculation.Enabled="True" IsEnabled="{Binding IsEnabledDeviceAddress}"/>
-                        <TextBlock Grid.Column="2" Margin="5" Text="Out:" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                        <ux:TextBox Grid.Column="3" Margin="5" Text="{Binding DeviceAddressOutput}" GotKeyboardFocus="SelectOnFocus" uxb:ArithmeticCalculation.Enabled="True" IsEnabled="{Binding IsEnabledDeviceAddress}"/>
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Eingang:" />
+                        <TextBox Grid.Column="1" Margin="6,0,16,0" MinHeight="34" Text="{Binding DeviceAddressInput, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Ausgang:" />
+                        <TextBox Grid.Column="3" Margin="6,0,0,0" MinHeight="34" Text="{Binding DeviceAddressOutput, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
-                    <!--<ux:TextBox Grid.Row="7" Grid.Column="1" Margin="5" Text="{Binding DeviceAddress}" GotKeyboardFocus="SelectOnFocus" uxb:ArithmeticCalculation.Enabled="True" IsEnabled="{Binding IsEnabledDeviceAddress}"/>-->
-
-
-                    <!--Add defined Device-->
-                    <ux:Button Grid.Row="8" Grid.Column="1" Margin="5" Width="300" Content="Add Device to List" Command="{Binding AddSpecialDevice}"/>
-                </Grid>
-            </GroupBox>
-
-            <!-- Manually Add Device to DevicesList -->
-            <GroupBox Margin="5" Grid.Row="0" Grid.Column="0">
-                <GroupBox.Header>
-                    <TextBlock Style="{StaticResource H3Style}" Text="Automatic Add Device"/>
-                </GroupBox.Header>
-
-                <StackPanel Orientation="Vertical">
-                    <ux:Button Margin="5" Content="Connect TIA" Command="{Binding ConnectTia}" IsBusy="{Binding IsBusyConnectTia}"/>
-                </StackPanel>
-                
-                
-            </GroupBox>
-
-            <!-- Show Preview of Panels--><!--
-            <GroupBox Header="Preview" Margin="2.5" FontSize="15" FontWeight="DemiBold" Visibility="{Binding ShowPanelPreview, Converter={StaticResource BooleanToVisibilityConverter}}" Grid.Row="1" Grid.Column="0">
-                <Image Margin="2.5" HorizontalAlignment="Stretch" Source="{Binding PreviewImagePath}" Stretch="Uniform">
-                    <Image.ToolTip>
-                        <Grid MaxWidth="750">
-                            <Image Margin="2.5" HorizontalAlignment="Stretch" Source="{Binding PreviewImagePath}" Stretch="Uniform"/>
-                        </Grid>
-                    </Image.ToolTip>
-                </Image>
-            </GroupBox>-->
-
-        </StackPanel>
-
-
-        <StackPanel Orientation="Vertical" Grid.Column="1">
-            <!-- Create Devices from DevicesList-->
-            <GroupBox Margin="5" >
-                <GroupBox.Header>
-                    <TextBlock Style="{StaticResource H3Style}" Text="Create Special Devices"/>
-                </GroupBox.Header>
-
-
-                <StackPanel Orientation="Vertical">
-                    <StackPanel Orientation="Horizontal" Height="35">
-                        <TextBlock Grid.Row="0" Margin="5" Text="Number of Devices on the List: " Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Row="0" Margin="5" Text="{Binding ListOfSepcialDevices.Count}" Style="{StaticResource TextRobotoRegularStyle}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="0" Grid.RowSpan="5" Grid.Column="2" Margin="40,0,0,0">
+                        <TextBlock FontWeight="SemiBold" Text="Ablauf" />
+                        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Text="Das Gerät wird zuerst nur in die Warteschlange übernommen. Erst im Reiter „Warteschlange“ erzeugt der Button „In FEE erzeugen“ die Objekte in der verbundenen Simulation." />
+                        <Button Margin="0,18,0,0" MinWidth="210" MinHeight="38" HorizontalAlignment="Left" Content="In Warteschlange übernehmen" Command="{Binding AddSpecialDeviceCommand}" />
                     </StackPanel>
-                    <ListBox Grid.Row="1" Height="350" Margin="5,10,5,10" ScrollViewer.VerticalScrollBarVisibility="Visible" FontSize="12" FontWeight="Regular"
-                    ItemsSource="{Binding ListOfSepcialDevices}" SelectedIndex="{Binding SelectedDeviceIndex}">
+                </Grid>
+            </TabItem>
 
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Vertical">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding DevicePrefix}" Style="{StaticResource H3Style}"/>
-                                        <TextBlock Text="{Binding DeviceType, StringFormat={} ({0})}" Style="{StaticResource H3Style}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding DeviceAddress,StringFormat={}Startaddress: {0}}" Style="{StaticResource TextRobotoLightStyle}" Margin="0,0,15,0"/>
-                                        <!--<TextBlock Text="{Binding DeviceBufferSize, StringFormat={}Buffer-Size Read-/Write-Units: {0}}" FontWeight="Regular" FontSize="10"
-                                            Visibility="{Binding DeviceBufferUsed, Converter={StaticResource BooleanToVisibilityConverter}}"/>-->
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <!--<TextBlock Text="Options: " FontWeight="Regular" FontSize="10"/>-->
-                                        <!--<TextBlock Text="Create SimMode" FontWeight="Regular" FontSize="10"
-                                            Visibility="{Binding PanelAddSimMode,Converter={StaticResource BooleanToVisibilityConverter}}"/>-->
-                                        <!--<TextBlock Text="{Binding }" FontWeight="Regular" FontSize="10"
-                                            Visibility="{Binding PanelAddSimMode,Converter={StaticResource BooleanToVisibilityConverter}}"/>-->
-                                    </StackPanel>
+            <TabItem Header="TIA-Hardware lesen">
+                <Grid Margin="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                                </StackPanel>
+                    <WrapPanel Grid.Row="0" VerticalAlignment="Center">
+                        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="TIA-Version:" />
+                        <ComboBox Width="130" MinHeight="34" ItemsSource="{Binding InstalledTiaVersions}" SelectedItem="{Binding SelectedTiaVersion}" />
+                        <Button MinWidth="155" MinHeight="34" Margin="8,0,0,0" Content="Mit TIA verbinden" Command="{Binding ConnectTiaCommand}" />
+                        <TextBlock Margin="28,0,8,0" VerticalAlignment="Center" Text="PLC:" />
+                        <ComboBox Width="280" MinHeight="34" ItemsSource="{Binding TiaPlcs}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedTiaPlc}" />
+                        <Button MinWidth="115" MinHeight="34" Margin="8,0,0,0" Content="PLC auswählen" Command="{Binding SelectTiaPlcCommand}" />
+                        <Button MinWidth="175" MinHeight="34" Margin="8,0,0,0" Content="Hardware auslesen" Command="{Binding ReadTiaHardwareCommand}" />
+                    </WrapPanel>
 
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <Border Grid.Row="1" Margin="0,12,0,10" Padding="9" Background="#FFF3F5F7" CornerRadius="4">
+                        <TextBlock Text="TIA liefert die tatsächlich konfigurierte Modulstruktur sowie E-/A-Byteadressen. Eine vorgeschlagene Logik wird nur bei eindeutig erkannten Geräten vorausgewählt; bitte jede Auswahl vor der Übernahme prüfen." TextWrapping="Wrap" />
+                    </Border>
 
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding TiaHardwareRows}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True"
+                              RowHeight="34"
+                              ColumnHeaderHeight="38"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Übernehmen" Binding="{Binding Include}" Width="90" />
+                            <DataGridTextColumn Header="Slot" Binding="{Binding Slot, Mode=OneWay}" IsReadOnly="True" Width="65" />
+                            <DataGridTextColumn Header="Modul" Binding="{Binding ModuleName, Mode=OneWay}" IsReadOnly="True" Width="170" />
+                            <DataGridTextColumn Header="TIA-Typ" Binding="{Binding TypeIdentifier, Mode=OneWay}" IsReadOnly="True" Width="240" />
+                            <DataGridTextColumn Header="Eingang (Byte)" Binding="{Binding InputByte, UpdateSourceTrigger=PropertyChanged}" Width="112" />
+                            <DataGridTextColumn Header="Ausgang (Byte)" Binding="{Binding OutputByte, UpdateSourceTrigger=PropertyChanged}" Width="112" />
+                            <DataGridTextColumn Header="E-Länge" Binding="{Binding InputLength, Mode=OneWay}" IsReadOnly="True" Width="78" />
+                            <DataGridTextColumn Header="A-Länge" Binding="{Binding OutputLength, Mode=OneWay}" IsReadOnly="True" Width="78" />
+                            <DataGridTextColumn Header="Präfix" Binding="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" Width="150" />
+                            <DataGridTemplateColumn Header="Logik" Width="260">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox MinHeight="28"
+                                                  ItemsSource="{Binding DataContext.HardwareLogicOptions, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                  DisplayMemberPath="DisplayName"
+                                                  SelectedItem="{Binding SelectedLogic}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Robotertyp" Width="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox MinHeight="28"
+                                                  ItemsSource="{Binding DataContext.RobotTypes, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                  SelectedItem="{Binding SelectedRobotType}"
+                                                  Visibility="{Binding RequiresRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Status" Binding="{Binding State, Mode=OneWay}" IsReadOnly="True" Width="115" />
+                        </DataGrid.Columns>
+                    </DataGrid>
 
-                        <ux:Button Grid.Row="0"  Grid.RowSpan="2" Grid.Column="0" Margin="5" Content="Create Special Devices" Height="95"
-                        Command="{Binding CreateSpecialDevices}" IsBusy="{Binding IsBusyCreateDevices}"/>
+                    <DockPanel Grid.Row="3" Margin="0,12,0,0">
+                        <Button DockPanel.Dock="Right" MinWidth="285" MinHeight="38" Content="Ausgewählte Geräte in Warteschlange übernehmen" Command="{Binding AddSelectedHardwareDevicesCommand}" />
+                        <ProgressBar DockPanel.Dock="Right" Width="130" Height="7" Margin="0,0,16,0" VerticalAlignment="Center" IsIndeterminate="True" Visibility="{Binding IsBusyTia, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
 
-                        <ux:Button Grid.Row="0" Grid.Column="1" Margin="5,5,5,2.5" Content="Delete Selected" Height="40"
-                        Command="{Binding DeleteSelectedDevices}" IsEnabled="{Binding IsEnabledDeleteSelectedDevice}"/>
+            <TabItem Header="Warteschlange">
+                <Grid Margin="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0"
+                              ItemsSource="{Binding SpecialDevices}"
+                              SelectedIndex="{Binding SelectedDeviceIndex}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True"
+                              RowHeight="32"
+                              ColumnHeaderHeight="36">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Präfix" Binding="{Binding DevicePrefix, Mode=OneWay}" Width="220" />
+                            <DataGridTextColumn Header="Hersteller" Binding="{Binding DeviceManufacturer, Mode=OneWay}" Width="150" />
+                            <DataGridTextColumn Header="Logik" Binding="{Binding DeviceType, Mode=OneWay}" Width="220" />
+                            <DataGridTextColumn Header="Eingang (Byte)" Binding="{Binding DeviceAddresses.Input, Mode=OneWay}" Width="125" />
+                            <DataGridTextColumn Header="Ausgang (Byte)" Binding="{Binding DeviceAddresses.Output, Mode=OneWay}" Width="125" />
+                            <DataGridTextColumn Header="Robotertyp" Binding="{Binding RobotType, Mode=OneWay}" Width="130" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <WrapPanel Grid.Row="1" Margin="0,14,0,0">
+                        <Button MinWidth="190" MinHeight="40" Content="In FEE erzeugen" Command="{Binding CreateSpecialDevicesCommand}" IsEnabled="{Binding CanModifyDeviceQueue}" />
+                        <Button MinWidth="155" MinHeight="40" Margin="8,0,0,0" Content="Auswahl entfernen" Command="{Binding DeleteSelectedDevicesCommand}" IsEnabled="{Binding CanModifyDeviceQueue}" />
+                        <Button MinWidth="135" MinHeight="40" Margin="8,0,0,0" Content="Alle entfernen" Command="{Binding DeleteAllDevicesCommand}" IsEnabled="{Binding CanModifyDeviceQueue}" />
+                        <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding SpecialDevices.Count, StringFormat={}Warteschlange: {0}}" />
+                    </WrapPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
-                        <ux:Button Grid.Row="1" Grid.Column="1" Margin="5,2.5,5,5" Content="Delete All" Height="40"
-                        Command="{Binding DeleteAllDevices}" IsEnabled="{Binding IsEnabledDeleteAllDevices}"/>
-                    </Grid>
-
-
-                </StackPanel>
-
-
-            </GroupBox>
-        </StackPanel>
-
+        <Border Grid.Row="2" Margin="0,14,0,0" Padding="10,7" Background="#FFF3F5F7" CornerRadius="3">
+            <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+        </Border>
     </Grid>
 </UserControl>

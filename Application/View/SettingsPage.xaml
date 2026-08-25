@@ -89,11 +89,23 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <ux:ComboBox Grid.Row="0" Grid.Column="0" Margin="5" Height="10" Watermark="Server Name" ItemsSource="{Binding ServerNames}" SelectedItem="{Binding SelectedServer, Mode=TwoWay}"
-                                 IsEditable="True" StaysOpenOnEdit="True" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="false"/>
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="5">
+                        <ux:TextBox MinHeight="30"
+                                    Watermark="Online-PC filtern"
+                                    Text="{Binding ServerFilter, UpdateSourceTrigger=PropertyChanged}" />
+                        <ux:ComboBox MinHeight="36"
+                                     Margin="0,5,0,0"
+                                     Watermark="Online-PC auswählen"
+                                     ItemsSource="{Binding ServerNames}"
+                                     SelectedItem="{Binding SelectedServer, Mode=TwoWay}"
+                                     IsEditable="False"
+                                     IsTextSearchEnabled="True"
+                                     IsTextSearchCaseSensitive="false" />
+                    </StackPanel>
                     <ux:CheckBox Grid.Row="0" Grid.Column="1" Margin="25,5,25,5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding CheckboxUseLocalhost}">
                         <TextBlock Text="Use Localhost" Style="{StaticResource TextRobotoLightStyle}"/>
                     </ux:CheckBox>
+                    <ux:Button Grid.Row="0" Grid.Column="2" Margin="5" Content="Liste aktualisieren" Command="{Binding RefreshServerList}" />
                     <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal">
                         <ux:ToggleButton Margin="5,5,0,5" Style="{StaticResource RadToggleButtonStyle}" IsChecked="{Binding LoadFeeData}"/>
                         <TextBlock Margin="0,5,25,5" Text="Load Fee Data on Connect" Style="{StaticResource TextRobotoLightStyle}" VerticalAlignment="Center"/> 

@@ -75,6 +75,13 @@ public sealed class NamedPipeTiaBridgeClient : ITiaBridgeClient
             new TiaPlcSelectionPayload { PlcIndex = plcIndex },
             cancellationToken);
 
+    public async Task<IReadOnlyList<TiaHardwareModuleInfo>> ListHardwareAsync(
+        CancellationToken cancellationToken = default) =>
+        await SendAsync<EmptyPayload, List<TiaHardwareModuleInfo>>(
+            TiaCommands.ListHardware,
+            EmptyPayload.Instance,
+            cancellationToken);
+
     public Task<TiaProjectTree> ListProgramBlocksAsync(
         CancellationToken cancellationToken = default) =>
         SendAsync<EmptyPayload, TiaProjectTree>(

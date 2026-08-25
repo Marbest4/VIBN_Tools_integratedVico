@@ -9,6 +9,7 @@ using VIBN_Tools.Application.View;
 using VIBN_Tools.Application.VM;
 using VIBN_Tools.Core.Kanbanize;
 using VIBN_Tools.Core.ViCo;
+using VIBN_Tools.Tia.Contracts;
 
 namespace VIBN_Tools.UiStartup.SmokeTests;
 
@@ -47,14 +48,41 @@ internal static class Program
                     new AutomationSoftwareInfo(AutomationPlatform.SiemensTiaPortal, "TIA Portal V19", "TIA Portal V19"),
                     new AutomationSoftwareInfo(AutomationPlatform.BeckhoffTwinCat, "Beckhoff TwinCAT 3", "Beckhoff TwinCAT 3")
                 },
-                new[] { new ViCoRobotInfo("R01", "In Arbeit", "Robot card") });
+                new[] { new ViCoRobotInfo("R01", "In Arbeit", "Robot card") },
+                new ViCoWorkstationConfiguration(
+                    710,
+                    new ViCoConfigurationField("USER", "zkds-simulation-p01", 711),
+                    new ViCoConfigurationField("STANDORT", "Werk 2", 712),
+                    new ViCoConfigurationField("SW", "TIA V19 / Beckhoff TwinCAT 3", 713),
+                    new ViCoConfigurationField("PROJEKT-IP", "10.20.30.40", 714),
+                    new ViCoConfigurationField("SONSTIGES", "Testdaten für die Anleitung", 715)));
             var workstationRow = new ViCoWorkstationRowVM(workstation);
+            workstationRow.SetOnline(true);
+            workstationRow.SetRemoteSession(new ViCoRemoteSessionInfo(
+                true,
+                "grob\\operator",
+                "grob\\operator",
+                new DateTimeOffset(2026, 8, 25, 8, 30, 0, TimeSpan.Zero)));
             searchViewModel.Results.Add(workstationRow);
             searchViewModel.SelectedWorkstation = workstationRow;
 
             var administrationPage = new ViCoAdministrationPage();
             var administrationViewModel = (ViCoAdministrationPageVM)administrationPage.DataContext;
-            administrationViewModel.LicenseEntries.Add(new ViCoLicenseEntry(@"grob\user", "Level9", "test"));
+            administrationViewModel.RoleEntries.Add(new ViCoUserRole(@"grob\user", "Level9", "test"));
+
+            var specialDevicePage = new SpecialDevicePage();
+            var specialDeviceViewModel = (SpecialDevicePageVM)specialDevicePage.DataContext;
+            specialDeviceViewModel.TiaHardwareRows.Add(new TiaHardwareDeviceRowVM(
+                new TiaHardwareModuleInfo
+                {
+                    Slot = 3,
+                    ModuleName = "Cognex Testmodul",
+                    TypeIdentifier = "TEST-COGNEX",
+                    InputStartByte = 20,
+                    InputLength = 4,
+                    OutputStartByte = 40,
+                    OutputLength = 4
+                }));
 
             var kanbanizeCardPage = new KanbanizeCardPage();
             var kanbanizeViewModel = (KanbanizeCardPageVM)kanbanizeCardPage.DataContext;
@@ -73,7 +101,10 @@ internal static class Program
                             null,
                             DateTimeOffset.UtcNow),
                         null,
-                        "UI-Prüfdatensatz ohne externen Schreibzugriff.")));
+                        "UI-Prüfdatensatz ohne externen Schreibzugriff.",
+                        new VibnWorkplaceSchedule(
+                            DateTimeOffset.UtcNow.AddDays(-14),
+                            DateTimeOffset.UtcNow.AddDays(56)))));
 
             FrameworkElement[] integratedViews =
             [
@@ -83,6 +114,7 @@ internal static class Program
                 new TiaPortalPage(),
                 administrationPage,
                 kanbanizeCardPage,
+                specialDevicePage,
                 new DiagnosticsPanel()
             ];
 
@@ -93,12 +125,21 @@ internal static class Program
                 ExerciseDeferredTemplates(view);
             }
 
+            // The hardware grid is in a deferred tab. Selecting it with a
+            // populated row catches its ComboBox and converter bindings.
+            var specialDeviceTabs = FindVisualChildren<TabControl>(specialDevicePage).FirstOrDefault();
+            if (specialDeviceTabs is null)
+                throw new InvalidOperationException("The Special Device tab control was not initialized.");
+            specialDeviceTabs.SelectedIndex = 1;
+            ExerciseDeferredTemplates(specialDevicePage);
+
             if (Environment.GetEnvironmentVariable("VIBN_CAPTURE_UI_PREVIEW") == "1")
             {
                 SavePreview(searchPage, Path.Combine(AppContext.BaseDirectory, "vico-search-preview.png"));
                 SavePreview(projectPage, Path.Combine(AppContext.BaseDirectory, "vico-projects-preview.png"));
                 SavePreview(workspacePage, Path.Combine(AppContext.BaseDirectory, "vico-workspace-preview.png"));
                 SavePreview(kanbanizeCardPage, Path.Combine(AppContext.BaseDirectory, "kanbanize-cards-preview.png"));
+                SavePreview(specialDevicePage, Path.Combine(AppContext.BaseDirectory, "special-devices-preview.png"));
             }
 
             Dispatcher.CurrentDispatcher.Invoke(

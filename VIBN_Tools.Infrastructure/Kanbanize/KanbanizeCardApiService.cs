@@ -88,9 +88,9 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         // requests enough cards for the two operational boards in one call;
         // the page loop remains as a safe fallback for larger boards.
         const int pageSize = 1000;
-        const string fields = "card_id,board_id,lane_id,column_id,title,custom_id,deadline";
+        const string fields = "card_id,board_id,lane_id,column_id,title,custom_id,deadline,custom_fields";
         using var firstPage = await GetJsonAsync(
-            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}&fields={fields}",
+            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}&fields={fields}&expand=custom_fields",
             cancellationToken);
         var cards = ParseCards(firstPage.RootElement).ToList();
         var pageCount = Math.Max(1, ReadPageCount(firstPage.RootElement));
@@ -100,7 +100,7 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         for (var page = 2; page <= pageCount; page++)
         {
             using var nextPage = await GetJsonAsync(
-                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}&fields={fields}",
+                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}&fields={fields}&expand=custom_fields",
                 cancellationToken);
             cards.AddRange(ParseCards(nextPage.RootElement));
         }
@@ -133,7 +133,6 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
             payload["custom_id"] = draft.CustomId.Trim();
         if (draft.Deadline is not null)
             payload["deadline"] = draft.Deadline.Value.UtcDateTime.ToString("O");
-
         return await CreateCardFromPayloadAsync(payload, draft.Title.Trim(), cancellationToken);
     }
 
@@ -176,6 +175,17 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         };
         if (draft.Deadline is not null)
             payload["deadline"] = draft.Deadline.Value.UtcDateTime.ToString("O");
+        if (draft.StartDate is not null)
+        {
+            payload["custom_fields_to_add_or_update"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["field_id"] = VibnWorkplaceSynchronizationPolicy.WorkplaceStartDateFieldId,
+                    ["value"] = draft.StartDate.Value.UtcDateTime.ToString("O")
+                }
+            };
+        }
 
         return await CreateCardFromPayloadAsync(payload, draft.Title.Trim(), cancellationToken);
     }
@@ -197,6 +207,42 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         var payload = new Dictionary<string, object?>
         {
             ["deadline"] = deadline?.UtcDateTime.ToString("O")
+        };
+        using var request = CreateRequest(HttpMethod.Patch, $"/cards/{cardId}");
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Patches only the two generated-card schedule fields: the normal
+    /// deadline and the historical workplace start-date custom field. No
+    /// unrelated card data can enter this narrow payload.
+    /// </summary>
+    public async Task UpdateGeneratedScheduleAsync(
+        int cardId,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (cardId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(cardId));
+        EnsureConfigured();
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["deadline"] = endDate.UtcDateTime.ToString("O"),
+            ["custom_fields_to_add_or_update"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["field_id"] = VibnWorkplaceSynchronizationPolicy.WorkplaceStartDateFieldId,
+                    ["value"] = startDate.UtcDateTime.ToString("O")
+                }
+            }
         };
         using var request = CreateRequest(HttpMethod.Patch, $"/cards/{cardId}");
         request.Content = new StringContent(
@@ -289,7 +335,8 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
                 ReadInt(element, "column_id"),
                 ReadString(element, "title"),
                 ReadString(element, "custom_id"),
-                ReadDateTimeOffset(element, "deadline")))
+                ReadDateTimeOffset(element, "deadline"),
+                ReadCustomDate(element, VibnWorkplaceSynchronizationPolicy.WorkplaceStartDateFieldId)))
             .Where(card => card.Id > 0);
 
     private static int ReadPageCount(JsonElement root)
@@ -334,6 +381,33 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
             out var parsed)
             ? parsed
             : null;
+    }
+
+    private static DateTimeOffset? ReadCustomDate(JsonElement element, int fieldId)
+    {
+        if (element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty("custom_fields", out var customFields) ||
+            customFields.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (var field in customFields.EnumerateArray())
+        {
+            if (ReadInt(field, "field_id", "id") != fieldId)
+                continue;
+            var value = ReadString(field, "value");
+            if (DateTimeOffset.TryParse(
+                    value,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
     }
 
     private static string ExtractErrorDetail(string responseText)

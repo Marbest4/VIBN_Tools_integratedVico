@@ -1,50 +1,62 @@
-# Release acceptance checklist
+# Release-Abnahmecheckliste
 
-Run this checklist on a GROB desktop with VPN/network access, fe.screen-sim, Outlook and at least one supported TIA Portal version.
+Diese Liste auf einem GROB-Desktop mit Netzwerkzugriff, FEE, Kanbanize-Berechtigung und mindestens einer unterstützten TIA-Installation ausführen.
 
-## Automated baseline
+## Automatische Basis
 
-- Release build of `VIBN_Tools_App.sln` succeeds.
-- Core smoke tests pass with warnings treated as errors.
-- UI startup smoke test initializes every integrated WPF view without a XAML or binding exception.
+- [ ] `dotnet build VIBN_Tools_App.sln --configuration Release` hat keine Fehler.
+- [ ] `Tests/CoreSmokeTests` ist erfolgreich.
+- [ ] `Tests/UiStartupSmokeTests` ist erfolgreich und meldet keine Binding-Fehler.
+- [ ] Anwendung startet ohne XamlParseException.
 
-## Project Settings
+## Rollen und Navigation
 
-- The PC dropdown contains exactly `localhost` plus the PCs visible in ViCo search.
-- Updating Kanbanize changes both lists without restarting.
-- FEE connect and disconnect work for localhost and one remote PC.
-- A failed connection creates a readable Project Settings log entry.
+- [ ] Nicht-Level7-Benutzer sehen CAD Wizard, Container Generation und Container2Fee nicht.
+- [ ] Level7 sieht genau diese drei Bereiche zusätzlich.
+- [ ] Level8 sieht außerdem Kanbanize Karten, AI-Test und ViCo-Verwaltung.
+- [ ] Level9 kann Rollen ändern; Level8 kann sie nur ansehen.
+- [ ] `lutzma` wird als Level9 erkannt und kann nicht verändert/entfernt werden.
+- [ ] Eine Änderung, die weniger als zwei Level9-Benutzer hinterließe, wird abgewiesen.
 
-## ViCo search and remote access
+## Project Settings und ViCo
 
-- Project and PC searches find known cards.
-- TIA, Beckhoff and Rockwell cards appear in the Software column.
-- Robot count, robot names and robot status match Kanbanize.
-- `[B]`, `[P]`, `[W]` and `[D]` are displayed with the documented meaning.
-- Remote Desktop uses the Kanbanize user and starts without another workflow step.
-- All project-path buttons open the expected directories.
-- Belegung ist bei Frei grün und bei Belegt rot; der Online-Ping bleibt separat grün/rot.
+- [ ] Project Settings zeigt nur erreichbare PCs und der Filter wirkt sofort.
+- [ ] Ein fehlgeschlagener FEE-Connect zeigt nicht fälschlich „verbunden“.
+- [ ] ViCo-Suche findet PC, Benutzer und Projekt mit demselben Suchfeld.
+- [ ] Spalten Belegung, Software, Standort, Projekt-IP, Sonstiges, RDP-Sitzung, letzte Anmeldung und Benutzer sind plausibel.
+- [ ] Nur Planung/In-Arbeit-Projekte stehen in der aktiven Projektauswahl; Backlog/Abschluss stehen im Detailbereich.
+- [ ] Frei ist grün, Belegt rot; Online ist grün, Offline rot.
+- [ ] Offline-PCs zeigen keine Remote-/Pfadbuttons.
+- [ ] RDP-Sitzungsrechte fehlen: Anzeige lautet „Nicht abrufbar“, nicht „offline“.
+- [ ] Automatischer Remote-Button nutzt den Kanbanize-Benutzer; der zweite Button zeigt den Windows-Anmeldedialog.
+- [ ] Eine vorhandene KONFIGURATION-Unteraufgabe lässt sich bearbeiten und zurückspeichern; keine andere Karteninformation ändert sich.
 
 ## Kanbanize
 
-- **Prüfen** im VIBN→Arbeitsplätze-Reiter erzeugt keine Karte und zeigt neue, unveränderte, Deadline- und Konfliktfälle korrekt.
-- Eine fehlende VIBN-Karte erzeugt genau eine verknüpfte Zielkarte mit Quell-ID als `custom_id`.
-- Ein wiederholter Lauf erzeugt keine Duplikate.
-- Bei einer abweichenden Deadline wird nur die Deadline der eindeutigen Zielkarte angepasst.
-- Mehrdeutige `custom_id`-Zuordnungen bleiben unverändert und werden als Konflikt angezeigt.
-- Eine manuell erstellte Karte im zweiten Kanbanize-Reiter funktioniert unabhängig von der Synchronisierung.
+- [ ] Vorschau verwendet Quell- und Zielboard, Lane und Spalte korrekt.
+- [ ] Start ist Quell-Deadline minus 14 Tage.
+- [ ] Ziel-Deadline ist Vorlage-Deadline plus 56 Tage.
+- [ ] Ein zweiter Lauf erzeugt keine Duplikate.
+- [ ] Mehrdeutige Zielkarte/Vorlage führt zu Konflikt ohne Änderung.
+- [ ] Bestehende generierte Karte ändert nur Startfeld und Deadline, nicht Titel/Position/Beschreibung.
+- [ ] Eigene Karte kann unabhängig erstellt werden.
 
-## Transfer and TIA
+## TIA und Special Devices
 
-- A representative project copy completes and preserves its directory structure.
-- TIA Bridge connects to every supported installed version.
-- Library import, export and axis generation complete on a disposable test project.
+- [ ] TIA-Version, Attach und PLC-Auswahl funktionieren.
+- [ ] Hardwareansicht zeigt Modul, Slot, Typ, E-/A-Byte und Längen.
+- [ ] Special-Device-Hardwaretabelle übernimmt nur bewusst ausgewählte/validierte Zeilen.
+- [ ] Geräte erscheinen zuerst in der Warteschlange.
+- [ ] Fehlerhafte FEE-Erzeugung bleibt prüfbar in der Warteschlange.
 
-## Administration
+## Bestehende VIBN-Funktionen
 
-- The current Windows user and expected license level are shown.
-- A Level8/Level9 user can change a disposable test entry and reload it.
-- Outlook meetings and latest update load when their sources are available.
-- Missing network access is shown as a diagnostic error instead of an empty unexplained page.
+- [ ] CAD Wizard, Zuli Converter, Container Generation und Container2Fee funktionieren mit einer bekannten Testvorlage.
+- [ ] Model Validation, Model Control und Interface Operation funktionieren mit dem Testmodell.
+- [ ] Keine bestehende Funktion wurde durch ViCo-/Kanbanize-Aufrufe verändert.
 
-Record application version, machine, operator, date and deviations before release approval.
+## Übergabe
+
+- [ ] Diagnoseprotokoll enthält keine sensiblen Werte.
+- [ ] Anwenderhandbuch und Screenshots sind Bestandteil des Releasepakets.
+- [ ] Bekannte externe SDK-Warnungen bzw. Abhängigkeiten sind dokumentiert und keine neue funktionale Warnung aus den geänderten Integrationsmodulen offen.

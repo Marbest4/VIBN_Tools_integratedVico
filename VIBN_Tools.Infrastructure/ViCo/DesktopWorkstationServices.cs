@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using VIBN_Tools.Core.ViCo;
 
 namespace VIBN_Tools.Infrastructure.ViCo;
@@ -26,38 +28,195 @@ public sealed class NetworkAvailabilityService : INetworkAvailabilityService
     }
 }
 
+/// <summary>
+/// Creates a transient RDP profile without credential material. Windows owns
+/// the password in the interactive user's Credential Manager, so the normal
+/// action remains automatic while the prompted action can establish or change
+/// that local Windows entry.
+/// </summary>
 public sealed class WindowsRemoteDesktopService : IRemoteDesktopService
 {
     private const int MonitorMetric = 80;
     private readonly string _rdpFile;
-    private readonly IRemoteCredentialStore? _credentials;
 
-    public WindowsRemoteDesktopService(string workingDirectory, IRemoteCredentialStore? credentials = null)
+    public WindowsRemoteDesktopService(string workingDirectory)
     {
         Directory.CreateDirectory(workingDirectory);
         _rdpFile = Path.Combine(workingDirectory, "ViCo.rdp");
-        _credentials = credentials;
     }
 
     public int MonitorCount => Math.Max(1, GetSystemMetrics(MonitorMetric));
 
     public void Connect(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes)
     {
-        var lines = RemoteDesktopProfileBuilder.Build(hostName, userName, monitorIndexes, MonitorCount);
+        ConnectInternal(hostName, userName, monitorIndexes, promptForCredentials: false);
+    }
+
+    public void ConnectWithCredentialPrompt(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes)
+    {
+        ConnectInternal(hostName, userName, monitorIndexes, promptForCredentials: true);
+    }
+
+    private void ConnectInternal(
+        string hostName,
+        string userName,
+        IReadOnlyCollection<int> monitorIndexes,
+        bool promptForCredentials)
+    {
+        var lines = RemoteDesktopProfileBuilder.Build(
+            hostName,
+            userName,
+            monitorIndexes,
+            MonitorCount,
+            promptForCredentials);
         File.WriteAllLines(_rdpFile, lines, Encoding.Unicode);
-        _credentials?.Save(hostName, userName);
-        try
-        {
-            Process.Start(new ProcessStartInfo("mstsc.exe", $"\"{_rdpFile}\"") { UseShellExecute = true });
-        }
-        finally
-        {
-            _credentials?.RemoveLater(hostName, TimeSpan.FromSeconds(10));
-        }
+        Process.Start(new ProcessStartInfo("mstsc.exe", $"\"{_rdpFile}\"") { UseShellExecute = true });
     }
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);
+}
+
+/// <summary>
+/// Uses the Windows <c>quser</c> command to read RDP/terminal sessions from a
+/// remote PC. It is intentionally read-only. When the account is not allowed
+/// to query the target, the caller receives <see cref="ViCoRemoteSessionInfo.NotAvailable"/>
+/// rather than a misleading online/session state.
+/// </summary>
+public sealed class WindowsRemoteSessionService : IRemoteSessionService
+{
+    private static readonly string[] ActiveStates = { "ACTIVE", "AKTIV" };
+
+    public async Task<ViCoRemoteSessionInfo> GetSessionInfoAsync(
+        string hostName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(hostName))
+            return ViCoRemoteSessionInfo.NotAvailable;
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "quser.exe",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }
+        };
+        process.StartInfo.ArgumentList.Add($"/server:{hostName.Trim()}");
+
+        try
+        {
+            if (!process.Start())
+                return ViCoRemoteSessionInfo.NotAvailable;
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(3));
+            var outputTask = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(timeout.Token);
+            await process.WaitForExitAsync(timeout.Token);
+            var output = await outputTask;
+            _ = await errorTask;
+            if (process.ExitCode != 0)
+                return ViCoRemoteSessionInfo.NotAvailable;
+
+            return Parse(output);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            TryStop(process);
+            return ViCoRemoteSessionInfo.NotAvailable;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return ViCoRemoteSessionInfo.NotAvailable;
+        }
+    }
+
+    private static ViCoRemoteSessionInfo Parse(string output)
+    {
+        var sessions = output
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(ParseSession)
+            .Where(session => session is not null)
+            .Select(session => session!)
+            .ToArray();
+        if (sessions.Length == 0)
+            return new ViCoRemoteSessionInfo(true, string.Empty, string.Empty, null);
+
+        var active = sessions.FirstOrDefault(session => ActiveStates.Any(state =>
+            string.Equals(state, session.State, StringComparison.OrdinalIgnoreCase)));
+        var latest = sessions
+            .Where(session => session.LogonAt is not null)
+            .OrderByDescending(session => session.LogonAt)
+            .FirstOrDefault() ?? sessions[0];
+        return new ViCoRemoteSessionInfo(
+            true,
+            active?.UserName ?? string.Empty,
+            latest.UserName,
+            latest.LogonAt);
+    }
+
+    private static RemoteSessionRow? ParseSession(string rawLine)
+    {
+        if (rawLine.Contains("USERNAME", StringComparison.OrdinalIgnoreCase) ||
+            rawLine.Contains("BENUTZERNAME", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var columns = Regex.Split(rawLine.Trim().TrimStart('>'), @"\s{2,}")
+            .Select(value => value.Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
+        var idIndex = Array.FindIndex(columns, value => int.TryParse(value, out _));
+        if (idIndex < 1 || idIndex + 1 >= columns.Length)
+            return null;
+
+        var userName = columns[0];
+        var state = columns[idIndex + 1];
+        var logonText = columns[^1];
+        return new RemoteSessionRow(userName, state, ParseLogonTime(logonText));
+    }
+
+    private static DateTimeOffset? ParseLogonTime(string value)
+    {
+        var cultures = new[]
+        {
+            CultureInfo.CurrentCulture,
+            CultureInfo.GetCultureInfo("de-DE"),
+            CultureInfo.InvariantCulture
+        };
+        foreach (var culture in cultures)
+        {
+            if (DateTimeOffset.TryParse(
+                    value,
+                    culture,
+                    DateTimeStyles.AssumeLocal | DateTimeStyles.AllowWhiteSpaces,
+                    out var parsed))
+            {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private static void TryStop(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // The timed-out query can have exited between the check and Kill.
+        }
+    }
+
+    private sealed record RemoteSessionRow(string UserName, string State, DateTimeOffset? LogonAt);
 }
 
 public sealed class ViCoRelatedPathResolver : IViCoRelatedPathResolver

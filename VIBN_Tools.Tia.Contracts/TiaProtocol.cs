@@ -7,6 +7,7 @@ public static class TiaCommands
     public const string Attach = "session.attach";
     public const string ListPlcs = "project.list-plcs";
     public const string SelectPlc = "project.select-plc";
+    public const string ListHardware = "project.list-hardware";
     public const string ListProgramBlocks = "program.list-blocks";
     public const string ListDataTypes = "program.list-data-types";
     public const string ImportBlock = "program.import-block";

@@ -22,12 +22,19 @@ public enum VibnWorkplaceSynchronizationAction
     Conflict
 }
 
+/// <summary>
+/// Planned period of a generated workplace card. StartDate is written to the
+/// established workplace custom field; EndDate is written as the card deadline.
+/// </summary>
+public sealed record VibnWorkplaceSchedule(DateTimeOffset StartDate, DateTimeOffset EndDate);
+
 /// <summary>One source card and the single allowed action for its target card.</summary>
 public sealed record VibnWorkplaceSynchronizationItem(
     VibnWorkplaceSynchronizationAction Action,
     KanbanizeCardInfo SourceCard,
     KanbanizeCardInfo? TargetCard,
-    string Message);
+    string Message,
+    VibnWorkplaceSchedule? Schedule = null);
 
 /// <summary>
 /// Read-only result of comparing virtual-commissioning cards with generated
@@ -58,7 +65,8 @@ public sealed record VibnWorkplaceSynchronizationResult(
 /// <summary>
 /// Coordinates safe, idempotent replication of VIBN commissioning cards into
 /// the workplace board. It never deletes, moves, renames or changes existing
-/// target cards; only a deadline of an unambiguous generated card may change.
+/// target cards; only the calculated start date and deadline of an
+/// unambiguous generated card may change.
 /// </summary>
 public interface IVibnWorkplaceSynchronizationService
 {
@@ -85,12 +93,26 @@ public static class VibnWorkplaceSynchronizationPolicy
     public const int ExcludedArchiveColumnId = 25236;
     public const string RequiredSourceTitleFragment = "Grundinbetriebnahme";
     public const string ExcludedSourceTitleFragment = "Vorlage";
+    /// <summary>
+    /// Existing start-date custom field of the workplace board. The value is
+    /// retained from the previous Canbanize tool and is intentionally used only
+    /// by the generated-card workflow.
+    /// </summary>
+    public const int WorkplaceStartDateFieldId = 508;
+    public const int StartLeadDays = 14;
+    public const int EndAfterTemplateDays = 56;
 
     /// <summary>Only genuine virtual-commissioning cards from active source columns are synchronized.</summary>
     public static bool IsEligibleSourceCard(KanbanizeCardInfo card) =>
         card.ColumnId != ExcludedArchiveColumnId &&
         card.Title.Contains(RequiredSourceTitleFragment, StringComparison.OrdinalIgnoreCase) &&
         !card.Title.Contains(ExcludedSourceTitleFragment, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Identifies the single schedule template in the source board.</summary>
+    public static bool IsScheduleTemplateCard(KanbanizeCardInfo card) =>
+        card.ColumnId != ExcludedArchiveColumnId &&
+        card.Title.Contains(RequiredSourceTitleFragment, StringComparison.OrdinalIgnoreCase) &&
+        card.Title.Contains(ExcludedSourceTitleFragment, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Retains the recognizable title convention of the preceding tool without
@@ -110,6 +132,57 @@ public static class VibnWorkplaceSynchronizationPolicy
 
         return Math.Abs((left.Value.UtcDateTime - right.Value.UtcDateTime).TotalSeconds) < 1;
     }
+
+    /// <summary>
+    /// Calculates the workplace period from the requested rules. A schedule is
+    /// intentionally rejected when the source board has no single dated
+    /// template, because guessing a finish date would change operational data
+    /// incorrectly.
+    /// </summary>
+    public static bool TryCreateSchedule(
+        KanbanizeCardInfo sourceCard,
+        IEnumerable<KanbanizeCardInfo> sourceCards,
+        out VibnWorkplaceSchedule? schedule,
+        out string error)
+    {
+        ArgumentNullException.ThrowIfNull(sourceCard);
+        ArgumentNullException.ThrowIfNull(sourceCards);
+        schedule = null;
+
+        if (sourceCard.Deadline is null)
+        {
+            error = "Die VIBN-Quellkarte besitzt keine Deadline; der Start kann nicht berechnet werden.";
+            return false;
+        }
+
+        var templates = sourceCards
+            .Where(IsScheduleTemplateCard)
+            .Where(card => card.Deadline is not null)
+            .OrderBy(card => card.Id)
+            .ToArray();
+        if (templates.Length == 0)
+        {
+            error = "Keine datierte VIBN-Karte mit ‚Grundinbetriebnahme‘ und ‚Vorlage‘ gefunden; es wird nichts geändert.";
+            return false;
+        }
+        if (templates.Length > 1)
+        {
+            error = $"{templates.Length} datierte VIBN-Vorlagen gefunden; die Zieltermine wären mehrdeutig und werden nicht geändert.";
+            return false;
+        }
+
+        schedule = new VibnWorkplaceSchedule(
+            sourceCard.Deadline.Value.AddDays(-StartLeadDays),
+            templates[0].Deadline!.Value.AddDays(EndAfterTemplateDays));
+        error = string.Empty;
+        return true;
+    }
+
+    public static bool HasEquivalentSchedule(
+        KanbanizeCardInfo targetCard,
+        VibnWorkplaceSchedule schedule) =>
+        HasEquivalentDeadline(targetCard.StartDate, schedule.StartDate) &&
+        HasEquivalentDeadline(targetCard.Deadline, schedule.EndDate);
 
     public static string? Validate(VibnWorkplaceSynchronizationSettings settings)
     {
@@ -182,15 +255,17 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
                                     settings.TargetColumnId,
                                     VibnWorkplaceSynchronizationPolicy.GetGeneratedTitle(item.SourceCard.Title),
                                     settings.Priority,
-                                    item.SourceCard.Deadline),
+                                    item.Schedule!.EndDate,
+                                    item.Schedule.StartDate),
                                 cancellationToken);
                             createdCount++;
                             break;
 
                         case VibnWorkplaceSynchronizationAction.UpdateDeadline:
-                            await _cards.UpdateDeadlineAsync(
+                            await _cards.UpdateGeneratedScheduleAsync(
                                 item.TargetCard!.Id,
-                                item.SourceCard.Deadline,
+                                item.Schedule!.StartDate,
+                                item.Schedule.EndDate,
                                 cancellationToken);
                             deadlineUpdateCount++;
                             break;
@@ -245,6 +320,20 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
 
         foreach (var sourceCard in eligibleSourceCards)
         {
+            if (!VibnWorkplaceSynchronizationPolicy.TryCreateSchedule(
+                    sourceCard,
+                    sourceCards,
+                    out var schedule,
+                    out var scheduleError))
+            {
+                items.Add(new VibnWorkplaceSynchronizationItem(
+                    VibnWorkplaceSynchronizationAction.Conflict,
+                    sourceCard,
+                    null,
+                    scheduleError));
+                continue;
+            }
+
             var sourceId = sourceCard.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (!targetCardsBySourceId.TryGetValue(sourceId, out var matchingTargets))
             {
@@ -252,7 +341,8 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
                     VibnWorkplaceSynchronizationAction.Create,
                     sourceCard,
                     null,
-                    "Neue verknüpfte Arbeitsplatzkarte erstellen."));
+                    "Neue verknüpfte Arbeitsplatzkarte mit berechnetem Start und Ende erstellen.",
+                    schedule));
                 continue;
             }
 
@@ -262,19 +352,21 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
                     VibnWorkplaceSynchronizationAction.Conflict,
                     sourceCard,
                     null,
-                    $"{matchingTargets.Length} Zielkarten verwenden dieselbe Quellkarten-ID; keine Änderung durchgeführt."));
+                    $"{matchingTargets.Length} Zielkarten verwenden dieselbe Quellkarten-ID; keine Änderung durchgeführt.",
+                    schedule));
                 continue;
             }
 
             var targetCard = matchingTargets[0];
             if (settings.SynchronizeDeadlines &&
-                !VibnWorkplaceSynchronizationPolicy.HasEquivalentDeadline(sourceCard.Deadline, targetCard.Deadline))
+                !VibnWorkplaceSynchronizationPolicy.HasEquivalentSchedule(targetCard, schedule!))
             {
                 items.Add(new VibnWorkplaceSynchronizationItem(
                     VibnWorkplaceSynchronizationAction.UpdateDeadline,
                     sourceCard,
                     targetCard,
-                    "Nur die Deadline der vorhandenen Zielkarte an die Quelle anpassen."));
+                    "Nur Startdatum und Deadline der vorhandenen Zielkarte an die berechnete Planung anpassen.",
+                    schedule));
             }
             else
             {
@@ -282,7 +374,8 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
                     VibnWorkplaceSynchronizationAction.Unchanged,
                     sourceCard,
                     targetCard,
-                    "Bereits verknüpft; keine Änderung erforderlich."));
+                    "Bereits verknüpft; keine Änderung erforderlich.",
+                    schedule));
             }
         }
 

@@ -30,6 +30,12 @@ internal sealed class FakeTiaBridgeClient : ITiaBridgeClient
 
     public Task SelectPlcAsync(int plcIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    public List<TiaHardwareModuleInfo> HardwareModules { get; } = new();
+
+    public Task<IReadOnlyList<TiaHardwareModuleInfo>> ListHardwareAsync(
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<TiaHardwareModuleInfo>>(HardwareModules);
+
     public Task<TiaProjectTree> ListProgramBlocksAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(Blocks);
 

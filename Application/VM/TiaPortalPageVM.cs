@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using VIBN_Tools.GlobalClasses;
+using VIBN_Tools.Core.ViCo;
 using VIBN_Tools.Tia.Client;
 using VIBN_Tools.Tia.Contracts;
 
@@ -16,6 +17,7 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
     private readonly ITiaBridgeClient _client;
     private readonly ITiaLibraryService _libraryService;
     private readonly IFolderSelectionService _folderSelection;
+    private readonly IApplicationLog _log;
     private bool _isBusy;
     private string? _selectedVersion;
     private TiaPlcInfo? _selectedPlc;
@@ -25,11 +27,13 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
         ITiaBridgeClient client,
         ITiaLibraryService libraryService,
         IFolderSelectionService folderSelection,
-        IReadOnlyList<string> installedVersions)
+        IReadOnlyList<string> installedVersions,
+        IApplicationLog? log = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
         _folderSelection = folderSelection ?? throw new ArgumentNullException(nameof(folderSelection));
+        _log = log ?? NullApplicationLog.Instance;
 
         foreach (var version in installedVersions)
             InstalledVersions.Add(version);
@@ -41,6 +45,7 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
 
         ConnectCommand = GetCommandBindingAsync(ConnectAsync);
         SelectPlcCommand = GetCommandBindingAsync(SelectPlcAsync);
+        LoadHardwareCommand = GetCommandBindingAsync(LoadHardwareAsync);
         LoadBlocksCommand = GetCommandBindingAsync(LoadBlocksAsync);
         LoadDataTypesCommand = GetCommandBindingAsync(LoadDataTypesAsync);
         ConfigureAxesCommand = GetCommandBindingAsync(ConfigureAxesAsync);
@@ -59,9 +64,13 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
 
     public ObservableCollection<TiaAxisInfo> Axes { get; } = new();
 
+    public ObservableCollection<TiaHardwareModuleInfo> HardwareModules { get; } = new();
+
     public ICommand ConnectCommand { get; }
 
     public ICommand SelectPlcCommand { get; }
+
+    public ICommand LoadHardwareCommand { get; }
 
     public ICommand LoadBlocksCommand { get; }
 
@@ -199,6 +208,7 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
             var plcs = await _client.ListPlcsAsync();
             Replace(Plcs, plcs);
             SelectedPlc = Plcs.FirstOrDefault();
+            HardwareModules.Clear();
             StatusText = $"Mit TIA Portal {SelectedVersion} verbunden; {Plcs.Count} PLC(s) gefunden.";
         });
     }
@@ -213,7 +223,24 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
             await _client.SelectPlcAsync(SelectedPlc.Index);
             ProgramItems.Clear();
             Axes.Clear();
+            HardwareModules.Clear();
             StatusText = $"PLC '{SelectedPlc.Name}' ist ausgewählt.";
+        });
+    }
+
+    private async Task LoadHardwareAsync()
+    {
+        if (SelectedPlc is null)
+            return;
+
+        await RunBusyAsync("TIA-Hardwarekonfiguration wird gelesen …", async () =>
+        {
+            // Select again so the bridge state always follows the combobox
+            // selection, even if the user skipped the explicit select button.
+            await _client.SelectPlcAsync(SelectedPlc.Index);
+            var modules = await _client.ListHardwareAsync();
+            Replace(HardwareModules, modules);
+            StatusText = $"{HardwareModules.Count} TIA-Hardwareelement(e) geladen.";
         });
     }
 
@@ -333,6 +360,19 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
         try
         {
             await action();
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "TIA-Vorgang wurde abgebrochen.";
+            _log.Warning("TIA Portal", StatusText);
+        }
+        catch (Exception exception)
+        {
+            // Commands are invoked from async-void WPF command bindings. By
+            // handling bridge failures here, the user gets a clear status and
+            // a diagnostic entry instead of an unhandled runtime exception.
+            StatusText = "TIA-Vorgang fehlgeschlagen. Details stehen im Protokoll.";
+            _log.Error("TIA Portal", StatusText, exception);
         }
         finally
         {

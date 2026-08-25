@@ -9,15 +9,15 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <StackPanel Orientation="Horizontal">
+            <WrapPanel VerticalAlignment="Center">
                 <Button MinWidth="120" Content="Aktualisieren" Command="{Binding RefreshCommand}" />
-                <Button MinWidth="150" Margin="8,0,0,0" Content="Lizenz anfragen" Command="{Binding RequestLicenseCommand}" IsEnabled="{Binding IsLicenseConfigured}" />
                 <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Angemeldet als:" />
                 <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CurrentUser}" />
-                <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Berechtigung:" />
+                <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="Rolle:" />
                 <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CurrentLevel}" />
-            </StackPanel>
-            <TextBlock Margin="0,8,0,0" Text="{Binding LicenseStatus}" TextWrapping="Wrap" />
+                <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Foreground="#FF666666" Text="Änderungen sind nur mit Level9 möglich." />
+            </WrapPanel>
+            <TextBlock Margin="0,8,0,0" Text="{Binding RoleStatus}" TextWrapping="Wrap" />
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -49,43 +49,49 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <GroupBox Grid.Row="0" Header="Lizenzverwaltung">
-                    <DataGrid ItemsSource="{Binding LicenseEntries}"
-                              SelectedItem="{Binding SelectedLicense}"
+                <GroupBox Grid.Row="0" Header="Benutzer- und Rollenverwaltung">
+                    <DataGrid ItemsSource="{Binding RoleEntries}"
+                              SelectedItem="{Binding SelectedRole}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
-                              EnableRowVirtualization="True">
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="*" />
-                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="130" />
+                            <DataGridTextColumn Header="Stufe" Binding="{Binding Level, Mode=OneWay}" Width="130" />
+                            <DataGridTextColumn Header="Quelle" Binding="{Binding Source, Mode=OneWay}" Width="180" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </GroupBox>
-                <Grid Grid.Row="1" Margin="0,8,0,0">
+                <Grid Grid.Row="1" Margin="0,8,0,0" IsEnabled="{Binding CanManageUsers}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <WrapPanel Grid.Row="0" VerticalAlignment="Center">
-                        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Neues Level:" />
-                        <ComboBox Width="150" ItemsSource="{Binding LicenseLevels}" SelectedItem="{Binding SelectedLevel}" />
-                        <TextBlock Margin="16,0,8,0" VerticalAlignment="Center" Text="Zusätzlicher Level9-Benutzer:" />
-                        <ComboBox Width="190"
-                                  ItemsSource="{Binding LicenseEntries}"
-                                  SelectedItem="{Binding AdditionalLevel9License}"
-                                  DisplayMemberPath="UserName"
-                                  ToolTip="Optional: Wird benötigt, wenn die Änderung sonst weniger als zwei Level9-Benutzer hinterlassen würde." />
-                        <Button MinWidth="120" Margin="8,0,0,0" Content="Level speichern" Command="{Binding SaveLicenseCommand}" IsEnabled="{Binding CanManageLicenses}" />
+                        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Neuer Benutzer:" />
+                        <TextBox Width="180" MinHeight="30" Text="{Binding NewUserName, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Margin="16,0,8,0" VerticalAlignment="Center" Text="Stufe:" />
+                        <ComboBox Width="120" MinHeight="30" ItemsSource="{Binding RoleLevels}" SelectedItem="{Binding SelectedLevel}" />
+                        <Button MinWidth="130" Margin="8,0,0,0" Content="Benutzer hinzufügen" Command="{Binding AddUserCommand}" />
                     </WrapPanel>
                     <WrapPanel Grid.Row="1" Margin="0,8,0,0" VerticalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Level9CoverageText}" />
-                        <Button MinWidth="170" Margin="24,0,0,0" Content="Versionsordner öffnen" Command="{Binding OpenUpdateCommand}" />
-                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding LatestUpdate.Version}" />
+                        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Ausgewählter Benutzer:" />
+                        <TextBlock MinWidth="140" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding SelectedRole.UserName}" />
+                        <TextBlock Margin="16,0,8,0" VerticalAlignment="Center" Text="Neue Stufe:" />
+                        <ComboBox Width="120" MinHeight="30" IsEnabled="{Binding CanEditSelectedRole}" ItemsSource="{Binding RoleLevels}" SelectedItem="{Binding SelectedLevel}" />
+                        <Button MinWidth="120" Margin="8,0,0,0" IsEnabled="{Binding CanEditSelectedRole}" Content="Stufe speichern" Command="{Binding SaveRoleCommand}" />
+                        <Button MinWidth="140" Margin="8,0,0,0" IsEnabled="{Binding CanEditSelectedRole}" Content="Benutzer entfernen" Command="{Binding RemoveUserCommand}" />
                     </WrapPanel>
                 </Grid>
             </Grid>
         </Grid>
 
-        <TextBlock Grid.Row="2" Margin="0,12,0,0" Text="{Binding StatusText}" />
+        <WrapPanel Grid.Row="2" Margin="0,12,0,0" VerticalAlignment="Center">
+            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Level9CoverageText}" />
+            <Button MinWidth="170" Margin="24,0,0,0" Content="Versionsordner öffnen" Command="{Binding OpenUpdateCommand}" />
+            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding LatestUpdate.Version}" />
+            <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Text="{Binding StatusText}" TextWrapping="Wrap" />
+        </WrapPanel>
     </Grid>
 </UserControl>

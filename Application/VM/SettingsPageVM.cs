@@ -10,6 +10,7 @@ using VIBN_Tools.GlobalClasses.FeeObjects;
 using VIBN_Tools.KanbanizeService;
 using VIBN_Tools.Settings;
 using VIBN_Tools.Core.ViCo;
+using VIBN_Tools.Infrastructure.ViCo;
 using static VIBN_Tools.Settings.ProjectSettings;
 
 namespace VIBN_Tools.Application.VM
@@ -29,7 +30,10 @@ namespace VIBN_Tools.Application.VM
         private readonly FeeConnectionService _connectionService;
         private readonly FeeObjectService _feeObjectService;
         private readonly IWorkstationDirectory _workstations;
+        private readonly INetworkAvailabilityService _availability;
         private readonly IApplicationLog _log;
+        private CancellationTokenSource? _serverFilterCancellation;
+        private int _serverRefreshVersion;
 
         public TemplateType SelectedTemplate
         {
@@ -74,7 +78,7 @@ namespace VIBN_Tools.Application.VM
         }
 
 
-        private string _selectedServer;
+        private string _selectedServer = string.Empty;
         public string SelectedServer
         {
             get { return _selectedServer; }
@@ -100,10 +104,24 @@ namespace VIBN_Tools.Application.VM
 
         private bool _isServerChangeActive = false;
 
-        private bool _changeServerFromCheckBox = false;
-        private bool _changeServerFromComboBox = false;
+        /// <summary>Only reachable workstation names are exposed to the FEE selector.</summary>
+        public ObservableCollection<string> ServerNames { get; } = new();
 
-        public ObservableCollection<string> ServerNames => _workstations.PcNames;
+        private string _serverFilter = string.Empty;
+        public string ServerFilter
+        {
+            get => _serverFilter;
+            set
+            {
+                if (string.Equals(_serverFilter, value, StringComparison.Ordinal))
+                    return;
+                _serverFilter = value ?? string.Empty;
+                OnPropertyChanged();
+                _ = RefreshOnlineServersAsync();
+            }
+        }
+
+        public ICommand RefreshServerList => GetCommandBindingAsync(RefreshOnlineServersAsync);
 
         private bool _isServerReachable;
         public bool IsServerReachable
@@ -201,7 +219,7 @@ namespace VIBN_Tools.Application.VM
         public ICommand CreateProjectBase => GetCommandBindingAsync(Create_ProjectBase);
 
 
-        private string _connectedServer;
+        private string _connectedServer = "---";
         public string ConnectedServer
         {
             get { return _connectedServer; }
@@ -212,7 +230,7 @@ namespace VIBN_Tools.Application.VM
             }
         }
 
-        private string _feeObjectStatus;
+        private string _feeObjectStatus = string.Empty;
         public string FeeObjectStatus
         {
             get { return _feeObjectStatus; }
@@ -326,14 +344,19 @@ namespace VIBN_Tools.Application.VM
             ProjectSettings projectSettings,
             FeeConnectionService connectionService,
             IWorkstationDirectory workstations,
+            INetworkAvailabilityService? availability = null,
             IApplicationLog? log = null)
         {
             _projectSettings = projectSettings;
             _connectionService = connectionService;
+            _feeObjectService = Services.FeeObjects;
             _workstations = workstations;
+            _availability = availability ?? new NetworkAvailabilityService();
             _log = log ?? NullApplicationLog.Instance;
 
-            Services.FeeObjects.FeeObjectsUpdated += OnFeeObjectsLoaded;
+            _workstations.PcNames.CollectionChanged += (_, _) => _ = RefreshOnlineServersAsync();
+
+            _feeObjectService.FeeObjectsUpdated += OnFeeObjectsLoaded;
 
             CheckboxUseLocalhost = true;
 
@@ -342,6 +365,7 @@ namespace VIBN_Tools.Application.VM
             Connection.Connected += OnConnected;
 
             LoadFeeData = false;
+            _ = RefreshOnlineServersAsync();
         }
 
 
@@ -420,13 +444,14 @@ namespace VIBN_Tools.Application.VM
 
 
 
-        private async Task Disconnect_FromFee(object parameter)
+        private Task Disconnect_FromFee(object parameter)
         {
             Services.ApiInstance.Disconnect();
 
             ConnectedServer = "---";
             ConnectionStatus = "Verbindung getrennt.";
             _log.Information("Project Settings", ConnectionStatus);
+            return Task.CompletedTask;
         }
 
 
@@ -474,8 +499,101 @@ namespace VIBN_Tools.Application.VM
                 _log.Warning("Project Settings", $"{serverName} antwortet nicht auf Ping. Ein Verbindungsversuch bleibt möglich.");
         }
 
+        /// <summary>
+        /// Rebuilds the FEE selector from the dynamic ViCo PC directory. The
+        /// ping fan-out is bounded and debounced so a long list remains
+        /// responsive while the user types a filter.
+        /// </summary>
+        private async Task RefreshOnlineServersAsync()
+        {
+            _serverFilterCancellation?.Cancel();
+            var cancellation = new CancellationTokenSource();
+            _serverFilterCancellation = cancellation;
+            var version = Interlocked.Increment(ref _serverRefreshVersion);
+            try
+            {
+                await Task.Delay(250, cancellation.Token);
+                var filter = ServerFilter.Trim();
+                var candidates = _workstations.PcNames
+                    .Where(name => string.IsNullOrWhiteSpace(filter) ||
+                        name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                using var throttle = new SemaphoreSlim(8);
+                var checks = candidates.Select(async candidate =>
+                {
+                    await throttle.WaitAsync(cancellation.Token);
+                    try
+                    {
+                        return (candidate, IsOnline: await _availability.PingAsync(candidate, cancellation.Token));
+                    }
+                    finally
+                    {
+                        throttle.Release();
+                    }
+                });
+                var checksResult = await Task.WhenAll(checks);
+                if (cancellation.IsCancellationRequested || version != _serverRefreshVersion)
+                    return;
 
-        private void OnFeeObjectsLoaded(object sender, FeeObjectsUpdatedEventargs e)
+                var online = checksResult
+                    .Where(result => result.IsOnline)
+                    .Select(result => result.candidate)
+                    .OrderBy(name => string.Equals(name, "localhost", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .ThenBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                ReplaceServerNames(online);
+
+                if (string.IsNullOrWhiteSpace(filter) &&
+                    !string.IsNullOrWhiteSpace(SelectedServer) &&
+                    !checksResult.Any(result =>
+                        result.IsOnline &&
+                        string.Equals(result.candidate, SelectedServer, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _isServerChangeActive = true;
+                    SelectedServer = string.Empty;
+                    _isServerChangeActive = false;
+                    IsServerReachable = false;
+                    ConnectionStatus = "Der zuvor ausgewählte PC ist offline und wurde aus der Liste entfernt.";
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer filter input superseded this scan.
+            }
+            catch (Exception exception)
+            {
+                _log.Error("Project Settings", "Die Online-PC-Liste konnte nicht aktualisiert werden.", exception);
+            }
+            finally
+            {
+                if (ReferenceEquals(_serverFilterCancellation, cancellation))
+                    _serverFilterCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+
+        private void ReplaceServerNames(IEnumerable<string> names)
+        {
+            var desired = names.ToArray();
+            for (var index = ServerNames.Count - 1; index >= 0; index--)
+            {
+                if (!desired.Contains(ServerNames[index], StringComparer.OrdinalIgnoreCase))
+                    ServerNames.RemoveAt(index);
+            }
+
+            for (var index = 0; index < desired.Length; index++)
+            {
+                var currentIndex = ServerNames.IndexOf(desired[index]);
+                if (currentIndex < 0)
+                    ServerNames.Insert(Math.Min(index, ServerNames.Count), desired[index]);
+                else if (currentIndex != index)
+                    ServerNames.Move(currentIndex, index);
+            }
+        }
+
+
+        private void OnFeeObjectsLoaded(object? sender, FeeObjectsUpdatedEventargs e)
         {
             FeeObjectStatus = $"Total time reading Fee data: {e.ElapsedTime.TotalSeconds.ToString("F2")}s";
         }
@@ -492,10 +610,9 @@ namespace VIBN_Tools.Application.VM
 
         private void OnConnected()
         {
-            // The periodic service only raises this after the SDK reports
-            // NetworkState.Connected; still avoid displaying an empty endpoint.
-            if (!string.IsNullOrWhiteSpace(SelectedServer))
-                ConnectedServer = SelectedServer;
+            // ConnectedServer is assigned only after WaitForConnectedAsync has
+            // confirmed the SDK state in Connect_ToFee. This event must not
+            // resurrect a stale "verbunden" display after a failed attempt.
         }
 
         private async Task DisconnectAfterFailedConnectionAsync()

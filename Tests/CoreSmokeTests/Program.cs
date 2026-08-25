@@ -30,21 +30,20 @@ try
     VerifyProjectIdentityAndPaths(temporaryRoot);
     Console.WriteLine("Running Remote Desktop profile smoke test...");
     VerifyRemoteDesktopProfile();
-    Console.WriteLine("Running Level9 administration policy smoke test...");
-    VerifyLicenseAdministrationPolicy();
+    Console.WriteLine("Running Level9 role policy smoke test...");
+    VerifyRoleAdministrationPolicy();
     Console.WriteLine("Running Kanbanize card draft policy smoke test...");
     VerifyKanbanizeCardDraftPolicy();
     Console.WriteLine("Running idempotent VIBN workplace synchronization smoke test...");
     await VerifyVibnWorkplaceSynchronizationAsync();
     Console.WriteLine("Running narrow Kanbanize HTTP write-scope smoke test...");
     await VerifyKanbanizeHttpWriteScopeAsync();
-    if (OperatingSystem.IsWindows())
-    {
-        Console.WriteLine("Running legacy license and update smoke test...");
-        await VerifyAdministrationServicesAsync(temporaryRoot);
-        Console.WriteLine("Running administration identity smoke test...");
-        await VerifyAdministrationIdentityAsync();
-    }
+    Console.WriteLine("Running workstation KONFIGURATION write-scope smoke test...");
+    await VerifyWorkstationConfigurationWriteScopeAsync();
+    Console.WriteLine("Running role store and update smoke test...");
+    await VerifyRoleStoreAndUpdateAsync(temporaryRoot);
+    Console.WriteLine("Running administration identity smoke test...");
+    await VerifyAdministrationIdentityAsync();
     Console.WriteLine("Running TIA library workflow smoke test...");
     await VerifyTiaLibraryWorkflowAsync(temporaryRoot);
     Console.WriteLine("Running typed TIA pipe protocol smoke test...");
@@ -128,12 +127,41 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
     await File.WriteAllLinesAsync(
         Path.Combine(cache, "AllRobyColumns.txt"),
         new[] { "column-working", "In Arbeit" });
+    await File.WriteAllTextAsync(
+        Path.Combine(cache, "WorkstationBoardCache.json"),
+        JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            lanes = Array.Empty<object>(),
+            cards = new[]
+            {
+                new
+                {
+                    id = 901,
+                    laneId = "lane-1",
+                    columnId = "column-config",
+                    title = "KONFIGURATION",
+                    subtasks = new[]
+                    {
+                        new { id = 911, description = "USER: zkds-config-priority" },
+                        new { id = 912, description = "STANDORT: Werk 2" },
+                        new { id = 913, description = "SW: TIA V18; Beckhoff TwinCAT 3" },
+                        new { id = 914, description = "PROJEKT-IP: 10.20.30.40" },
+                        new { id = 915, description = "SONSTIGES: Wartungsfenster Freitag" }
+                    }
+                }
+            }
+        }));
 
     var snapshot = await new LegacyWorkstationCatalog(cache).LoadAsync();
     Assert(snapshot.Workstations.Count == 1, "Legacy workstation catalog should contain one workstation.");
     var workstation = snapshot.Workstations[0];
     Assert(workstation.PcName == "GM12345", "Workstation name parsing failed.");
-    Assert(workstation.UserName == "zkds-simulation-p01", "Kanbanize user parsing failed.");
+    Assert(workstation.UserName == "zkds-config-priority", "The KONFIGURATION USER must take precedence over older card text.");
+    Assert(workstation.WorkstationConfiguration.CardId == 901 &&
+           workstation.WorkstationConfiguration.ProjectIp.Value == "10.20.30.40" &&
+           workstation.WorkstationConfiguration.Other.Value.Contains("Freitag", StringComparison.Ordinal),
+        "KONFIGURATION fields and subtask identities were not retained for safe editing.");
     Assert(workstation.Status == "Belegt", "Active Kanbanize cards must mark the workstation as occupied.");
     Assert(workstation.Projects.Count == 1, "Project card parsing failed.");
     Assert(workstation.AutomationSoftware.Count == 3, "TIA, Beckhoff and Rockwell should be detected.");
@@ -254,24 +282,51 @@ static void VerifyRemoteDesktopProfile()
     Assert(lines.Contains("username:s:zkds-simulation-p01"),
         "The normalized Kanbanize user was not written to the RDP profile.");
     Assert(lines.Contains("prompt for credentials:i:0"),
-        "The RDP profile must retain the original one-click credential behavior.");
+        "The RDP profile must retain the automatic Windows credential behavior.");
     Assert(lines.Contains("selectedmonitors:s:0,2"),
         "Selected RDP monitors were not preserved.");
+    Assert(!lines.Any(line => line.Contains("password", StringComparison.OrdinalIgnoreCase) ||
+                             line.StartsWith("pass:", StringComparison.OrdinalIgnoreCase)),
+        "RDP profiles must never contain credential material.");
+
+    var promptedLines = RemoteDesktopProfileBuilder.Build(
+        "GM12345",
+        string.Empty,
+        new[] { 0 },
+        1,
+        promptForCredentials: true);
+    Assert(promptedLines.Contains("prompt for credentials:i:1"),
+        "The separate RDP button must open the Windows credential dialog.");
+    Assert(!promptedLines.Any(line => line.StartsWith("username:s:", StringComparison.OrdinalIgnoreCase)),
+        "The prompted RDP profile must not inject an automatic user name.");
 }
 
-static async Task VerifyAdministrationServicesAsync(string temporaryRoot)
+static async Task VerifyRoleStoreAndUpdateAsync(string temporaryRoot)
 {
-    var approved = Path.Combine(temporaryRoot, "licenses", "approved");
-    var requests = Path.Combine(temporaryRoot, "licenses", "requests");
-    var licenses = new LegacyLicenseService(
-        approved,
-        requests,
-        "12345678901234567890123456789012");
-    await licenses.SetLevelAsync(@"grob\user", "Level8");
-    var entries = await licenses.LoadApprovedAsync();
-    Assert(entries.Count == 1 && entries[0].Level == "Level8", "Legacy license roundtrip failed.");
+    var rolesFile = Path.Combine(temporaryRoot, "roles", "roles.json");
+    var roles = new JsonViCoUserRoleStore(rolesFile);
+    await roles.SaveAsync(new[]
+    {
+        new ViCoUserRole(@"grob\lutzma", "Level9", "test"),
+        new ViCoUserRole(@"grob\user", "Level8", "test"),
+        new ViCoUserRole("admin-b", "Level9", "test")
+    });
+    var entries = await roles.LoadAsync();
+    Assert(entries.Count == 3 && entries.Single(entry => entry.UserName == "user").Level == "Level8",
+        "The license-free role store roundtrip failed.");
     Assert(WindowsUserIdentity.Equals(@"grob\user", "user"),
-        "Domain-qualified and short Windows users should identify the same license.");
+        "Domain-qualified and short Windows users should identify the same role.");
+
+    var rejected = false;
+    try
+    {
+        await roles.SaveAsync(new[] { new ViCoUserRole("lutzma", "Level9", "test") });
+    }
+    catch (InvalidOperationException)
+    {
+        rejected = true;
+    }
+    Assert(rejected, "The role store must reject a role set with only one Level9 administrator.");
 
     var version = Path.Combine(temporaryRoot, "versions", "V1.2.3", "publish");
     Directory.CreateDirectory(version);
@@ -280,51 +335,62 @@ static async Task VerifyAdministrationServicesAsync(string temporaryRoot)
     Assert(update?.Version == "1.2.3", "ViCo update discovery failed.");
 }
 
-static void VerifyLicenseAdministrationPolicy()
+static void VerifyRoleAdministrationPolicy()
 {
     var oneLevel9 = new[]
     {
-        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
-        new ViCoLicenseEntry("admin-b", "Level8", "memory")
+        new ViCoUserRole(@"grob\lutzma", "Level9", "memory"),
+        new ViCoUserRole("admin-b", "Level8", "memory")
     };
-    var promotion = LicenseAdministrationPolicy.PlanChange(oneLevel9, "admin-b", "Level9");
-    Assert(promotion.IsValid && promotion.ResultingLevel9Users.Count == 2,
+    var promotion = ViCoRolePolicy.PlanSave(oneLevel9.Select(role =>
+        WindowsUserIdentity.Equals(role.UserName, "admin-b")
+            ? role with { Level = "Level9" }
+            : role));
+    Assert(promotion.IsValid && promotion.Level9Users.Count == 2,
         "Promoting a second distinct Level9 user must be accepted.");
 
     var twoLevel9 = new[]
     {
-        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
-        new ViCoLicenseEntry("admin-a", "Level9", "memory"),
-        new ViCoLicenseEntry("admin-c", "Level8", "memory")
+        new ViCoUserRole(@"grob\lutzma", "Level9", "memory"),
+        new ViCoUserRole("admin-a", "Level9", "memory"),
+        new ViCoUserRole("admin-c", "Level8", "memory")
     };
-    var unsafeDowngrade = LicenseAdministrationPolicy.PlanChange(twoLevel9, "admin-a", "Level8");
+    var unsafeDowngrade = ViCoRolePolicy.PlanSave(twoLevel9.Select(role =>
+        WindowsUserIdentity.Equals(role.UserName, "admin-a")
+            ? role with { Level = "Level8" }
+            : role));
     Assert(!unsafeDowngrade.IsValid,
         "Downgrading to a single Level9 user must be rejected.");
 
-    var safeReplacement = LicenseAdministrationPolicy.PlanChange(
-        twoLevel9,
-        "admin-a",
-        "Level8",
-        "admin-c");
-    Assert(safeReplacement.IsValid && safeReplacement.ResultingLevel9Users.Count == 2,
+    var safeReplacement = ViCoRolePolicy.PlanSave(twoLevel9.Select(role =>
+        WindowsUserIdentity.Equals(role.UserName, "admin-a")
+            ? role with { Level = "Level8" }
+            : WindowsUserIdentity.Equals(role.UserName, "admin-c")
+                ? role with { Level = "Level9" }
+                : role));
+    Assert(safeReplacement.IsValid && safeReplacement.Level9Users.Count == 2,
         "Replacing a Level9 user atomically must be accepted.");
-    Assert(safeReplacement.Changes[0] == new LicenseLevelChange("admin-c", "Level9"),
-        "The replacement promotion must be persisted before the downgrade.");
+    Assert(safeReplacement.Roles.Single(role => role.UserName == "admin-c").Level == "Level9",
+        "The replacement promotion must be included in the atomically saved role set.");
 
     var duplicateIdentity = new[]
     {
-        new ViCoLicenseEntry(@"grob\lutzma", "Level9", "memory"),
-        new ViCoLicenseEntry("LUTZMA", "Level9", "memory")
+        new ViCoUserRole(@"grob\lutzma", "Level9", "memory"),
+        new ViCoUserRole("LUTZMA", "Level9", "memory")
     };
-    var duplicatePlan = LicenseAdministrationPolicy.PlanChange(duplicateIdentity, "lutzma", "Level9");
+    var duplicatePlan = ViCoRolePolicy.PlanSave(duplicateIdentity);
     Assert(!duplicatePlan.IsValid,
         "Domain-qualified and short names of the same account must count only once.");
 
-    Assert(LicenseAdministrationPolicy.GetEffectiveLevel(@"grob\lutzma", null) == "Level9",
+    Assert(ViCoRolePolicy.GetEffectiveLevel(@"grob\lutzma", null) == "Level9",
         "lutzma must be an effective Level9 administrator even before the compatible store is refreshed.");
-    var mandatoryUserDowngrade = LicenseAdministrationPolicy.PlanChange(twoLevel9, "lutzma", "Level8");
-    Assert(!mandatoryUserDowngrade.IsValid,
-        "The mandatory lutzma Level9 assignment must not be downgradable through the UI.");
+    var mandatoryUserDowngrade = ViCoRolePolicy.PlanSave(twoLevel9.Select(role =>
+        WindowsUserIdentity.Equals(role.UserName, "lutzma")
+            ? role with { Level = "Level8" }
+            : role));
+    Assert(mandatoryUserDowngrade.IsValid &&
+           mandatoryUserDowngrade.Roles.Single(role => role.UserName == "lutzma").Level == "Level9",
+        "The mandatory lutzma Level9 assignment must remain Level9 in every saved role set.");
 }
 
 static void VerifyKanbanizeCardDraftPolicy()
@@ -341,6 +407,8 @@ static void VerifyKanbanizeCardDraftPolicy()
 static async Task VerifyVibnWorkplaceSynchronizationAsync()
 {
     var sourceDeadline = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+    var expectedStart = sourceDeadline.AddDays(-14);
+    var expectedEnd = sourceDeadline.AddDays(56);
     var service = new MemoryKanbanizeCardService(
         new[]
         {
@@ -353,8 +421,8 @@ static async Task VerifyVibnWorkplaceSynchronizationAsync()
         },
         new[]
         {
-            new KanbanizeCardInfo(201, 1541, 28125, 29373, "Bestehende Karte", "102", sourceDeadline.AddDays(-3)),
-            new KanbanizeCardInfo(205, 1541, 28125, 29373, "Bereits aktuell", "105", sourceDeadline),
+            new KanbanizeCardInfo(201, 1541, 28125, 29373, "Bestehende Karte", "102", sourceDeadline.AddDays(-3), expectedStart.AddDays(-1)),
+            new KanbanizeCardInfo(205, 1541, 28125, 29373, "Bereits aktuell", "105", expectedEnd, expectedStart),
             new KanbanizeCardInfo(206, 1541, 28125, 29373, "Doppelte Eins", "106", sourceDeadline),
             new KanbanizeCardInfo(207, 1541, 28125, 29373, "Doppelte Zwei", "106", sourceDeadline)
         });
@@ -363,34 +431,38 @@ static async Task VerifyVibnWorkplaceSynchronizationAsync()
 
     var preview = await synchronization.PreviewAsync(settings);
     Assert(preview.CreateCount == 1 && preview.DeadlineUpdateCount == 1 && preview.UnchangedCount == 1,
-        "The preview must distinguish missing, stale and already-current target cards.");
+        "The preview must distinguish missing, stale and already-current target schedules.");
     Assert(preview.ConflictCount == 1 && preview.ExcludedSourceCardCount == 2,
         "Duplicate target IDs must be reported and template/archive source cards excluded.");
 
     var withoutDeadlineSync = await synchronization.PreviewAsync(settings with { SynchronizeDeadlines = false });
     Assert(withoutDeadlineSync.DeadlineUpdateCount == 0,
-        "Deadline synchronization must be explicitly suppressible without affecting duplicate detection.");
+        "Schedule synchronization must be explicitly suppressible without affecting duplicate detection.");
 
     var result = await synchronization.SynchronizeAsync(settings);
     Assert(result.CreatedCount == 1 && result.DeadlineUpdateCount == 1 && result.Failures.Count == 0,
-        "Synchronization should create the missing target and adjust only its stale deadline.");
+        "Synchronization should create the missing target and adjust only its stale schedule.");
     Assert(service.GeneratedCards.Single().SourceCardId == 101 &&
-           service.GeneratedCards.Single().Title == "*[Gen]* GM1000",
-        "A generated card must preserve the legacy title marker and source identity.");
-    Assert(service.DeadlineChanges.SequenceEqual(new[] { new DeadlineChange(201, sourceDeadline) }),
-        "Only the existing target deadline may be changed; no other target field is updated.");
+           service.GeneratedCards.Single().Title == "*[Gen]* GM1000" &&
+           service.GeneratedCards.Single().StartDate == expectedStart &&
+           service.GeneratedCards.Single().Deadline == expectedEnd,
+        "A generated card must preserve its identity and receive the calculated start/end schedule.");
+    Assert(service.ScheduleChanges.SequenceEqual(new[] { new ScheduleChange(201, expectedStart, expectedEnd) }),
+        "Only the existing generated card schedule may be changed; no other target field is updated.");
 
     var repeat = await synchronization.SynchronizeAsync(settings);
     Assert(repeat.CreatedCount == 0 && repeat.DeadlineUpdateCount == 0,
-        "A second synchronization must not create duplicates or repeat unchanged deadline updates.");
+        "A second synchronization must not create duplicates or repeat unchanged schedule updates.");
 }
 
 static async Task VerifyKanbanizeHttpWriteScopeAsync()
 {
-    var deadline = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+    var sourceDeadline = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+    var start = sourceDeadline.AddDays(-14);
+    var end = sourceDeadline.AddDays(56);
     using var handler = new RecordingHttpMessageHandler();
     handler.EnqueueJson("""
-        {"data":{"data":[{"card_id":101,"board_id":1392,"lane_id":10,"column_id":20,"title":"[VIBN] Grundinbetriebnahme GM1000","custom_id":null,"deadline":"2026-09-15T12:00:00.0000000Z"}],"pagination":{"all_pages":1}}}
+        {"data":{"data":[{"card_id":101,"board_id":1392,"lane_id":10,"column_id":20,"title":"[VIBN] Grundinbetriebnahme GM1000","custom_id":null,"deadline":"2026-09-15T12:00:00.0000000Z","custom_fields":[{"field_id":508,"value":"2026-09-01T12:00:00.0000000Z"}]}],"pagination":{"all_pages":1}}}
         """);
     handler.EnqueueJson("""
         {"data":{"card_id":9001,"title":"*[Gen]* GM1000"}}
@@ -406,15 +478,17 @@ static async Task VerifyKanbanizeHttpWriteScopeAsync()
         29373,
         "*[Gen]* GM1000",
         3,
-        deadline));
-    await api.UpdateDeadlineAsync(9001, deadline);
+        end,
+        start));
+    await api.UpdateGeneratedScheduleAsync(9001, start, end);
 
-    Assert(cards.Count == 1 && string.IsNullOrEmpty(cards[0].CustomId),
-        "The card reader must preserve the source card fields used for duplicate detection.");
+    Assert(cards.Count == 1 && string.IsNullOrEmpty(cards[0].CustomId) && cards[0].StartDate == sourceDeadline.AddDays(-14),
+        "The card reader must preserve the source card identity and workplace start date.");
     Assert(handler.Requests.Count == 3, "The API adapter should make one read and two narrowly scoped writes.");
     Assert(handler.Requests[0].RelativeUrl.Contains("per_page=1000", StringComparison.Ordinal) &&
-           handler.Requests[0].RelativeUrl.Contains("custom_id", StringComparison.Ordinal),
-        "The synchronization reader must request all relevant card identity fields.");
+           handler.Requests[0].RelativeUrl.Contains("custom_id", StringComparison.Ordinal) &&
+           handler.Requests[0].RelativeUrl.Contains("custom_fields", StringComparison.Ordinal),
+        "The synchronization reader must request all relevant card identity and schedule fields.");
     Assert(handler.Requests.All(request => request.ApiKey == "test-only-key"),
         "Every Kanbanize request must carry the configured API key.");
 
@@ -430,31 +504,70 @@ static async Task VerifyKanbanizeHttpWriteScopeAsync()
     Assert(!create.TryGetProperty("actual_end_time", out _) &&
            !create.TryGetProperty("description", out _),
         "The synchronization must not add unrelated card fields when creating a workplace card.");
+    Assert(create.GetProperty("deadline").GetString() == end.UtcDateTime.ToString("O") &&
+           create.GetProperty("custom_fields_to_add_or_update")[0].GetProperty("field_id").GetInt32() == 508 &&
+           create.GetProperty("custom_fields_to_add_or_update")[0].GetProperty("value").GetString() == start.UtcDateTime.ToString("O"),
+        "The generated card must receive only the established workplace start field and calculated end deadline.");
 
     using var patchPayload = JsonDocument.Parse(handler.Requests[2].Body);
     var patchFields = patchPayload.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
-    Assert(patchFields.SequenceEqual(new[] { "deadline" }, StringComparer.Ordinal) &&
-           patchPayload.RootElement.GetProperty("deadline").GetString() == deadline.UtcDateTime.ToString("O"),
-        "The deadline sync must PATCH only the deadline field of an existing target card.");
+    Assert(patchFields.SequenceEqual(new[] { "deadline", "custom_fields_to_add_or_update" }, StringComparer.Ordinal) &&
+           patchPayload.RootElement.GetProperty("deadline").GetString() == end.UtcDateTime.ToString("O") &&
+           patchPayload.RootElement.GetProperty("custom_fields_to_add_or_update")[0].GetProperty("field_id").GetInt32() == 508 &&
+           patchPayload.RootElement.GetProperty("custom_fields_to_add_or_update")[0].GetProperty("value").GetString() == start.UtcDateTime.ToString("O"),
+        "The schedule sync must PATCH only the generated start field and deadline of an existing target card.");
+}
+
+static async Task VerifyWorkstationConfigurationWriteScopeAsync()
+{
+    using var handler = new RecordingHttpMessageHandler();
+    handler.EnqueueJson("{}");
+    using var httpClient = new HttpClient(handler);
+    var service = new KanbanizeWorkstationConfigurationService(httpClient, "test-only-key");
+
+    await service.SaveFieldsAsync(
+        710,
+        new[]
+        {
+            new ViCoConfigurationField("USER", "zkds-simulation-p01", 711),
+            // A missing subtask is deliberately ignored: the editor is not
+            // allowed to create new board data merely to fill a missing key.
+            new ViCoConfigurationField("SONSTIGES", "nicht schreiben", 0)
+        });
+
+    Assert(handler.Requests.Count == 1,
+        "Only an existing, changed KONFIGURATION subtask may be written.");
+    var request = handler.Requests.Single();
+    Assert(request.Method == HttpMethod.Patch &&
+           request.RelativeUrl == "/api/v2/cards/710/subtasks/711" &&
+           request.ApiKey == "test-only-key",
+        "The configuration editor must PATCH exactly its selected subtask with the configured API key.");
+    using var payload = JsonDocument.Parse(request.Body);
+    var fields = payload.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
+    Assert(fields.SequenceEqual(new[] { "description" }, StringComparer.Ordinal) &&
+           payload.RootElement.GetProperty("description").GetString() == "USER: zkds-simulation-p01",
+        "The configuration editor must update only the existing subtask description.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
 {
-    var licenses = new MemoryLicenseService(new ViCoLicenseEntry(@"grob\user", "Level9", "memory"));
+    var roles = new MemoryRoleStore(
+        new ViCoUserRole(@"grob\lutzma", "Level9", "memory"),
+        new ViCoUserRole(@"grob\user", "Level9", "memory"));
     var viewModel = new VIBN_Tools.Application.VM.ViCoAdministrationPageVM(
-        licenses,
+        roles,
         new EmptyMeetingService(),
         new EmptyUpdateService(),
         new NoOpPathLauncher(),
         "user");
     await viewModel.InitializeAsync();
 
-    Assert(viewModel.CurrentLevel == "Level9" && viewModel.CanManageLicenses,
-        "A domain-qualified Level9 license should enable administration for the short Windows user.");
-    Assert(licenses.SavedChanges.Any(change =>
-            WindowsUserIdentity.Equals(change.UserName, "lutzma") &&
-            string.Equals(change.Level, "Level9", StringComparison.OrdinalIgnoreCase)),
-        "Opening administration must persist the mandatory lutzma Level9 assignment when possible.");
+    Assert(viewModel.CurrentLevel == "Level9" && viewModel.CanManageUsers,
+        "A domain-qualified Level9 role should enable role administration for the short Windows user.");
+    Assert(viewModel.RoleEntries.Any(role =>
+            WindowsUserIdentity.Equals(role.UserName, "lutzma") &&
+            string.Equals(role.Level, "Level9", StringComparison.OrdinalIgnoreCase)),
+        "The mandatory lutzma Level9 role must be present in the administration view.");
 }
 
 static async Task VerifyTiaLibraryWorkflowAsync(string temporaryRoot)
@@ -503,18 +616,37 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
         using var reader = new StreamReader(server, leaveOpen: true);
         using var writer = new StreamWriter(server, leaveOpen: true) { AutoFlush = true };
 
-        for (var requestIndex = 0; requestIndex < 2; requestIndex++)
+        for (var requestIndex = 0; requestIndex < 3; requestIndex++)
         {
             var requestLine = await reader.ReadLineAsync();
             var request = JsonSerializer.Deserialize<TiaRequestEnvelope>(requestLine!);
-            var expectedCommand = requestIndex == 0 ? TiaCommands.Ping : TiaCommands.Close;
+            var expectedCommand = requestIndex switch
+            {
+                0 => TiaCommands.Ping,
+                1 => TiaCommands.ListHardware,
+                _ => TiaCommands.Close
+            };
             Assert(request?.Command == expectedCommand, $"Typed TIA pipe command '{expectedCommand}' was not received.");
 
             var response = new TiaResponseEnvelope
             {
                 RequestId = request!.RequestId,
                 Success = true,
-                PayloadJson = JsonSerializer.Serialize(requestIndex == 0 ? "pong" : null)
+                PayloadJson = requestIndex switch
+                {
+                    0 => JsonSerializer.Serialize("pong"),
+                    1 => JsonSerializer.Serialize(new[]
+                    {
+                        new TiaHardwareModuleInfo
+                        {
+                            Slot = 2,
+                            ModuleName = "DI/DO test module",
+                            InputStartByte = 8,
+                            OutputStartByte = 12
+                        }
+                    }),
+                    _ => JsonSerializer.Serialize((object?)null)
+                }
             };
 
             await writer.WriteLineAsync(JsonSerializer.Serialize(response));
@@ -530,6 +662,9 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
     {
         await client.ConnectAsync().WaitAsync(TimeSpan.FromSeconds(6));
         Assert(await client.PingAsync(), "Typed TIA pipe response failed.");
+        var hardware = await client.ListHardwareAsync();
+        Assert(hardware.Count == 1 && hardware[0].InputStartByte == 8 && hardware[0].OutputStartByte == 12,
+            "TIA hardware configuration must survive the typed pipe boundary.");
     }
     finally
     {
@@ -592,7 +727,7 @@ sealed class RecordingHttpMessageHandler : HttpMessageHandler
     }
 }
 
-sealed record DeadlineChange(int CardId, DateTimeOffset? Deadline);
+sealed record ScheduleChange(int CardId, DateTimeOffset StartDate, DateTimeOffset EndDate);
 
 sealed class MemoryKanbanizeCardService : IKanbanizeCardService
 {
@@ -612,7 +747,7 @@ sealed class MemoryKanbanizeCardService : IKanbanizeCardService
 
     public List<KanbanizeGeneratedCardDraft> GeneratedCards { get; } = new();
 
-    public List<DeadlineChange> DeadlineChanges { get; } = new();
+    public List<ScheduleChange> ScheduleChanges { get; } = new();
 
     public Task<IReadOnlyList<KanbanizeBoardInfo>> LoadBoardsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<KanbanizeBoardInfo>>(Array.Empty<KanbanizeBoardInfo>());
@@ -639,7 +774,8 @@ sealed class MemoryKanbanizeCardService : IKanbanizeCardService
             draft.TargetColumnId,
             draft.Title,
             draft.SourceCardId.ToString(),
-            draft.Deadline);
+            draft.Deadline,
+            draft.StartDate);
         _targetCards.Add(created);
         return Task.FromResult(new KanbanizeCreatedCard(created.Id, created.Title));
     }
@@ -650,35 +786,49 @@ sealed class MemoryKanbanizeCardService : IKanbanizeCardService
         if (index < 0)
             throw new InvalidOperationException("Target card not found.");
         _targetCards[index] = _targetCards[index] with { Deadline = deadline };
-        DeadlineChanges.Add(new DeadlineChange(cardId, deadline));
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateGeneratedScheduleAsync(
+        int cardId,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var index = _targetCards.FindIndex(card => card.Id == cardId);
+        if (index < 0)
+            throw new InvalidOperationException("Target card not found.");
+
+        _targetCards[index] = _targetCards[index] with
+        {
+            StartDate = startDate,
+            Deadline = endDate
+        };
+        ScheduleChanges.Add(new ScheduleChange(cardId, startDate, endDate));
         return Task.CompletedTask;
     }
 }
 
-sealed class MemoryLicenseService : IViCoLicenseService
+sealed class MemoryRoleStore : IViCoUserRoleStore
 {
-    private readonly ViCoLicenseEntry[] _entries;
+    private IReadOnlyList<ViCoUserRole> _roles;
 
-    public MemoryLicenseService(params ViCoLicenseEntry[] entries)
+    public MemoryRoleStore(params ViCoUserRole[] roles)
     {
-        _entries = entries;
+        _roles = roles;
     }
 
     public bool IsConfigured => true;
 
-    public List<LicenseLevelChange> SavedChanges { get; } = new();
+    public Task<IReadOnlyList<ViCoUserRole>> LoadAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_roles);
 
-    public Task<IReadOnlyList<ViCoLicenseEntry>> LoadApprovedAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(_entries);
-
-    public Task<IReadOnlyList<ViCoLicenseEntry>> LoadRequestsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<ViCoLicenseEntry>>(Array.Empty<ViCoLicenseEntry>());
-
-    public Task RequestCurrentUserAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-    public Task SetLevelAsync(string userName, string level, CancellationToken cancellationToken = default)
+    public Task SaveAsync(IReadOnlyCollection<ViCoUserRole> roles, CancellationToken cancellationToken = default)
     {
-        SavedChanges.Add(new LicenseLevelChange(userName, level));
+        var plan = ViCoRolePolicy.PlanSave(roles);
+        if (!plan.IsValid)
+            throw new InvalidOperationException(plan.Message);
+        _roles = plan.Roles;
         return Task.CompletedTask;
     }
 }

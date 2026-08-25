@@ -7,6 +7,11 @@ namespace VIBN_Tools.Infrastructure.ViCo;
 public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
 {
     private const string ApiBase = "https://grobgroup.kanbanize.com/api/v2";
+    private static readonly JsonSerializerOptions CacheJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly string _cacheRoot;
@@ -26,7 +31,9 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             throw new InvalidOperationException("Kanbanize API access is not configured.");
 
         var lanesTask = GetJsonAsync("/boards/1541/lanes", cancellationToken);
-        var cardsTask = GetJsonAsync("/cards?board_ids=1541&per_page=1000", cancellationToken);
+        var cardsTask = GetJsonAsync(
+            "/cards?board_ids=1541&per_page=1000&fields=card_id,lane_id,column_id,title,subtasks",
+            cancellationToken);
         var robotCardsTask = GetJsonAsync("/cards?board_ids=846&per_page=1000&fields=card_id,title,column_id", cancellationToken);
         var robotColumnsTask = GetJsonAsync("/boards/846/columns?fields=column_id,name", cancellationToken);
         await Task.WhenAll(lanesTask, cardsTask, robotCardsTask, robotColumnsTask);
@@ -36,12 +43,14 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         using var robotColumns = await robotColumnsTask;
 
         var laneLines = new List<string>();
+        var structuredLanes = new List<WorkstationLaneCacheEntry>();
         foreach (var lane in EnumerateObjects(lanes.RootElement))
         {
             if (!TryGetScalar(lane, "lane_id", out var id) || !TryGetScalar(lane, "name", out var name))
                 continue;
             laneLines.Add(id);
             laneLines.Add(name);
+            structuredLanes.Add(new WorkstationLaneCacheEntry { Id = id, Name = name });
         }
 
         var cardLines = new List<string>();
@@ -62,6 +71,17 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         await WriteAtomicallyAsync(
             Path.Combine(_cacheRoot, "AllCardsOfPCsV2.txt"),
             cardLines,
+            cancellationToken);
+        await WriteJsonAtomicallyAsync(
+            Path.Combine(_cacheRoot, "WorkstationBoardCache.json"),
+            new WorkstationBoardCache
+            {
+                Lanes = structuredLanes
+                    .GroupBy(lane => lane.Id, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First())
+                    .ToList(),
+                Cards = GetCardEntries(cards.RootElement)
+            },
             cancellationToken);
 
         var robotCardLines = new List<string>();
@@ -133,6 +153,58 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         }
     }
 
+    /// <summary>
+    /// Reads only actual board cards (rather than recursively walking every
+    /// JSON object) so configuration subtasks retain their parent card ID and
+    /// can later be edited without touching any other card field.
+    /// </summary>
+    private static List<WorkstationCardCacheEntry> GetCardEntries(JsonElement root)
+    {
+        var data = root;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var nested))
+            data = nested;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out nested))
+            data = nested;
+        if (data.ValueKind != JsonValueKind.Array)
+            return new List<WorkstationCardCacheEntry>();
+
+        return data.EnumerateArray()
+            .Select(card => new WorkstationCardCacheEntry
+            {
+                Id = TryGetInt(card, "card_id", "id"),
+                LaneId = TryGetScalar(card, "lane_id", out var laneId) ? laneId : string.Empty,
+                ColumnId = TryGetScalar(card, "column_id", out var columnId) ? columnId : string.Empty,
+                Title = TryGetScalar(card, "title", out var title) ? title : string.Empty,
+                Subtasks = GetSubtasks(card)
+            })
+            .Where(card => card.Id > 0 && card.LaneId.Length > 0)
+            .GroupBy(card => card.Id)
+            .Select(group => group.First())
+            .ToList();
+    }
+
+    private static List<WorkstationSubtaskCacheEntry> GetSubtasks(JsonElement card)
+    {
+        if (card.ValueKind != JsonValueKind.Object ||
+            !card.TryGetProperty("subtasks", out var subtasks) ||
+            subtasks.ValueKind != JsonValueKind.Array)
+        {
+            return new List<WorkstationSubtaskCacheEntry>();
+        }
+
+        return subtasks.EnumerateArray()
+            .Where(subtask => subtask.ValueKind == JsonValueKind.Object)
+            .Select(subtask => new WorkstationSubtaskCacheEntry
+            {
+                Id = TryGetInt(subtask, "subtask_id", "id"),
+                Description = TryGetScalar(subtask, "description", out var description)
+                    ? description
+                    : string.Empty
+            })
+            .Where(subtask => subtask.Id > 0 && subtask.Description.Length > 0)
+            .ToList();
+    }
+
     private static bool TryGetScalar(JsonElement value, string name, out string result)
     {
         result = string.Empty;
@@ -142,6 +214,17 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             return false;
         result = property.ToString();
         return true;
+    }
+
+    private static int TryGetInt(JsonElement value, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!TryGetScalar(value, name, out var raw) || !int.TryParse(raw, out var number))
+                continue;
+            return number;
+        }
+        return 0;
     }
 
     private static string MapStatus(string columnId) => columnId switch
@@ -172,6 +255,26 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
     {
         var temporary = destination + ".tmp";
         await File.WriteAllLinesAsync(temporary, lines, cancellationToken);
+        File.Move(temporary, destination, overwrite: true);
+    }
+
+    private static async Task WriteJsonAtomicallyAsync(
+        string destination,
+        WorkstationBoardCache value,
+        CancellationToken cancellationToken)
+    {
+        var temporary = destination + ".tmp";
+        await using (var stream = new FileStream(
+            temporary,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 16 * 1024,
+            useAsync: true))
+        {
+            await JsonSerializer.SerializeAsync(stream, value, CacheJsonOptions, cancellationToken);
+            await stream.FlushAsync(cancellationToken);
+        }
         File.Move(temporary, destination, overwrite: true);
     }
 }

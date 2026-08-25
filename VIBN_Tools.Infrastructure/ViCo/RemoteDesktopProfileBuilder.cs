@@ -6,11 +6,12 @@ public static class RemoteDesktopProfileBuilder
         string hostName,
         string userName,
         IReadOnlyCollection<int> monitorIndexes,
-        int monitorCount)
+        int monitorCount,
+        bool promptForCredentials = false)
     {
         if (string.IsNullOrWhiteSpace(hostName))
             throw new ArgumentException("A workstation is required.", nameof(hostName));
-        if (string.IsNullOrWhiteSpace(userName))
+        if (!promptForCredentials && string.IsNullOrWhiteSpace(userName))
             throw new InvalidOperationException("Die Kanbanize-Karte enthält keinen gültigen Remote-Benutzer.");
 
         var availableMonitorCount = Math.Max(1, monitorCount);
@@ -34,8 +35,7 @@ public static class RemoteDesktopProfileBuilder
             "redirectclipboard:i:1",
             "autoreconnection enabled:i:1",
             $"full address:s:{hostName}",
-            $"username:s:{userName}",
-            "prompt for credentials:i:0",
+            $"prompt for credentials:i:{(promptForCredentials ? 1 : 0)}",
             "administrative session:i:0",
             "enablecredsspsupport:i:1",
             "redirectprinters:i:0",
@@ -43,6 +43,9 @@ public static class RemoteDesktopProfileBuilder
             "redirectsmartcards:i:0",
             "drivestoredirect:s:"
         };
+
+        if (!string.IsNullOrWhiteSpace(userName))
+            lines.Insert(lines.IndexOf($"prompt for credentials:i:{(promptForCredentials ? 1 : 0)}"), $"username:s:{userName}");
 
         if (monitors.Length == availableMonitorCount)
             lines.Add("use multimon:i:1");

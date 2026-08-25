@@ -71,3 +71,30 @@ public sealed class TiaAxisInfo
 
     public string TechnologyType { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Read-only hardware/module information discovered through TIA Openness.
+/// Addresses are byte offsets as reported by the configured input/output
+/// address objects; a negative value means that the module has no address of
+/// that IO type.
+/// </summary>
+public sealed class TiaHardwareModuleInfo
+{
+    public int DeviceIndex { get; set; }
+
+    public int Slot { get; set; } = -1;
+
+    public string DeviceName { get; set; } = string.Empty;
+
+    public string ModuleName { get; set; } = string.Empty;
+
+    public string TypeIdentifier { get; set; } = string.Empty;
+
+    public int InputStartByte { get; set; } = -1;
+
+    public int InputLength { get; set; }
+
+    public int OutputStartByte { get; set; } = -1;
+
+    public int OutputLength { get; set; }
+}

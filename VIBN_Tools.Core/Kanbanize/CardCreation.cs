@@ -35,8 +35,8 @@ public sealed record KanbanizeCreatedCard(int Id, string Title);
 
 /// <summary>
 /// Read-only representation of a Kanbanize card used by the VIBN workplace
-/// synchronizer. It intentionally contains only fields needed to decide
-/// whether a card has to be created or its deadline adjusted.
+/// synchronizer. Besides the deadline, the known workplace start-date field
+/// is included so schedule updates remain idempotent.
 /// </summary>
 public sealed record KanbanizeCardInfo(
     int Id,
@@ -45,12 +45,14 @@ public sealed record KanbanizeCardInfo(
     int ColumnId,
     string Title,
     string? CustomId,
-    DateTimeOffset? Deadline);
+    DateTimeOffset? Deadline,
+    DateTimeOffset? StartDate = null);
 
 /// <summary>
 /// Minimal, deterministic payload for a card generated from a virtual
 /// commissioning card. The source ID becomes the target card's custom ID and
-/// parent link, which makes repeated synchronizations idempotent.
+/// parent link, which makes repeated synchronizations idempotent. StartDate
+/// maps to the established start field of the workplace board.
 /// </summary>
 public sealed record KanbanizeGeneratedCardDraft(
     int SourceCardId,
@@ -58,7 +60,8 @@ public sealed record KanbanizeGeneratedCardDraft(
     int TargetColumnId,
     string Title,
     int Priority,
-    DateTimeOffset? Deadline);
+    DateTimeOffset? Deadline,
+    DateTimeOffset? StartDate = null);
 
 /// <summary>
 /// Boundary for the card-creation feature. Implementations may use HTTP, while
@@ -82,11 +85,19 @@ public interface IKanbanizeCardService
         KanbanizeGeneratedCardDraft draft,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Changes only a card's deadline. No title, workflow, lane, column or
-    /// other card field may be supplied by this operation.
-    /// </summary>
+    /// <summary>Changes only a card's deadline.</summary>
     Task UpdateDeadlineAsync(int cardId, DateTimeOffset? deadline, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Changes only the generated card's deadline and established workplace
+    /// start-date custom field. It must never move, rename, delete or alter
+    /// arbitrary card data.
+    /// </summary>
+    Task UpdateGeneratedScheduleAsync(
+        int cardId,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

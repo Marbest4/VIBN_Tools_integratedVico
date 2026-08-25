@@ -96,6 +96,29 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         _selectedPlcIndex = plcIndex;
     }
 
+    /// <summary>
+    /// Enumerates the selected PLC device tree and reads the input/output
+    /// address compositions exposed by TIA Openness. Address offsets are kept
+    /// in bytes; no TIA project data is modified by this operation.
+    /// </summary>
+    public IReadOnlyList<TiaHardwareModuleInfo> ListHardware()
+    {
+        var project = RequireProject();
+        if (!_selectedPlcIndex.HasValue)
+            throw new InvalidOperationException("Select a PLC before reading hardware.");
+
+        var deviceIndex = _selectedPlcIndex.Value;
+        dynamic device = project.Devices[deviceIndex];
+        var deviceName = ReadStringMember(device, "Name");
+        var modules = new List<TiaHardwareModuleInfo>();
+        var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        TraverseHardwareItems(device, deviceIndex, deviceName, modules, identities);
+        return modules
+            .OrderBy(module => module.Slot < 0 ? int.MaxValue : module.Slot)
+            .ThenBy(module => module.ModuleName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public TiaProjectTree ListProgramBlocks()
     {
         dynamic software = RequireSelectedSoftware();
@@ -218,6 +241,129 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         }
 
         return null;
+    }
+
+    private static void TraverseHardwareItems(
+        object parent,
+        int deviceIndex,
+        string deviceName,
+        ICollection<TiaHardwareModuleInfo> modules,
+        ISet<string> identities)
+    {
+        foreach (var item in GetChildDeviceItems(parent))
+        {
+            var moduleName = ReadStringMember(item, "Name");
+            var typeIdentifier = ReadStringMember(item, "TypeIdentifier");
+            var slot = ReadIntMember(item, "PositionNumber", "Slot");
+            var inputStart = -1;
+            var inputLength = 0;
+            var outputStart = -1;
+            var outputLength = 0;
+
+            foreach (var address in GetAddresses(item))
+            {
+                var ioType = ReadStringMember(address, "IoType");
+                var start = ReadIntMember(address, "StartAddress", "StartAdress");
+                var length = Math.Max(0, ReadIntMember(address, "Length"));
+                if (ioType.IndexOf("Input", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    inputStart = start;
+                    inputLength = length;
+                }
+                else if (ioType.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    outputStart = start;
+                    outputLength = length;
+                }
+            }
+
+            var identity = $"{deviceIndex}|{slot}|{moduleName}|{typeIdentifier}";
+            if (identities.Add(identity))
+            {
+                modules.Add(new TiaHardwareModuleInfo
+                {
+                    DeviceIndex = deviceIndex,
+                    Slot = slot,
+                    DeviceName = deviceName,
+                    ModuleName = moduleName,
+                    TypeIdentifier = typeIdentifier,
+                    InputStartByte = inputStart,
+                    InputLength = inputLength,
+                    OutputStartByte = outputStart,
+                    OutputLength = outputLength
+                });
+            }
+
+            TraverseHardwareItems(item, deviceIndex, deviceName, modules, identities);
+        }
+    }
+
+    private static IReadOnlyList<object> GetChildDeviceItems(object target)
+    {
+        try
+        {
+            var items = target.GetType().GetProperty("DeviceItems")?.GetValue(target, null);
+            return items is System.Collections.IEnumerable enumerable
+                ? enumerable.Cast<object>().Where(item => item is not null).ToArray()
+                : Array.Empty<object>();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<object>();
+        }
+    }
+
+    private static IReadOnlyList<object> GetAddresses(object target)
+    {
+        try
+        {
+            var addresses = target.GetType().GetProperty("Addresses")?.GetValue(target, null);
+            return addresses is System.Collections.IEnumerable enumerable
+                ? enumerable.Cast<object>().Where(address => address is not null).ToArray()
+                : Array.Empty<object>();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<object>();
+        }
+    }
+
+    private static string ReadStringMember(object target, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            try
+            {
+                var value = target.GetType().GetProperty(name)?.GetValue(target, null)
+                    ?? target.GetType().GetMethod("GetAttribute", new[] { typeof(string) })?.Invoke(target, new object[] { name });
+                if (value is not null)
+                    return Convert.ToString(value) ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                // Dynamic Openness attributes are not supported by every device item.
+            }
+        }
+        return string.Empty;
+    }
+
+    private static int ReadIntMember(object target, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            try
+            {
+                var value = target.GetType().GetProperty(name)?.GetValue(target, null)
+                    ?? target.GetType().GetMethod("GetAttribute", new[] { typeof(string) })?.Invoke(target, new object[] { name });
+                if (value is not null && int.TryParse(Convert.ToString(value), out var number))
+                    return number;
+            }
+            catch (Exception)
+            {
+                // Some module types do not expose an address or slot.
+            }
+        }
+        return -1;
     }
 
     private static void TraverseGroup(dynamic group, string parentPath, string itemCollection, TiaProjectTree tree)

@@ -12,6 +12,7 @@
     <Compile Include="..\..\Application\VM\ViCoAdministrationPageVM.cs" Link="Desktop\ViCoAdministrationPageVM.cs" />
     <Compile Include="..\..\Application\VM\ViCoCopyPageVM.cs" Link="Desktop\ViCoCopyPageVM.cs" />
     <Compile Include="..\..\Application\VM\ViCoPageVM.cs" Link="Desktop\ViCoPageVM.cs" />
+    <Compile Include="..\..\Application\VM\ViCoWorkstationRowVM.cs" Link="Desktop\ViCoWorkstationRowVM.cs" />
     <Compile Include="..\..\Application\VM\ViCoSearchPageVM.cs" Link="Desktop\ViCoSearchPageVM.cs" />
     <ProjectReference Include="..\..\VIBN_Tools.Core\VIBN_Tools.Core.csproj" />
     <ProjectReference Include="..\..\VIBN_Tools.Infrastructure\VIBN_Tools.Infrastructure.csproj" />

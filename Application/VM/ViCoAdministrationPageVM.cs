@@ -6,12 +6,13 @@ using VIBN_Tools.GlobalClasses;
 namespace VIBN_Tools.Application.VM;
 
 /// <summary>
-/// Coordinates visible ViCo administration data and delegates every persisted
-/// license change to the central policy before touching the legacy store.
+/// Coordinates the ViCo administration dashboard and the central, license-free
+/// user-role list. Viewing the page requires Level8; changing role data is
+/// reserved for Level9 administrators.
 /// </summary>
 public sealed class ViCoAdministrationPageVM : MvvmBase
 {
-    private readonly IViCoLicenseService _licenses;
+    private readonly IViCoUserRoleStore _roles;
     private readonly IUpcomingMeetingService _meetings;
     private readonly IViCoUpdateService _updates;
     private readonly IExternalPathLauncher _launcher;
@@ -20,68 +21,72 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
     private bool _initialized;
 
     public ViCoAdministrationPageVM(
-        IViCoLicenseService licenses,
+        IViCoUserRoleStore roles,
         IUpcomingMeetingService meetings,
         IViCoUpdateService updates,
         IExternalPathLauncher launcher,
         string currentUser,
         IApplicationLog? log = null)
     {
-        _licenses = licenses;
-        _meetings = meetings;
-        _updates = updates;
-        _launcher = launcher;
-        _currentUser = currentUser.ToLowerInvariant();
+        _roles = roles ?? throw new ArgumentNullException(nameof(roles));
+        _meetings = meetings ?? throw new ArgumentNullException(nameof(meetings));
+        _updates = updates ?? throw new ArgumentNullException(nameof(updates));
+        _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
+        _currentUser = WindowsUserIdentity.Normalize(currentUser);
         _log = log ?? NullApplicationLog.Instance;
 
-        foreach (var level in Enumerable.Range(0, 10).Select(value => $"Level{value}").Append("denied"))
-            LicenseLevels.Add(level);
+        foreach (var level in Enumerable.Range(0, 10).Select(value => $"Level{value}"))
+            RoleLevels.Add(level);
 
+        SelectedLevel = "Level0";
         RefreshCommand = GetCommandBindingAsync(RefreshAsync);
-        RequestLicenseCommand = GetCommandBindingAsync(RequestLicenseAsync);
-        SaveLicenseCommand = GetCommandBindingAsync(SaveLicenseAsync);
+        AddUserCommand = GetCommandBindingAsync(AddUserAsync);
+        SaveRoleCommand = GetCommandBindingAsync(SaveSelectedRoleAsync);
+        RemoveUserCommand = GetCommandBindingAsync(RemoveSelectedUserAsync);
         OpenUpdateCommand = GetCommandBinding(OpenUpdate);
     }
 
     public ObservableCollection<UpcomingMeeting> Meetings { get; } = new();
 
-    public ObservableCollection<ViCoLicenseEntry> LicenseEntries { get; } = new();
+    public ObservableCollection<ViCoUserRole> RoleEntries { get; } = new();
 
-    public ObservableCollection<string> LicenseLevels { get; } = new();
+    public ObservableCollection<string> RoleLevels { get; } = new();
 
     public ICommand RefreshCommand { get; }
 
-    public ICommand RequestLicenseCommand { get; }
+    public ICommand AddUserCommand { get; }
 
-    public ICommand SaveLicenseCommand { get; }
+    public ICommand SaveRoleCommand { get; }
+
+    public ICommand RemoveUserCommand { get; }
 
     public ICommand OpenUpdateCommand { get; }
 
-    public bool IsLicenseConfigured => _licenses.IsConfigured;
+    public bool IsRoleStoreConfigured => _roles.IsConfigured;
 
     public string CurrentUser => _currentUser;
 
-    private ViCoLicenseEntry? _selectedLicense;
-    public ViCoLicenseEntry? SelectedLicense
+    private ViCoUserRole? _selectedRole;
+    public ViCoUserRole? SelectedRole
     {
-        get => _selectedLicense;
+        get => _selectedRole;
         set
         {
-            _selectedLicense = value;
+            _selectedRole = value;
             OnPropertyChanged();
-            AdditionalLevel9License = null;
+            OnPropertyChanged(nameof(CanEditSelectedRole));
             if (value is not null)
                 SelectedLevel = value.Level;
         }
     }
 
-    private ViCoLicenseEntry? _additionalLevel9License;
-    public ViCoLicenseEntry? AdditionalLevel9License
+    private string _newUserName = string.Empty;
+    public string NewUserName
     {
-        get => _additionalLevel9License;
+        get => _newUserName;
         set
         {
-            _additionalLevel9License = value;
+            _newUserName = value;
             OnPropertyChanged();
         }
     }
@@ -116,34 +121,45 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         {
             _currentLevel = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(CanManageLicenses));
+            OnPropertyChanged(nameof(CanManageUsers));
+            OnPropertyChanged(nameof(CanEditSelectedRole));
         }
     }
 
-    public bool CanManageLicenses => LicenseAdministrationPolicy.ParseLevel(CurrentLevel) >= 8;
+    /// <summary>Only Level9 may add, remove or change user roles.</summary>
+    public bool CanManageUsers => ViCoRolePolicy.ParseLevel(CurrentLevel) >= 9;
 
-    public int Level9UserCount => LicenseEntries
-        .Where(entry => string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase))
-        .Select(entry => WindowsUserIdentity.Normalize(entry.UserName))
+    /// <summary>
+    /// The mandatory break-glass account is visible but its Level9 assignment
+    /// is a system policy, not an editable user setting.
+    /// </summary>
+    public bool CanEditSelectedRole =>
+        CanManageUsers &&
+        SelectedRole is not null &&
+        !ViCoRolePolicy.IsMandatoryLevel9User(SelectedRole.UserName);
+
+    public int Level9UserCount => RoleEntries
+        .Where(role => string.Equals(role.Level, "Level9", StringComparison.OrdinalIgnoreCase))
+        .Select(role => WindowsUserIdentity.Normalize(role.UserName))
         .Where(user => user.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Count();
 
     public string Level9CoverageText =>
-        $"Level9-Benutzer: {Level9UserCount} / mindestens {LicenseAdministrationPolicy.MinimumLevel9Users}";
+        $"Level9-Benutzer: {Level9UserCount} / mindestens {ViCoRolePolicy.MinimumLevel9Users}";
 
-    private string _licenseStatus = "Lizenzdaten wurden noch nicht geprüft.";
-    public string LicenseStatus
+    private string _roleStatus = "Rollen wurden noch nicht geprüft.";
+    public string RoleStatus
     {
-        get => _licenseStatus;
+        get => _roleStatus;
         private set
         {
-            _licenseStatus = value;
+            _roleStatus = value;
             OnPropertyChanged();
         }
     }
 
-    private string _statusText = "ViCo-Dashboard ist bereit.";
+    private string _statusText = "ViCo-Verwaltung ist bereit.";
     public string StatusText
     {
         get => _statusText;
@@ -164,85 +180,132 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
 
     private async Task RefreshAsync()
     {
-        StatusText = "Kalender, Lizenz- und Versionsinformationen werden geladen …";
-        var meetingTask = TryLoadMeetingsAsync();
-        var updateTask = _updates.FindLatestAsync();
-        var licenseTask = TryLoadLicensesAsync();
-        await Task.WhenAll(meetingTask, updateTask, licenseTask);
+        StatusText = "Kalender-, Rollen- und Versionsinformationen werden geladen …";
+        var meetingsTask = TryLoadMeetingsAsync();
+        var updateTask = TryLoadUpdateAsync();
+        var rolesTask = TryLoadRolesAsync();
+        await Task.WhenAll(meetingsTask, updateTask, rolesTask);
 
-        Replace(Meetings, await meetingTask);
+        Replace(Meetings, await meetingsTask);
         LatestUpdate = await updateTask;
-        Replace(LicenseEntries, await licenseTask);
+        Replace(RoleEntries, await rolesTask);
         OnPropertyChanged(nameof(Level9UserCount));
         OnPropertyChanged(nameof(Level9CoverageText));
-        var persistedLevel = LicenseEntries.FirstOrDefault(entry =>
-            WindowsUserIdentity.Equals(entry.UserName, _currentUser))?.Level;
-        CurrentLevel = LicenseAdministrationPolicy.GetEffectiveLevel(_currentUser, persistedLevel);
-        LicenseStatus = CurrentLevel == "Nicht erkannt"
-            ? $"Für {WindowsUserIdentity.Normalize(_currentUser)} wurde keine Freigabe gefunden."
-            : LicenseAdministrationPolicy.IsMandatoryLevel9User(_currentUser)
-                ? $"{WindowsUserIdentity.Normalize(_currentUser)} ist gemäß Systemrichtlinie Level9."
-                : $"{WindowsUserIdentity.Normalize(_currentUser)} wurde mit {CurrentLevel} erkannt.";
-        StatusText = "ViCo-Dashboard aktualisiert.";
-        _log.Information("Verwaltung", LicenseStatus);
+
+        var persistedLevel = RoleEntries.FirstOrDefault(role =>
+            WindowsUserIdentity.Equals(role.UserName, _currentUser))?.Level;
+        CurrentLevel = ViCoRolePolicy.GetEffectiveLevel(_currentUser, persistedLevel);
+        RoleStatus = CurrentLevel == "Nicht erkannt"
+            ? $"Für {_currentUser} wurde keine Rollenfreigabe gefunden."
+            : ViCoRolePolicy.IsMandatoryLevel9User(_currentUser)
+                ? $"{_currentUser} ist gemäß Systemrichtlinie Level9."
+                : $"{_currentUser} wurde mit {CurrentLevel} erkannt.";
+        StatusText = "ViCo-Verwaltung aktualisiert.";
+        _log.Information("Verwaltung", RoleStatus);
     }
 
-    private async Task RequestLicenseAsync()
+    private async Task AddUserAsync()
     {
-        if (!_licenses.IsConfigured)
+        if (!CanManageUsers)
         {
-            StatusText = "Lizenzkompatibilität ist nicht konfiguriert.";
-            _log.Warning("Verwaltung", StatusText);
+            DenyRoleChange();
             return;
         }
-        try
+
+        var userName = WindowsUserIdentity.Normalize(NewUserName);
+        if (userName.Length == 0 || string.IsNullOrWhiteSpace(SelectedLevel))
         {
-            await _licenses.RequestCurrentUserAsync();
-            StatusText = "Lizenzanfrage wurde abgelegt.";
-            _log.Information("Verwaltung", StatusText);
+            StatusText = "Benutzername und Stufe müssen angegeben werden.";
+            return;
         }
-        catch (Exception exception)
+        if (RoleEntries.Any(role => WindowsUserIdentity.Equals(role.UserName, userName)))
         {
-            StatusText = "Lizenzanfrage konnte nicht gespeichert werden.";
-            _log.Error("Verwaltung", StatusText, exception);
+            StatusText = $"{userName} ist bereits in der Rollenliste vorhanden.";
+            return;
         }
+
+        await SaveRolesAsync(
+            RoleEntries.Append(new ViCoUserRole(userName, SelectedLevel, "roles.json")),
+            $"{userName} wurde zur Rollenliste hinzugefügt.");
+        NewUserName = string.Empty;
     }
 
-    private async Task SaveLicenseAsync()
+    private async Task SaveSelectedRoleAsync()
     {
-        if (!CanManageLicenses || SelectedLicense is null || string.IsNullOrWhiteSpace(SelectedLevel))
-            return;
-
-        var plan = LicenseAdministrationPolicy.PlanChange(
-            LicenseEntries,
-            SelectedLicense.UserName,
-            SelectedLevel,
-            AdditionalLevel9License?.UserName);
-        if (!plan.IsValid)
+        if (!CanManageUsers)
         {
-            StatusText = plan.Message;
-            _log.Warning("Verwaltung", StatusText);
+            DenyRoleChange();
+            return;
+        }
+        if (SelectedRole is null || string.IsNullOrWhiteSpace(SelectedLevel))
+        {
+            StatusText = "Zuerst einen Benutzer und eine Stufe auswählen.";
+            return;
+        }
+        if (ViCoRolePolicy.IsMandatoryLevel9User(SelectedRole.UserName))
+        {
+            StatusText = $"{ViCoRolePolicy.MandatoryLevel9User} bleibt gemäß Systemrichtlinie Level9.";
             return;
         }
 
+        var updated = RoleEntries.Select(role => WindowsUserIdentity.Equals(role.UserName, SelectedRole.UserName)
+            ? role with { Level = SelectedLevel }
+            : role);
+        await SaveRolesAsync(updated, $"Die Stufe für {SelectedRole.UserName} wurde gespeichert.");
+    }
+
+    private async Task RemoveSelectedUserAsync()
+    {
+        if (!CanManageUsers)
+        {
+            DenyRoleChange();
+            return;
+        }
+        if (SelectedRole is null)
+        {
+            StatusText = "Zuerst einen Benutzer auswählen.";
+            return;
+        }
+        if (ViCoRolePolicy.IsMandatoryLevel9User(SelectedRole.UserName))
+        {
+            StatusText = $"{ViCoRolePolicy.MandatoryLevel9User} ist ein verpflichtender Level9-Benutzer und kann nicht entfernt werden.";
+            return;
+        }
+
+        await SaveRolesAsync(
+            RoleEntries.Where(role => !WindowsUserIdentity.Equals(role.UserName, SelectedRole.UserName)),
+            $"{SelectedRole.UserName} wurde aus der Rollenliste entfernt.");
+    }
+
+    private async Task SaveRolesAsync(IEnumerable<ViCoUserRole> roles, string successMessage)
+    {
         try
         {
-            // Promotions are persisted before a possible downgrade. Even a
-            // partial write therefore cannot intentionally leave only one Level9 user.
-            foreach (var change in plan.Changes)
-                await _licenses.SetLevelAsync(change.UserName, change.Level);
+            var proposedRoles = roles.ToArray();
+            var plan = ViCoRolePolicy.PlanSave(proposedRoles);
+            if (!plan.IsValid)
+            {
+                StatusText = plan.Message;
+                _log.Warning("Verwaltung", StatusText);
+                return;
+            }
 
-            _log.Information(
-                "Verwaltung",
-                $"{string.Join(", ", plan.Changes.Select(change => $"{change.UserName}={change.Level}"))}. {plan.Message}");
+            await _roles.SaveAsync(plan.Roles);
             await RefreshAsync();
-            StatusText = plan.Message;
+            StatusText = successMessage;
+            _log.Information("Verwaltung", successMessage);
         }
         catch (Exception exception)
         {
-            StatusText = "Das Lizenzlevel konnte nicht gespeichert werden.";
+            StatusText = "Die Rollenänderung konnte nicht gespeichert werden.";
             _log.Error("Verwaltung", StatusText, exception);
         }
+    }
+
+    private void DenyRoleChange()
+    {
+        StatusText = "Benutzerverwaltung ist ausschließlich mit Level9 möglich.";
+        _log.Warning("Verwaltung", StatusText);
     }
 
     private void OpenUpdate()
@@ -264,59 +327,36 @@ public sealed class ViCoAdministrationPageVM : MvvmBase
         }
     }
 
-    private async Task<IReadOnlyList<ViCoLicenseEntry>> TryLoadLicensesAsync()
+    private async Task<ViCoUpdateInfo?> TryLoadUpdateAsync()
     {
-        if (!_licenses.IsConfigured)
-        {
-            LicenseStatus = "Der ViCo-Kompatibilitätsschlüssel ist nicht konfiguriert.";
-            return Array.Empty<ViCoLicenseEntry>();
-        }
         try
         {
-            var approvedTask = _licenses.LoadApprovedAsync();
-            var requestsTask = _licenses.LoadRequestsAsync();
-            await Task.WhenAll(approvedTask, requestsTask);
-            var approved = await approvedTask;
-            await EnsureMandatoryLevel9UsersAsync(approved);
-            var merged = approved
-                .Concat(await requestsTask)
-                .GroupBy(entry => WindowsUserIdentity.Normalize(entry.UserName), StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.OrderBy(entry => entry.Level == "Requested" ? 1 : 0).First())
-                .OrderBy(entry => entry.UserName, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            return LicenseAdministrationPolicy.ApplyMandatoryLevel9Users(merged);
+            return await _updates.FindLatestAsync();
         }
         catch (Exception exception)
         {
-            LicenseStatus = "Lizenzdateien oder Netzwerkpfad sind nicht erreichbar.";
-            _log.Error("Verwaltung", LicenseStatus, exception);
-            return Array.Empty<ViCoLicenseEntry>();
+            _log.Error("Verwaltung", "Versionsinformationen konnten nicht geladen werden.", exception);
+            return null;
         }
     }
 
-    /// <summary>
-    /// Makes the requested permanent Level9 assignment durable in the compatible
-    /// file store. A read failure is logged but never hides the policy account.
-    /// </summary>
-    private async Task EnsureMandatoryLevel9UsersAsync(IReadOnlyList<ViCoLicenseEntry> approved)
+    private async Task<IReadOnlyList<ViCoUserRole>> TryLoadRolesAsync()
     {
-        foreach (var requiredUser in LicenseAdministrationPolicy.MandatoryLevel9Users)
+        if (!_roles.IsConfigured)
         {
-            var isAlreadyLevel9 = approved.Any(entry =>
-                WindowsUserIdentity.Equals(entry.UserName, requiredUser) &&
-                string.Equals(entry.Level, "Level9", StringComparison.OrdinalIgnoreCase));
-            if (isAlreadyLevel9)
-                continue;
+            RoleStatus = "Der zentrale Rollenpfad ist nicht konfiguriert.";
+            return ViCoRolePolicy.ApplyMandatoryRoles(Array.Empty<ViCoUserRole>());
+        }
 
-            try
-            {
-                await _licenses.SetLevelAsync(requiredUser, "Level9");
-                _log.Information("Verwaltung", $"{requiredUser} wurde gemäß Systemrichtlinie auf Level9 gesetzt.");
-            }
-            catch (Exception exception)
-            {
-                _log.Error("Verwaltung", $"{requiredUser} konnte nicht dauerhaft auf Level9 gesetzt werden.", exception);
-            }
+        try
+        {
+            return await _roles.LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            RoleStatus = "Die zentrale Rollenliste ist nicht erreichbar.";
+            _log.Error("Verwaltung", RoleStatus, exception);
+            return ViCoRolePolicy.ApplyMandatoryRoles(Array.Empty<ViCoUserRole>());
         }
     }
 

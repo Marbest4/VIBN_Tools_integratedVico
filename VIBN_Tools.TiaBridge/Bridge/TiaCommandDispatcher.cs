@@ -38,6 +38,9 @@ public sealed class TiaCommandDispatcher
                 _session.SelectPlc(Read<TiaPlcSelectionPayload>(request).PlcIndex);
                 return TiaDispatchResult.Empty();
 
+            case TiaCommands.ListHardware:
+                return TiaDispatchResult.From(_session.ListHardware());
+
             case TiaCommands.ListProgramBlocks:
                 return TiaDispatchResult.From(_session.ListProgramBlocks());
 

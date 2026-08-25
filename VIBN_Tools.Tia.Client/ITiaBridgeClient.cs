@@ -18,6 +18,9 @@ public interface ITiaBridgeClient : IAsyncDisposable
 
     Task SelectPlcAsync(int plcIndex, CancellationToken cancellationToken = default);
 
+    /// <summary>Lists configured TIA device items and their input/output byte offsets.</summary>
+    Task<IReadOnlyList<TiaHardwareModuleInfo>> ListHardwareAsync(CancellationToken cancellationToken = default);
+
     Task<TiaProjectTree> ListProgramBlocksAsync(CancellationToken cancellationToken = default);
 
     Task<TiaProjectTree> ListDataTypesAsync(CancellationToken cancellationToken = default);

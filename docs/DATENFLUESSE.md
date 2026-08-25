@@ -1,92 +1,104 @@
 # Datenflüsse
 
-## PC- und Benutzerbestand
+## Arbeitsplatzbestand und Konfiguration
 
 ```mermaid
 flowchart LR
-    K["Kanbanize Boards 1541 / 846"] --> R["KanbanizeRefreshService"]
-    R --> C["atomare Cachedateien auf Server"]
-    C --> L["LegacyWorkstationCatalog"]
-    L --> D["WorkstationDirectory"]
-    D --> S["Project Settings Dropdown"]
-    D --> V["ViCo PC-/Projektsuche"]
+    K[Kanbanize Arbeitsplätze-Board] --> R[KanbanizeRefreshService]
+    R --> C[atomare Cachedateien]
+    R --> S[WorkstationBoardCache.json]
+    C --> P[LegacyWorkstationCatalog]
+    S --> P
+    P --> D[WorkstationDirectory]
+    P --> V[ViCoSearchPageVM]
+    D --> PS[Project Settings Dropdown]
 ```
 
-Beim Start wird der vorhandene Cache gelesen. Eine Online-Aktualisierung lädt PC- und Robotikdaten, ersetzt die Cachedateien und synchronisiert danach das gemeinsame Verzeichnis. Kanbanize ist bei widersprüchlichen Benutzern die maßgebliche Quelle.
+`WorkstationBoardCache.json` bewahrt Karten- und Unteraufgaben-IDs der `KONFIGURATION`-Karte. `LegacyWorkstationCatalog` verbindet sie über die Lane mit dem Arbeitsplatz. Der Wert `USER:` hat Vorrang vor älteren Textkarten; damit nutzen ViCo und Project Settings dieselbe dynamische PC-Benutzer-Zuordnung.
 
-## Remote-Verbindung
+Beim Speichern der Konfiguration läuft der Datenfluss nur in die Gegenrichtung der vorhandenen Unteraufgabe:
 
 ```mermaid
 sequenceDiagram
     participant U as Benutzer
     participant VM as ViCoSearchPageVM
-    participant C as WorkstationDirectory/Kanbanize
-    participant R as WindowsRemoteDesktopService
-    participant W as Windows RDP
-    U->>VM: PC/Projekt auswählen und Remote starten
-    VM->>C: priorisierten PC-Benutzer übernehmen
-    VM->>R: PC, Benutzer und Monitore
-    R->>R: RDP-Profil erstellen / Credentials bereitstellen
-    R->>W: mstsc starten
+    participant C as Konfigurationsadapter
+    participant K as Kanbanize
+    U->>VM: Wert ändern und Speichern
+    VM->>VM: nur geänderte vorhandene Felder auswählen
+    VM->>C: Karte + Subtask-ID + KEY: Wert
+    C->>K: PATCH /cards/{card}/subtasks/{subtask}
+    K-->>C: Erfolg/Fehler
+    C-->>VM: Ergebnis
 ```
 
-## TIA-Operation
+Andere Kartenfelder und nicht vorhandene Unteraufgaben werden nie geschrieben.
+
+## Remote Desktop und Sitzungsauskunft
 
 ```mermaid
 sequenceDiagram
-    participant UI as TiaPortalPageVM
-    participant Client as NamedPipeTiaBridgeClient
-    participant Bridge as TiaBridgeServer
-    participant TIA as TiaOpennessSession
-    UI->>Client: typisierter Befehl
-    Client->>Bridge: JSON Request über Named Pipe
-    Bridge->>TIA: versionsgebundene Openness-Operation
-    TIA-->>Bridge: Ergebnis oder Fehler
-    Bridge-->>Client: JSON Response
-    Client-->>UI: DTO oder TiaBridgeException
+    participant U as Benutzer
+    participant VM as ViCoSearchPageVM
+    participant N as NetworkAvailabilityService
+    participant Q as WindowsRemoteSessionService
+    participant R as WindowsRemoteDesktopService
+    U->>VM: Arbeitsplatz auswählen
+    VM->>N: Ping, begrenzt parallel
+    alt online
+        VM->>Q: quser /server, read-only
+        Q-->>VM: Sitzung oder Nicht abrufbar
+        U->>VM: Remote Desktop
+        VM->>R: automatische Anmeldung
+    else offline
+        VM-->>U: Aktionen ausgeblendet
+    end
 ```
 
-## Lizenzänderung
+Die alternative Schaltfläche „Remote Desktop mit Anmeldedaten“ ruft denselben RDP-Adapter mit `prompt for credentials:i:1` auf. Sie dient auch zur einmaligen Einrichtung oder Änderung der lokalen Windows-RDP-Anmeldung. Der normale Start nutzt `prompt for credentials:i:0` und damit ausschließlich den gespeicherten Windows-Eintrag; das Tool übergibt oder speichert kein Kennwort.
+
+## Kanbanize VIBN → Arbeitsplätze
 
 ```mermaid
 flowchart TD
-    A["Ausgewählter Benutzer + Ziellevel"] --> P["LicenseAdministrationPolicy.PlanChange"]
-    E["Optionaler Ersatzbenutzer"] --> P
-    P --> Q{"Danach mindestens 2 eindeutige Level9?"}
-    Q -- Nein --> X["Abbruch + Status + Diagnoseprotokoll"]
-    Q -- Ja --> H["Ersatz zuerst auf Level9 schreiben"]
-    H --> Z["gewählte Änderung schreiben"]
-    Z --> N["Lizenzbestand neu laden"]
+    S[VIBN-Grundinbetriebnahme-Karte] --> V{zulässig?}
+    T[eindeutige datierte VIBN-Vorlage] --> F[Terminformel]
+    V -- nein --> X[ausgeschlossen]
+    V -- ja --> F
+    F --> M{Zielkarte mit custom_id?}
+    M -- keine --> C[POST neue verknüpfte Karte]
+    M -- genau eine --> D{Start und Deadline gleich?}
+    D -- nein --> P[PATCH nur Startfeld 508 + Deadline]
+    D -- ja --> U[unverändert]
+    M -- mehrere --> K[Konflikt, keine Änderung]
 ```
 
-## Kanbanize: VIBN → Arbeitsplätze
+Die Formel ist Start = Quell-Deadline − 14 Tage, Ende = Deadline der eindeutigen Vorlage + 56 Tage. Fehlende oder mehrdeutige Voraussetzungen sind Konflikte ohne Schreiboperation.
+
+## TIA-Hardware und Special Devices
 
 ```mermaid
 flowchart LR
-    S["VIBN-Board: Grundinbetriebnahme"] --> R["KanbanizeCardApiService: Karten lesen"]
-    T["Arbeitsplätze-Board"] --> R
-    R --> P["VibnWorkplaceSynchronizationService: Vorschau"]
-    P -->|fehlend| C["POST: verknüpfte Zielkarte erstellen"]
-    P -->|eindeutig, Deadline abweichend| D["PATCH: nur deadline"]
-    P -->|mehrdeutig| X["Konflikt: keine Änderung"]
+    T[TIA Portal / Openness] --> B[TiaBridge]
+    B --> P[Named-Pipe Client]
+    P --> H[TiaHardwareModuleInfo]
+    H --> R[TiaHardwareDeviceRowVM]
+    R --> Q[Benutzer prüft Logik + E/A-Bytes]
+    Q --> W[Special-Device-Warteschlange]
+    W --> F[serielle FEE-Erzeugung]
 ```
 
-Der Vergleich erfolgt vor jeder Synchronisierung erneut. Die Quellkarten-ID ist die `custom_id` der Zielkarte. Die Automation löscht, verschiebt, benennt oder beschreibt keine bestehende Karte.
+Bis zur letzten Aktion ist der Ablauf read-only. Die TIA-Bridge liest Modul, Typ, Slot und Eingangs-/Ausgangsbyte. Erst das bestätigte Erzeugen verändert die FEE-Simulation.
 
-## Kanbanize: eigene Karte erstellen
+## Rollen
 
 ```mermaid
 flowchart LR
-    U["Benutzer"] --> VM["KanbanizeCardPageVM"]
-    VM --> P["KanbanizeCardDraftPolicy"]
-    P -->|gültig| A["KanbanizeCardApiService"]
-    P -->|ungültig| S["Statusmeldung"]
-    A --> K["Kanbanize v2 POST /cards"]
-    K --> R["Karten-ID und Statusmeldung"]
+    J[Windows-Benutzer] --> R[roles.json]
+    R --> P[ViCoRolePolicy]
+    P --> M[MainWindowVM]
+    P --> V[ViCoWorkspacePageVM]
+    P --> A[ViCoAdministrationPageVM]
 ```
 
-Boards, Lanes und Spalten werden live geladen. Die API erhält nur den Kartendraft über HTTPS und den API-Schlüssel im Header; Lizenzdaten sind an diesem Datenfluss nicht beteiligt.
-
-## Diagnose
-
-ViewModels melden bedienbare Texte an `IApplicationLog`. `ApplicationLogService` hält höchstens 500 sichtbare Einträge und leitet dieselben Ereignisse an NLog weiter. Dadurch bleibt die Oberfläche begrenzt, während rotierende Dateien eine spätere Analyse erlauben.
+Die gleiche Policy regelt Hauptreiter, Verwaltungsreiter und Schreibrecht. Beim Speichern validiert sie `lutzma` als Level9 und mindestens zwei unterschiedliche Level9-Benutzer.

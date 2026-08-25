@@ -6,72 +6,6 @@ using VIBN_Tools.GlobalClasses;
 
 namespace VIBN_Tools.Application.VM;
 
-/// <summary>Presentation-only state for one searchable ViCo workstation row.</summary>
-public sealed class ViCoWorkstationRowVM : MvvmBase
-{
-    public ViCoWorkstationRowVM(ViCoWorkstation model)
-    {
-        Model = model;
-    }
-
-    public ViCoWorkstation Model { get; }
-    public string PcName => Model.PcName;
-    public string DisplayName => Model.DisplayName;
-    public string UserName => Model.UserName;
-    public string Status => Model.Status;
-
-    /// <summary>
-    /// Keeps the operational state visually scannable without putting WPF
-    /// brushes into the view model. Free workstations are green; planning or
-    /// active work makes a workstation occupied and therefore red.
-    /// </summary>
-    public string StatusBackground => Status switch
-    {
-        "Frei" => "#FFC6EFCE",
-        "Belegt" => "#FFFFC7CE",
-        _ => "#FFF3F5F7"
-    };
-
-    public string ProjectSummary => Model.ProjectSummary;
-    public string AdditionalProjects => Model.AdditionalProjects;
-    public string SoftwareInformation => Model.SoftwareInformation;
-    public IReadOnlyList<AutomationSoftwareInfo> SoftwareDetails => Model.AutomationSoftware;
-    public string FeeInformation => Model.FeeInformation;
-    public string HardwareInformation => Model.HardwareInformation;
-    public int RobotCount => Model.RobotCount;
-    public string RobotSummary => Model.RobotSummary;
-    public IReadOnlyList<string> Details => Model.Details;
-
-    private string _onlineStatus = "Wird geprüft …";
-    public string OnlineStatus
-    {
-        get => _onlineStatus;
-        private set
-        {
-            _onlineStatus = value;
-            OnPropertyChanged();
-        }
-    }
-
-    private string _onlineStatusBackground = "#FFF3F5F7";
-    public string OnlineStatusBackground
-    {
-        get => _onlineStatusBackground;
-        private set
-        {
-            _onlineStatusBackground = value;
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>Updates the compact availability cell without putting WPF types into the view model.</summary>
-    public void SetOnline(bool isOnline)
-    {
-        OnlineStatus = isOnline ? "Online" : "Offline";
-        OnlineStatusBackground = isOnline ? "#FFC6EFCE" : "#FFFFC7CE";
-    }
-}
-
 /// <summary>
 /// Coordinates unified workstation search, cache refresh, online availability
 /// and the actions that open a selected workstation/project.
@@ -83,8 +17,10 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     private readonly Func<CancellationToken, Task<IViCoRelatedPathResolver>> _pathResolverFactory;
     private readonly INetworkAvailabilityService _network;
     private readonly IRemoteDesktopService _remoteDesktop;
+    private readonly IRemoteSessionService _remoteSessions;
     private readonly IExternalPathLauncher _launcher;
     private readonly IViCoOnlineRefreshService _onlineRefresh;
+    private readonly IViCoWorkstationConfigurationService _configurationService;
     private readonly ViCoWorkspaceContext _workspaceContext;
     private readonly Action<IEnumerable<ViCoWorkstation>> _synchronizeWorkstations;
     private readonly IApplicationLog _log;
@@ -95,6 +31,8 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ConcurrentDictionary<string, (bool IsOnline, DateTimeOffset CheckedAt)> _availabilityCache =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, (ViCoRemoteSessionInfo Info, DateTimeOffset CheckedAt)> _remoteSessionCache =
+        new(StringComparer.OrdinalIgnoreCase);
     private bool _initialized;
 
     public ViCoSearchPageVM(
@@ -103,8 +41,10 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         Func<CancellationToken, Task<IViCoRelatedPathResolver>> pathResolverFactory,
         INetworkAvailabilityService network,
         IRemoteDesktopService remoteDesktop,
+        IRemoteSessionService remoteSessions,
         IExternalPathLauncher launcher,
         IViCoOnlineRefreshService onlineRefresh,
+        IViCoWorkstationConfigurationService configurationService,
         ViCoWorkspaceContext workspaceContext,
         Action<IEnumerable<ViCoWorkstation>> synchronizeWorkstations,
         IApplicationLog? log = null)
@@ -114,15 +54,18 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         _pathResolverFactory = pathResolverFactory;
         _network = network;
         _remoteDesktop = remoteDesktop;
+        _remoteSessions = remoteSessions;
         _launcher = launcher;
         _onlineRefresh = onlineRefresh;
+        _configurationService = configurationService;
         _workspaceContext = workspaceContext;
         _synchronizeWorkstations = synchronizeWorkstations;
         _log = log ?? NullApplicationLog.Instance;
 
         RefreshCommand = GetCommandBindingAsync(RefreshFromBestAvailableSourceAsync);
         ConnectRemoteCommand = GetCommandBinding(ConnectRemote);
-        OpenTeamViewerCommand = GetCommandBinding(() => _launcher.Open("https://web.teamviewer.com/remote-support?tab=Sessions"));
+        ConnectRemoteWithPromptCommand = GetCommandBinding(ConnectRemoteWithPrompt);
+        SaveConfigurationCommand = GetCommandBindingAsync(SaveConfigurationAsync);
         OpenPcProjectsCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.WorkstationProjects));
         OpenSimulationCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.Simulation));
         OpenCommissioningCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.Commissioning));
@@ -131,9 +74,11 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
 
     public ObservableCollection<ViCoWorkstationRowVM> Results { get; } = new();
     public ObservableCollection<string> Projects { get; } = new();
+    public ObservableCollection<ViCoConfigurationFieldVM> ConfigurationFields { get; } = new();
     public ICommand RefreshCommand { get; }
     public ICommand ConnectRemoteCommand { get; }
-    public ICommand OpenTeamViewerCommand { get; }
+    public ICommand ConnectRemoteWithPromptCommand { get; }
+    public ICommand SaveConfigurationCommand { get; }
     public ICommand OpenPcProjectsCommand { get; }
     public ICommand OpenSimulationCommand { get; }
     public ICommand OpenCommissioningCommand { get; }
@@ -180,11 +125,17 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             _selectedWorkstation = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedRemoteUser));
+            OnPropertyChanged(nameof(CanUseSelectedWorkstationActions));
+            OnPropertyChanged(nameof(IsSelectedWorkstationOffline));
+            OnPropertyChanged(nameof(CanEditConfiguration));
             Projects.Clear();
+            ConfigurationFields.Clear();
             if (value is not null)
             {
                 foreach (var project in value.Model.Projects)
                     Projects.Add(project);
+                foreach (var field in value.Model.WorkstationConfiguration.Fields)
+                    ConfigurationFields.Add(new ViCoConfigurationFieldVM(field));
                 SelectedProject = Projects.FirstOrDefault();
             }
             else
@@ -196,6 +147,17 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     }
 
     public string SelectedRemoteUser => SelectedWorkstation?.UserName ?? string.Empty;
+
+    /// <summary>Offline PCs cannot execute RDP or path actions and expose no action buttons.</summary>
+    public bool CanUseSelectedWorkstationActions => SelectedWorkstation?.IsOnline == true;
+
+    public bool IsSelectedWorkstationOffline =>
+        SelectedWorkstation is not null && !SelectedWorkstation.IsOnline;
+
+    /// <summary>Only existing configuration subtasks can be saved back to Kanbanize.</summary>
+    public bool CanEditConfiguration =>
+        _configurationService.IsConfigured &&
+        SelectedWorkstation?.Model.WorkstationConfiguration.IsEditable == true;
 
     private string? _selectedProject;
     public string? SelectedProject
@@ -400,32 +362,53 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         IReadOnlyCollection<ViCoWorkstationRowVM> rows,
         CancellationToken cancellationToken)
     {
-        using var throttle = new SemaphoreSlim(8);
+        using var pingThrottle = new SemaphoreSlim(8);
+        using var sessionThrottle = new SemaphoreSlim(4);
         var tasks = rows.Select(async row =>
         {
-            var acquired = false;
             try
             {
+                bool isOnline;
                 if (_availabilityCache.TryGetValue(row.PcName, out var cached) &&
                     DateTimeOffset.Now - cached.CheckedAt < TimeSpan.FromSeconds(30))
                 {
-                    row.SetOnline(cached.IsOnline);
-                    return;
+                    isOnline = cached.IsOnline;
                 }
-                await throttle.WaitAsync(cancellationToken);
-                acquired = true;
-                var isOnline = await _network.PingAsync(row.PcName, cancellationToken);
-                _availabilityCache[row.PcName] = (isOnline, DateTimeOffset.Now);
+                else
+                {
+                    // Do not keep one of the limited ping slots while the
+                    // optional, slower RDP-session query is running. This is
+                    // significant for desktop users with many workstations.
+                    await pingThrottle.WaitAsync(cancellationToken);
+                    try
+                    {
+                        isOnline = await _network.PingAsync(row.PcName, cancellationToken);
+                        _availabilityCache[row.PcName] = (isOnline, DateTimeOffset.Now);
+                    }
+                    finally
+                    {
+                        pingThrottle.Release();
+                    }
+                }
+
                 row.SetOnline(isOnline);
+                if (isOnline)
+                    await RefreshRemoteSessionAsync(row, sessionThrottle, cancellationToken);
+                NotifySelectedWorkstationAvailabilityChanged(row);
             }
             catch (OperationCanceledException)
             {
                 // A new search superseded this availability scan.
             }
-            finally
+            catch (Exception exception)
             {
-                if (acquired)
-                    throttle.Release();
+                // Availability is a best-effort enhancement. A malformed
+                // hostname or transient network failure must not abort the
+                // refresh for the other workstations.
+                row.SetOnline(false);
+                row.SetRemoteSession(ViCoRemoteSessionInfo.NotAvailable);
+                NotifySelectedWorkstationAvailabilityChanged(row);
+                _log.Warning("Verfügbarkeit", $"Status für {row.PcName} konnte nicht ermittelt werden.", exception.Message);
             }
         });
         try
@@ -438,11 +421,74 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         }
     }
 
+    private async Task RefreshRemoteSessionAsync(
+        ViCoWorkstationRowVM row,
+        SemaphoreSlim throttle,
+        CancellationToken cancellationToken)
+    {
+        if (_remoteSessionCache.TryGetValue(row.PcName, out var cached) &&
+            DateTimeOffset.Now - cached.CheckedAt < TimeSpan.FromMinutes(2))
+        {
+            row.SetRemoteSession(cached.Info);
+            return;
+        }
+
+        var acquired = false;
+        try
+        {
+            await throttle.WaitAsync(cancellationToken);
+            acquired = true;
+            var info = await _remoteSessions.GetSessionInfoAsync(row.PcName, cancellationToken);
+            _remoteSessionCache[row.PcName] = (info, DateTimeOffset.Now);
+            row.SetRemoteSession(info);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            // The session query is optional. It must never change the actual
+            // network availability state or block all remaining PCs.
+            row.SetRemoteSession(ViCoRemoteSessionInfo.NotAvailable);
+            _log.Warning("Remote-Sitzung", $"Sitzungsstatus für {row.PcName} ist nicht abrufbar.", exception.Message);
+        }
+        finally
+        {
+            if (acquired)
+                throttle.Release();
+        }
+    }
+
+    private void NotifySelectedWorkstationAvailabilityChanged(ViCoWorkstationRowVM row)
+    {
+        if (ReferenceEquals(row, SelectedWorkstation))
+        {
+            OnPropertyChanged(nameof(CanUseSelectedWorkstationActions));
+            OnPropertyChanged(nameof(IsSelectedWorkstationOffline));
+        }
+    }
+
     private void ConnectRemote()
+    {
+        StartRemote(promptForCredentials: false);
+    }
+
+    private void ConnectRemoteWithPrompt()
+    {
+        StartRemote(promptForCredentials: true);
+    }
+
+    private void StartRemote(bool promptForCredentials)
     {
         if (SelectedWorkstation is null)
             return;
-        if (string.IsNullOrWhiteSpace(SelectedWorkstation.UserName))
+        if (!CanUseSelectedWorkstationActions)
+        {
+            StatusText = "Der PC ist offline. Remote- und Pfadaktionen sind ausgeblendet.";
+            return;
+        }
+        if (!promptForCredentials && string.IsNullOrWhiteSpace(SelectedWorkstation.UserName))
         {
             StatusText = "Die Kanbanize-Karte enthält keinen gültigen Remote-Benutzer.";
             _log.Warning("Remote Desktop", StatusText);
@@ -456,9 +502,21 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             .ToArray();
         try
         {
-            _remoteDesktop.Connect(SelectedWorkstation.PcName, SelectedWorkstation.UserName, monitors);
-            StatusText = $"Remote Desktop wird als {SelectedWorkstation.UserName} gestartet.";
-            _log.Information("Remote Desktop", $"Verbindung zu {SelectedWorkstation.PcName} als {SelectedWorkstation.UserName} gestartet.");
+            if (promptForCredentials)
+            {
+                _remoteDesktop.ConnectWithCredentialPrompt(
+                    SelectedWorkstation.PcName,
+                    SelectedWorkstation.UserName,
+                    monitors);
+                StatusText = "Remote Desktop wird mit Windows-Anmeldedialog gestartet.";
+                _log.Information("Remote Desktop", $"Anmeldedialog für {SelectedWorkstation.PcName} gestartet.");
+            }
+            else
+            {
+                _remoteDesktop.Connect(SelectedWorkstation.PcName, SelectedWorkstation.UserName, monitors);
+                StatusText = $"Remote Desktop wird automatisch als {SelectedWorkstation.UserName} gestartet.";
+                _log.Information("Remote Desktop", $"Automatische Verbindung zu {SelectedWorkstation.PcName} als {SelectedWorkstation.UserName} gestartet.");
+            }
         }
         catch (Exception exception)
         {
@@ -467,10 +525,83 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         }
     }
 
+    private async Task SaveConfigurationAsync()
+    {
+        if (!CanEditConfiguration || SelectedWorkstation is null)
+        {
+            StatusText = "Für diesen Arbeitsplatz sind keine bearbeitbaren KONFIGURATION-Unteraufgaben vorhanden.";
+            return;
+        }
+
+        var changedFields = ConfigurationFields
+            .Where(field => field.IsChanged && field.CanSave)
+            .Select(field => field.ToField())
+            .ToArray();
+        if (changedFields.Length == 0)
+        {
+            StatusText = "Keine geänderten KONFIGURATION-Werte zum Speichern vorhanden.";
+            return;
+        }
+
+        try
+        {
+            var currentConfiguration = SelectedWorkstation.Model.WorkstationConfiguration;
+            await _configurationService.SaveFieldsAsync(
+                currentConfiguration.CardId,
+                changedFields,
+                _lifetimeCancellation.Token);
+
+            var configuration = BuildUpdatedConfiguration(currentConfiguration, ConfigurationFields);
+            SelectedWorkstation.UpdateConfiguration(configuration);
+            _allWorkstations = _allWorkstations
+                .Select(workstation => string.Equals(
+                    workstation.PcName,
+                    SelectedWorkstation.PcName,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? SelectedWorkstation.Model
+                    : workstation)
+                .ToArray();
+            _synchronizeWorkstations(_allWorkstations);
+            foreach (var field in ConfigurationFields)
+                field.AcceptSavedValue();
+            OnPropertyChanged(nameof(SelectedRemoteUser));
+            StatusText = $"{changedFields.Length} KONFIGURATION-Wert(e) wurden in Kanbanize gespeichert.";
+            _log.Information("Kanbanize", StatusText);
+        }
+        catch (OperationCanceledException)
+        {
+            // Application shutdown cancels only the pending external request.
+        }
+        catch (Exception exception)
+        {
+            StatusText = "KONFIGURATION-Werte konnten nicht gespeichert werden.";
+            _log.Error("Kanbanize", StatusText, exception);
+        }
+    }
+
+    private static ViCoWorkstationConfiguration BuildUpdatedConfiguration(
+        ViCoWorkstationConfiguration current,
+        IEnumerable<ViCoConfigurationFieldVM> fields)
+    {
+        var byKey = fields.ToDictionary(field => field.Key, field => field.ToField(), StringComparer.OrdinalIgnoreCase);
+        return new ViCoWorkstationConfiguration(
+            current.CardId,
+            byKey["USER"],
+            byKey["STANDORT"],
+            byKey["SW"],
+            byKey["PROJEKT-IP"],
+            byKey["SONSTIGES"]);
+    }
+
     private void OpenRelated(ViCoRelatedPathKind kind)
     {
         if (SelectedWorkstation is null || _pathResolver is null)
             return;
+        if (!CanUseSelectedWorkstationActions)
+        {
+            StatusText = "Der PC ist offline. Remote- und Pfadaktionen sind ausgeblendet.";
+            return;
+        }
         var project = SelectedProject ?? SearchText;
         var path = _pathResolver.Resolve(SelectedWorkstation.Model, project, kind);
         if (string.IsNullOrWhiteSpace(path))

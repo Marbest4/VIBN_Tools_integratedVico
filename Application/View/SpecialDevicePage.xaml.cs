@@ -1,26 +1,32 @@
-﻿using System.Windows.Controls;
-using System.Windows.Input;
+using System.Windows;
+using System.Windows.Controls;
+using VIBN_Tools.Application.VM;
 
-namespace VIBN_Tools.Application.View
+namespace VIBN_Tools.Application.View;
+
+/// <summary>Hosts the Special Device view model and disposes its TIA bridge at application exit.</summary>
+public partial class SpecialDevicePage : UserControl
 {
-    /// <summary>
-    /// Interaction logic for SpecialDevicePage.xaml
-    /// </summary>
-    public partial class SpecialDevicePage : UserControl
+    private readonly SpecialDevicePageVM _viewModel;
+    private bool _disposed;
+
+    public SpecialDevicePage()
     {
-        public SpecialDevicePage()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+        _viewModel = ViCoFeatureBootstrapper.CreateSpecialDeviceViewModel();
+        DataContext = _viewModel;
+        if (System.Windows.Application.Current is not null)
+            System.Windows.Application.Current.Exit += OnApplicationExit;
+    }
 
-        private void SelectOnFocus(object sender, KeyboardFocusChangedEventArgs e)
-        {
-            ((TextBox)sender).SelectAll();
-        }
+    private async void OnApplicationExit(object sender, ExitEventArgs e)
+    {
+        if (_disposed)
+            return;
 
-        private void SelectOnFocus(object sender, MouseEventArgs e)
-        {
-            ((TextBox)sender).SelectAll();
-        }
+        _disposed = true;
+        if (System.Windows.Application.Current is not null)
+            System.Windows.Application.Current.Exit -= OnApplicationExit;
+        await _viewModel.DisposeAsync();
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using VIBN_Tools.Core.ViCo;
 
 namespace VIBN_Tools.Infrastructure.ViCo;
@@ -21,8 +22,11 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         var robotCards = await ReadLinesAsync("AllRobyCards.txt", warnings, cancellationToken);
         var robotNames = await ReadLinesAsync("AllRobyCardsRobyName.txt", warnings, cancellationToken);
         var robotColumns = await ReadLinesAsync("AllRobyColumns.txt", warnings, cancellationToken);
+        var configurations = await ReadConfigurationsAsync(warnings, cancellationToken);
         var combined = CombineLegacyCards(lanes, cards);
-        return new ViCoWorkstationSnapshot(ParseWorkstations(combined, robotCards, robotNames, robotColumns), warnings);
+        return new ViCoWorkstationSnapshot(
+            ParseWorkstations(combined, robotCards, robotNames, robotColumns, configurations),
+            warnings);
     }
 
     private async Task<IReadOnlyList<string>> ReadLinesAsync(
@@ -41,6 +45,41 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         {
             warnings.Add($"{path}: {exception.Message}");
             return Array.Empty<string>();
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<string, ViCoWorkstationConfiguration>> ReadConfigurationsAsync(
+        ICollection<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(_cacheRoot, "WorkstationBoardCache.json");
+        if (!File.Exists(path))
+            return new Dictionary<string, ViCoWorkstationConfiguration>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite);
+            var cache = await JsonSerializer.DeserializeAsync<WorkstationBoardCache>(
+                stream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                cancellationToken) ?? new WorkstationBoardCache();
+            return cache.Cards
+                .Where(card => string.Equals(card.Title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase))
+                .Where(card => card.Id > 0 && card.LaneId.Length > 0)
+                .GroupBy(card => card.LaneId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => BuildConfiguration(group.OrderByDescending(card => card.Subtasks.Count).First()),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            warnings.Add($"{path}: {exception.Message}");
+            return new Dictionary<string, ViCoWorkstationConfiguration>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -74,6 +113,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
 
             combined.Add("NEW_Lane");
             combined.Add(title);
+            combined.Add($"__lane-id__:{laneId}");
             combined.AddRange(matchingCards);
         }
 
@@ -86,7 +126,8 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         IReadOnlyList<string> combined,
         IReadOnlyList<string> robotCards,
         IReadOnlyList<string> robotNames,
-        IReadOnlyList<string> robotColumns)
+        IReadOnlyList<string> robotColumns,
+        IReadOnlyDictionary<string, ViCoWorkstationConfiguration> configurations)
     {
         var result = new List<ViCoWorkstation>();
         for (var index = 0; index < combined.Count; index++)
@@ -96,22 +137,40 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
 
             var displayName = Clean(combined[++index]);
             var details = new List<string>();
+            var laneId = string.Empty;
             while (index + 1 < combined.Count &&
                    !string.Equals(combined[index + 1], "NEW_Lane", StringComparison.Ordinal))
             {
-                details.Add(Clean(combined[++index]));
+                var detail = Clean(combined[++index]);
+                if (detail.StartsWith("__lane-id__:", StringComparison.OrdinalIgnoreCase))
+                {
+                    laneId = detail["__lane-id__:".Length..].Trim();
+                    continue;
+                }
+                details.Add(detail);
             }
 
             var pcName = ExtractPcName(displayName);
-            var user = details
+            var configuration = configurations.TryGetValue(laneId, out var configured)
+                ? configured
+                : ViCoWorkstationConfiguration.Empty;
+            foreach (var field in configuration.Fields.Where(field => !string.IsNullOrWhiteSpace(field.Value)))
+                details.Add($"KONFIGURATION / {field.Key}: {field.Value}");
+
+            var cardUser = ExtractUserName(configuration.User.Value);
+            if (cardUser.Length == 0)
+                cardUser = configuration.User.Value.Trim();
+            var user = !string.IsNullOrWhiteSpace(cardUser)
+                ? cardUser
+                : details
                 .Select(ExtractUserName)
                 .FirstOrDefault(value => value.Length > 0) ?? string.Empty;
-            var software = ParseSoftware(details);
+            var software = ParseSoftware(details.Append(configuration.Software.Value));
             var softwareSummary = string.Join(" | ", software.Select(item => item.DisplayName));
             var fee = string.Join(" | ", details.Where(value => value.Contains("FEE", StringComparison.OrdinalIgnoreCase)));
             var hardware = details.FirstOrDefault(value => value.Contains("LAN", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
             var projects = details
-                .Where(IsProjectCard)
+                .Where(value => IsProjectCard(value) && IsActiveProject(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             var robots = FindRobotInformation(projects, robotCards, robotNames, robotColumns);
@@ -128,7 +187,8 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 projects,
                 details,
                 software,
-                robots));
+                robots,
+                configuration));
         }
 
         return result;
@@ -233,7 +293,53 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
          !value.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase) &&
          !value.Contains("Rockwell", StringComparison.OrdinalIgnoreCase) &&
          !value.Contains("Studio 5000", StringComparison.OrdinalIgnoreCase) &&
-        !value.Contains("FEE", StringComparison.OrdinalIgnoreCase);
+        !value.Contains("FEE", StringComparison.OrdinalIgnoreCase) &&
+        !value.Contains("KONFIGURATION", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsActiveProject(string value)
+    {
+        var status = ProjectIdentity.GetStatus(value);
+        return status is "Planung" or "In Arbeit";
+    }
+
+    private static ViCoWorkstationConfiguration BuildConfiguration(WorkstationCardCacheEntry card)
+    {
+        return new ViCoWorkstationConfiguration(
+            card.Id,
+            FindConfigurationField(card.Subtasks, "USER"),
+            FindConfigurationField(card.Subtasks, "STANDORT"),
+            FindConfigurationField(card.Subtasks, "SW", "SOFTWARE"),
+            FindConfigurationField(card.Subtasks, "PROJEKT-IP", "PROJEKTIP"),
+            FindConfigurationField(card.Subtasks, "SONSTIGES"));
+    }
+
+    private static ViCoConfigurationField FindConfigurationField(
+        IEnumerable<WorkstationSubtaskCacheEntry> subtasks,
+        params string[] keys)
+    {
+        var match = subtasks.FirstOrDefault(subtask => keys.Any(key =>
+            string.Equals(ExtractConfigurationKey(subtask.Description), key, StringComparison.OrdinalIgnoreCase)));
+        var key = keys[0];
+        return match is null
+            ? new ViCoConfigurationField(key, string.Empty, 0)
+            : new ViCoConfigurationField(key, ExtractConfigurationValue(match.Description), match.Id);
+    }
+
+    private static string ExtractConfigurationKey(string description)
+    {
+        var separator = description.IndexOf(':');
+        var label = separator < 0 ? description : description[..separator];
+        return label.Trim()
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .ToUpperInvariant();
+    }
+
+    private static string ExtractConfigurationValue(string description)
+    {
+        var separator = description.IndexOf(':');
+        return separator < 0 ? string.Empty : description[(separator + 1)..].Trim();
+    }
 
     private static string ExtractPcName(string value)
     {

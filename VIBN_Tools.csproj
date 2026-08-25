@@ -46,6 +46,9 @@
 	<PackageReference Include="Microsoft.ML.LightGbm" Version="5.0.0" />
 	<PackageReference Include="NLog.Extensions.Logging" Version="6.1.0" />
     <PackageReference Include="NPOI" Version="2.7.5" />
+    <!-- Required at runtime by the FEE SDK; declare it explicitly so a
+         deployed desktop build does not depend on a machine-wide GAC entry. -->
+    <PackageReference Include="System.ComponentModel.Composition" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

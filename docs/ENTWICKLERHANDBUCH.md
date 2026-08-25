@@ -1,137 +1,97 @@
 # Entwicklerhandbuch
 
-## Architekturziel
+## Architekturregel
 
-Die Anwendung folgt für den integrierten ViCo-Bereich einer geschichteten MVVM-Struktur. Die bestehende VIBN-Funktionalität bleibt im WPF-Host und wird nicht unnötig verändert. Neue ViCo-Fachlogik gehört nicht in Code-behind oder in eine große ViewModel-Klasse, sondern in kleine Core-Dienste mit Interfaces und austauschbare Infrastrukturadapter.
-
-Die vollständige Landkarte aller historischen und neuen Module steht in [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Dieses Dokument beschreibt die verbindlichen Erweiterungsregeln für die gesamte Lösung.
+Neue ViCo-, Kanbanize- und TIA-Funktionen folgen dieser Richtung:
 
 ```text
-WPF View
-   ↓ Binding / Command
-Application ViewModel
-   ↓ Interface
-Core: Modelle, Verträge, Fachregeln
-   ↑ Implementierung
-Infrastructure: Datei, Netz, Windows, Kanbanize, Outlook
-
-TIA ViewModel → TIA Client → Named Pipe → TIA Bridge → Siemens Openness
+View (XAML) → ViewModel → Core-Modell/Interface → Infrastructure-Adapter
+TIA: ViewModel → Tia.Client → Named Pipe → TiaBridge → Siemens Openness
 ```
 
-## Projekte und Abhängigkeitsrichtung
+`VIBN_Tools.Core` darf keine WPF-, HTTP-, Windows- oder Siemens-Abhängigkeit erhalten. `Infrastructure` implementiert Core-Verträge. `Application/VM` koordiniert Bedienung und Status, enthält aber keine Transportformate oder Geschäftsregeln. Die bestehende VIBN-Logik wird nur dort angefasst, wo eine neue Integration sie benötigt.
 
-| Projekt | Darf kennen | Darf nicht enthalten |
-|---|---|---|
-| `VIBN_Tools.Core` | .NET-Basistypen | WPF, UNC-spezifische Implementierungen, TIA-Assemblies |
-| `VIBN_Tools.Infrastructure` | Core | UI-Zustand oder View-Logik |
-| `VIBN_Tools.Tia.Contracts` | serialisierbare DTOs | Siemens Openness oder WPF |
-| `VIBN_Tools.Tia.Client` | Contracts | WPF-Controls, konkrete ViewModels |
-| `VIBN_Tools.TiaBridge` | Contracts, Siemens Openness | Hauptanwendungs-UI |
-| WPF-Host `VIBN_Tools` | alle benötigten Module | neue fachliche Regeln im Code-behind |
+## Einstieg in den Code
 
-Der zentrale Composition Root ist `Application/ViCoFeatureBootstrapper.cs`. Nur dort werden Core-Verträge mit konkreten Infrastrukturklassen verbunden. Dadurch bleiben ViewModels testbar und Datenquellen austauschbar.
+1. `Application/View/MainWindow.xaml` zeigt alle Hauptreiter und die Rollen-Sichtbarkeit.
+2. `Application/VM/MainWindowVM.cs` lädt dynamische Arbeitsplätze und die zentrale Rollenliste.
+3. `Application/ViCoFeatureBootstrapper.cs` verbindet Core-Interfaces mit konkreten Infrastrukturdiensten.
+4. Für den gewünschten Funktionsbereich die Tabelle in [KLASSENREFERENZ.md](KLASSENREFERENZ.md) verwenden.
+5. Vor einer Änderung die korrespondierenden Smoke-Tests in `Tests/CoreSmokeTests/Program.cs` lesen.
 
-## Start- und Navigationsablauf
+## Erweiterungsmuster
 
-1. `App.xaml` lädt Ressourcen und startet `MainWindow`.
-2. `Application/View/MainWindow.xaml` definiert die Hauptreiter.
-3. Die ViCo- und Kanbanize-Views beziehen ihre ViewModels über `ViCoFeatureBootstrapper`.
-4. `InitializeWorkstationDirectoryAsync` lädt einmal den gemeinsamen PC-Bestand.
-5. Project Settings und ViCo Search verwenden dieselbe `IWorkstationDirectory`-Instanz.
-6. Views rufen asynchrone `InitializeAsync`-Methoden erst auf, wenn sie benötigt werden.
+### Neue ViCo-Arbeitsplatzinformation
 
-Der Hauptreiter **Kanbanize Karten** ist kein Unterteil von ViCo-Lizenzen. Die manuelle Kartenerstellung folgt `KanbanizeCardPage` → `KanbanizeCardPageVM` → `IKanbanizeCardService` → `KanbanizeCardApiService`. Die VIBN-Übernahme ist bewusst getrennt: `VibnWorkplaceSynchronizationVM` → `IVibnWorkplaceSynchronizationService` → `VibnWorkplaceSynchronizationService` → `IKanbanizeCardService`. Der API-Schlüssel wird nur im HTTP-Header verwendet; das Modul enthält keine Lizenz- oder Anfrageklassen.
+1. Feld als neutrales Modell oder Vertrag in `VIBN_Tools.Core/ViCo` definieren.
+2. Cache-/Kanbanize-Parsing in `LegacyWorkstationCatalog` bzw. `KanbanizeRefreshService` ergänzen.
+3. Nur wenn editierbar: vorhandene Feld-/Subtask-ID im Core-Modell bewahren und einen eng begrenzten Infrastruktur-Write implementieren.
+4. Anzeige in `ViCoWorkstationRowVM` und XAML ergänzen.
+5. Parser- und Write-Scope-Test hinzufügen.
 
-Die Synchronisierung darf nur eine fehlende Zielkarte erstellen oder die Deadline einer eindeutig verknüpften Zielkarte patchen. Delete-, Move-, Archive-, Titel- und Beschreibungsendpunkte gehören ausdrücklich nicht in diesen Ablauf.
+Die `KONFIGURATION`-Bearbeitung ist das Referenzmuster: Nur vorhandene Unteraufgaben werden per PATCH verändert; Karten, Titel, Positionen und sonstige Felder bleiben unberührt.
 
-## Programmierregeln
+### Neue RDP-/Windows-Aktion
 
-- Views enthalten Layout und Binding, aber keine Fachlogik.
-- ViewModels koordinieren UI-Zustand und Dienste; sie greifen nicht direkt auf UNC-Dateien oder HTTP zu.
-- Core-Dienste treffen fachliche Entscheidungen und sind ohne WPF testbar.
-- Infrastructure implementiert Betriebssystem-, Netzwerk- und Dateizugriffe.
-- Read-only-Properties in DataGrid-Spalten müssen ausdrücklich `Mode=OneWay` binden.
-- Lang laufende Arbeit ist `async`; keine Netzwerk- oder Dateisuche auf dem UI-Thread.
-- Collections für große Tabellen behalten Virtualisierung und werden nicht bei jedem Tastendruck vollständig neu aufgebaut.
-- Kommentare erklären das **Warum** einer nicht offensichtlichen Entscheidung. Namen, kleine Methoden und Tests dokumentieren das **Was**.
-- Keine Kennwörter, Schlüssel oder Tokens in Code, Statusmeldungen oder Logs ergänzen.
+Zuerst ein Interface in `Workstations.cs` ergänzen. Danach eine konkrete Implementierung in `DesktopWorkstationServices.cs` schreiben und sie im Bootstrapper registrieren. Keine `Process.Start`-Aufrufe direkt aus einem ViewModel einfügen. Offline-Schutz und Fehlerprotokoll gehören in das ViewModel.
 
-## Eine Funktion erweitern
+Ein RDP-Profil darf ausschließlich Ziel-PC, Benutzer, Monitorwahl und Abfragemodus enthalten. Zugangsdaten gehören in den Windows-Anmeldeinformationsspeicher des interaktiven Benutzers; keine Passwortquelle, kein temporärer `cmdkey`-Aufruf und keine Zugangsdaten-Datei dürfen in der Anwendung ergänzt werden.
 
-### Neue ViCo-Datenquelle
+### Neue Kanbanize-Funktion
 
-1. Interface und neutrale Modelle in `VIBN_Tools.Core/ViCo/` ergänzen.
-2. Adapter in `VIBN_Tools.Infrastructure/ViCo/` implementieren.
-3. Adapter ausschließlich in `ViCoFeatureBootstrapper` verdrahten.
-4. ViewModel über das Interface erweitern.
-5. View mit OneWay-Bindings und Commands ergänzen.
-6. fachliche Randfälle in `Tests/CoreSmokeTests/Program.cs` prüfen.
+1. Modell, Validierung und Fachregel in `VIBN_Tools.Core/Kanbanize`.
+2. Eventuelle HTTP-Operation als schmalen Member von `IKanbanizeCardService` formulieren.
+3. Den v2-Adapter in `VIBN_Tools.Infrastructure/Kanbanize/KanbanizeCardApiService.cs` umsetzen.
+4. Payload auf das fachlich erlaubte Minimum begrenzen.
+5. Einen `RecordingHttpMessageHandler`-Test hinzufügen, der Methode, URL und JSON-Felder prüft.
 
-### Neue ViCo-Aktion
-
-1. Prüfen, ob die Aktion zu Suche, Projekt/Favoriten, Transfer, TIA oder Verwaltung gehört.
-2. Kleine Core-Abstraktion anlegen, falls externe Zustände betroffen sind.
-3. Command im passenden ViewModel anlegen; Aktivierbarkeit aus explizitem Zustand ableiten.
-4. Fehler in eine verständliche Statusmeldung und in `IApplicationLog` schreiben.
-5. XAML nur an das Command binden; keine Aktion im Click-Handler implementieren.
-
-### Neue Kanbanize-Kartenfunktion
-
-1. Neutrales Modell oder Validierung in `VIBN_Tools.Core/Kanbanize/` ergänzen.
-2. HTTP-Vertrag in `IKanbanizeCardService` halten; neue Endpunkte nur in `VIBN_Tools.Infrastructure/Kanbanize/` implementieren.
-3. Alle externen Schreibvorgänge vor dem Senden validieren und nach Erfolg Status/Log schreiben.
-4. Board-IDs nie fest in XAML oder ViewModel schreiben; aus der API laden.
-5. Keine Lizenzfelder, -anfragen oder Schlüsselanzeige in das Modul aufnehmen.
-
-### VIBN-Kartenübernahme ändern
-
-1. Die Filter- und Idempotenzregeln ausschließlich in `VibnWorkplaceSynchronizationPolicy` ändern.
-2. Vor dem Hinzufügen eines Schreibvorgangs prüfen, ob er mit dem Grundsatz „neue Karte oder Deadline, nichts sonst“ vereinbar ist.
-3. Jede neue Aktion als Vorschauposition modellieren und im Core-Smoketest absichern.
-4. Mehrdeutige Zielzuordnungen immer als Konflikt behandeln, niemals automatisch auflösen.
-5. API-Payloads so klein halten, dass `UpdateDeadlineAsync` wirklich nur `deadline` sendet.
+Keine generische „Update alles“-Methode einführen: Gerade beim Arbeitsplatz-Board ist der eng begrenzte Write-Scope Teil der Fachanforderung.
 
 ### Neue TIA-Operation
 
-1. Request/Response in `VIBN_Tools.Tia.Contracts` ergänzen.
-2. Client-Vertrag und Named-Pipe-Aufruf ergänzen.
-3. Dispatch in `TiaCommandDispatcher` ergänzen.
-4. Openness-Aufruf hinter `ITiaOpennessSession` implementieren.
-5. Protokolltest und Workflowtest ergänzen.
+Die Reihenfolge ist verbindlich:
 
-Damit bleibt die Hauptanwendung unabhängig von einer konkreten TIA-Version und ein Bridge-Fehler beendet nicht den UI-Prozess.
+1. DTO und Kommandoname in `VIBN_Tools.Tia.Contracts`.
+2. Member in `ITiaBridgeClient` und `NamedPipeTiaBridgeClient`.
+3. Dispatch im `TiaCommandDispatcher`.
+4. Implementierung in `ITiaOpennessSession` und `TiaOpennessSession`.
+5. ViewModel-Command, Status und XAML.
+6. Protocol-/Fake-Test in `Tests/CoreSmokeTests`.
 
-### Neues spezielles Gerät
+Die Hauptanwendung darf keine Siemens-Openness-Assembly direkt laden. TIA-Fehler sind im ViewModel zu fangen und über `IApplicationLog` zu dokumentieren.
 
-Geräteklasse im passenden Unterordner von `SpecialDevices` ergänzen und über `DeviceFactory`/`DeviceCatalog` registrieren. Gemeinsames Verhalten gehört in Basistypen oder Dienste, nicht als Kopie in jede Geräteklasse.
+### Neues Special Device
 
-### Neue Container-Art
+1. konkrete Geräteklasse unter `SpecialDevices/Devices` ergänzen;
+2. in `DeviceCatalog` und `DeviceFactory` registrieren;
+3. optional eine konservative TIA-Erkennung in `SpecialDeviceLogicOption.Suggest` hinzufügen;
+4. zuerst nur in die Warteschlange übernehmen, FEE-Erzeugung erst nach Benutzerprüfung starten.
 
-Die passende Basisklasse im Bereich `ContainerToFee` bzw. den Generatorvertrag in `ContainerGeneration` verwenden. Serialisierung, FEE-Zugriff und UI-Auswahl getrennt halten. Für formatabhängige Varianten eine Strategie statt großer `switch`-Blöcke einsetzen.
+### Neue Rolle oder Reiterberechtigung
 
-## Build und Tests
+Rollenlogik liegt allein in `ViCoRolePolicy`. Sichtbarkeiten liegen in `MainWindowVM`/`MainWindow.xaml` bzw. `ViCoWorkspacePageVM`. Die Regel darf nicht als Zeichenvergleich in mehreren XAML-Dateien dupliziert werden.
 
-Voraussetzungen sind Windows, .NET 8 SDK, Grob.UX, fe.screen-sim V5 und für Live-TIA die jeweilige TIA-/Openness-Installation.
+## Nebenläufigkeit und UI-Stabilität
 
-```powershell
-dotnet restore VIBN_Tools_App.sln --configfile NuGet.Config
-dotnet build VIBN_Tools_App.sln --configuration Release --no-restore
-dotnet run --project Tests/CoreSmokeTests/VIBN_Tools.Core.SmokeTests.csproj --configuration Release
-```
+- Netzwerk-, Datei-, Kanbanize- und TIA-Arbeit niemals im UI-Thread ausführen.
+- Fan-out begrenzen: Arbeitsplatz-Pings sind auf acht, RDP-Sitzungsabfragen auf vier parallele Anfragen begrenzt.
+- Bei Benutzerfiltern Abbruchtokens/Debounce einsetzen.
+- Schreiboperationen, die dieselbe externe Ressource betreffen, serialisieren oder idempotent machen.
+- Fehler einer optionalen Detailabfrage dürfen nie den gesamten Tabellen-Refresh abbrechen.
+- Beim Binden von WPF-Eigenschaften `OneWay` einsetzen, wenn keine Quelle geschrieben werden darf. Das verhindert die früheren schreibgeschützten `PropertyPathWorker`-Fehler.
 
-Vor einer Veröffentlichung zusätzlich die WPF-Start-/Interaktionstests und die manuelle [Release-Abnahme](ACCEPTANCE_CHECKLIST.md) ausführen. Live-UNC-, Outlook-, Kanbanize- und TIA-Tests benötigen die jeweilige Unternehmensumgebung und können nicht vollständig durch lokale Smoke-Tests ersetzt werden.
+## Tests
 
-## Review-Checkliste
+| Test | Ziel |
+| --- | --- |
+| `Tests/CoreSmokeTests` | Modelle, Parser, Rollen, RDP-Profil, Kanbanize-Idempotenz, schmale HTTP-Payloads, TIA-Library und Named-Pipe-Protokoll |
+| `Tests/UiStartupSmokeTests` | Instanziierung integrierter WPF-Views, deferred Tabs, DataGrid-/ComboBox-Bindings und Screenshot-Erzeugung |
+| manuelle Abnahme | reale UNC-Pfade, echte Kanbanize-Berechtigung, FEE, Outlook, RDP und TIA Openness |
 
-- Zuständigkeit der geänderten Klasse ist weiterhin eindeutig.
-- Neue externe Abhängigkeit besitzt ein Core-Interface.
-- Keine synchrone I/O im UI-Thread.
-- Keine TwoWay-Bindung auf eine schreibgeschützte Eigenschaft.
-- Abbruch, leere Daten und nicht erreichbare Netzwerkpfade sind behandelt.
-- Benutzerzuordnung stammt aus `WorkstationDirectory`, nicht aus einer neuen festen Tabelle.
-- Level9-Änderungen laufen über `LicenseAdministrationPolicy`.
-- `lutzma` bleibt über `MandatoryLevel9User` auf Level9; der Verwaltungsreiter ist ab Level7 sichtbar.
-- Kanbanize-Karten nutzen `IKanbanizeCardService` und enthalten keine Lizenzlogik.
-- VIBN-Synchronisierung verwendet die Quellkarten-ID als `custom_id`, erstellt keine Duplikate und verändert bestehende Karten nur an der Deadline.
-- Fehler sind bedienbar formuliert und technisch protokolliert.
-- Mindestens ein automatisierter Test schützt die neue Fachregel.
+Vor dem Commit mindestens Core-Smoke, WPF-UI-Smoke und einen Release-Build ausführen. Für reale Systeme zusätzlich [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md) abarbeiten.
+
+## Kommentare und Lesbarkeit
+
+XML-Kommentare erklären öffentliche Modelle, Grenzen und Invarianten. Kommentare innerhalb einer Methode erklären ausschließlich nicht offensichtliche Entscheidungen, beispielsweise Timeout-, Cache- oder Datenintegritätsgründe. Sie dürfen keinen Code in eigenen Worten wiederholen.
+
+Neue Klassen sollen eine eng abgegrenzte Aufgabe haben. Wenn eine ViewModel-Datei mehrere eigenständige Präsentationsmodelle enthält, diese in getrennte Dateien auslagern – beispielsweise `ViCoWorkstationRowVM` gegenüber `ViCoSearchPageVM`.

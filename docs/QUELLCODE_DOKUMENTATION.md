@@ -1,39 +1,49 @@
 # Quellcode-Dokumentation und Kommentierregeln
 
-## Was im Code dokumentiert ist
+## Dokumentierte Schwerpunkte
 
-Neue und geänderte öffentliche Klassen, Interfaces, Fachregeln und nicht offensichtliche Abläufe besitzen XML-Kommentare oder kurze Inline-Kommentare. Die Kommentare beantworten insbesondere, warum eine Grenze, Reihenfolge oder asynchrone Behandlung notwendig ist.
+Die neuen und geänderten Integrationsklassen besitzen XML-Kommentare an ihren öffentlichen Grenzen. Die Kommentare erklären vor allem:
 
-| Bereich | Kommentierte Kernpunkte |
-|---|---|
-| `LicenseAdministrationPolicy` | Mindestbesetzung, festes Level9-Konto `lutzma`, effektive Lizenzstufe und sicherer Änderungsplan |
-| `ViCoAdministrationPageVM` | persistente Hochstufung von `lutzma`, Schreibreihenfolge beim Levelwechsel |
-| `ViCoWorkspacePageVM` | Sichtbarkeit des Verwaltungsreiters ab Level7 |
-| `ViCoSearchPageVM` | einheitliche Aktualisierung, Cache-/Online-Verhalten, Online-Farblogik |
-| `ProjectIdentity` | Priorität Belegt vor Frei bei gemischten Karten |
-| `FeeConnectionService` | tatsächliche FEE-Verbindungsbestätigung nach `Connect` |
-| `KanbanizeCardDraftPolicy` | validierbare Eingabegrenzen vor einem externen Schreibvorgang |
-| `VibnWorkplaceSynchronizationPolicy` | historischer Quellfilter, Titelmarker und Deadline-Vergleich |
-| `VibnWorkplaceSynchronizationService` | frische Snapshots, idempotente Zuordnung, Konfliktstopp und einzige erlaubte Änderungen |
-| `KanbanizeCardApiService` | v2-HTTP-Grenze, API-Schlüssel nur im Header, minimale Create-/Deadline-Payloads, keine Lizenzlogik |
-| `KanbanizeCardPageVM` / `VibnWorkplaceSynchronizationVM` | getrennte manuelle Karte bzw. sichere Vorschau/Synchronisierung |
+| Klasse/Datei | dokumentierte Entscheidung |
+| --- | --- |
+| `ViCoRolePolicy` | feste Level9-Rolle und atomar validierte Mindestbesetzung |
+| `ViCoWorkstation`, `ViCoConfigurationField` | Statusregel und sichere Zuordnung von Kanbanize-Unteraufgaben |
+| `ViCoSearchPageVM` | begrenzte Ping-/RDP-Abfragen, Offline-Schutz und nur vorhandene Konfigurationsfelder |
+| `WindowsRemoteSessionService` | read-only Abfrage und „Nicht abrufbar“ bei fehlender Berechtigung |
+| `VibnWorkplaceSynchronizationPolicy` | Vorlage, Terminformel, Konflikt- und Duplikatschutz |
+| `KanbanizeCardApiService` | minimaler HTTP-Write-Scope ohne Fremdfelder |
+| `TiaHardwareModuleInfo`, `TiaOpennessSession` | read-only Hardwaredaten und Byteadress-Semantik |
+| `SpecialDeviceHardwareImportVM` | Prüfzone zwischen TIA-Erkennung und FEE-Schreibvorgang |
 
 ## Lesereihenfolge für neue Entwickler
 
-1. [Klassenreferenz](KLASSENREFERENZ.md) für Zuständigkeiten lesen.
-2. View (`.xaml`) und ViewModel (`.cs`) gemeinsam betrachten.
-3. Das verwendete Core-Interface suchen.
-4. Die Infrastrukturimplementierung und `ViCoFeatureBootstrapper` prüfen.
-5. Den zugehörigen Smoke-Test lesen.
+1. [GESAMTLOESUNG.md](GESAMTLOESUNG.md) lesen.
+2. `MainWindow.xaml` und `ViCoFeatureBootstrapper.cs` öffnen.
+3. Für eine ViCo-Änderung zuerst Core-Modelle, dann ViewModel und Infrastrukturadapter lesen.
+4. Für Kanbanize `VibnWorkplaceSynchronization.cs` vor `KanbanizeCardApiService.cs` lesen.
+5. Für TIA immer Contracts → Client → Dispatcher → Openness → ViewModel verfolgen.
+6. Den passenden Smoke-Test lesen und erweitern, bevor eine externe Schreiboperation geändert wird.
 
-## Konventionen
+## Regeln für neue Kommentare
 
-- XML-Kommentare stehen auf öffentlichen Verträgen und Fachregeln.
-- Inline-Kommentare stehen nur an Stellen, deren Motivation aus dem Code nicht offensichtlich ist, etwa Cache-Fallback, Schreibreihenfolge oder Abbruchbehandlung.
-- Keine Kommentare schreiben, die lediglich den Code wiederholen.
-- Jeder externe Vorgang läuft über ein Interface und wird in Statuszeile sowie Diagnoseprotokoll nachvollziehbar.
-- Neue Bindings zu schreibgeschützten Werten immer explizit `Mode=OneWay` setzen.
+- Öffentliche Modelle, Interfaces und Seiten-ViewModels: XML-`summary` mit Aufgabe und Grenze.
+- Nicht offensichtliche Algorithmen: Kommentar zum Grund, nicht zum offensichtlichen Ablauf.
+- Externe Schreiboperationen: ausdrücklich dokumentieren, welche Felder verändert werden dürfen.
+- Cache, Timeout, Parallelitätslimit und Fallback: Begründung am Code.
+- Keine auskommentierten alten Implementierungen als Dokumentation behalten; Historie gehört in Git und in dieses Handbuch.
 
-Die bestehende, historisch gewachsene VIBN-Funktionalität wurde bewusst nicht zeilenweise mit Redundanz-Kommentaren überzogen. Ihre Zuständigkeiten sind in der Klassenreferenz beschrieben; neue Umbauten sollen schrittweise in kleine Dienste mit Tests überführt werden.
+## Qualitätsregeln
 
-Die [Gesamtübersicht der Solution](GESAMTLOESUNG.md) ergänzt diese Regel um den Wegweiser für alle bestehenden VIBN-Module. Die wichtigsten Page-ViewModels der historischen Reiter tragen eine kurze Klassenbeschreibung; für fachliche Details sind ihre Commands, Services und die zugehörige View gemeinsam zu lesen.
+- Keine WPF-Typen in Core-Modellen.
+- Keine HTTP-/Windows-/TIA-Details in XAML oder reinen ViewModels.
+- Keine TwoWay-Bindung auf schreibgeschützte Anzeigeeigenschaften.
+- Keine ungebremsten Netzwerkfan-outs.
+- Keine ungetestete Änderung an Rollen, Kanbanize-Payloads oder TIA-Protokoll.
+- Keine neue Lizenzanfrage- oder Lizenzschreiblogik.
+
+## Prüfpfad für eine Änderung
+
+1. Fachregel mit einem Core-Test abdecken.
+2. Adapterpayload oder Dateischreibscope mit einem Fake/Recording-Test abdecken.
+3. WPF-View im UI-Smoke-Test instanziieren; bei einem neuen deferred Tab gezielt auswählen.
+4. Release-Build und Live-Abnahme durchführen.

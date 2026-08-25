@@ -45,6 +45,43 @@ public sealed record AutomationSoftwareInfo(
 
 public sealed record ViCoRobotInfo(string Name, string Status, string SourceCard);
 
+/// <summary>
+/// One editable field from the KONFIGURATION card. The subtask ID is retained
+/// so the UI can update exactly that subtask and no unrelated board data.
+/// </summary>
+public sealed record ViCoConfigurationField(string Key, string Value, int SubtaskId)
+{
+    public bool CanSave => SubtaskId > 0;
+}
+
+/// <summary>
+/// Structured workstation metadata extracted from the KONFIGURATION card and
+/// its USER, STANDORT, SW, PROJEKT-IP and SONSTIGES subtasks.
+/// </summary>
+public sealed record ViCoWorkstationConfiguration(
+    int CardId,
+    ViCoConfigurationField User,
+    ViCoConfigurationField Location,
+    ViCoConfigurationField Software,
+    ViCoConfigurationField ProjectIp,
+    ViCoConfigurationField Other)
+{
+    public static ViCoWorkstationConfiguration Empty { get; } = new(
+        0,
+        new ViCoConfigurationField("USER", string.Empty, 0),
+        new ViCoConfigurationField("STANDORT", string.Empty, 0),
+        new ViCoConfigurationField("SW", string.Empty, 0),
+        new ViCoConfigurationField("PROJEKT-IP", string.Empty, 0),
+        new ViCoConfigurationField("SONSTIGES", string.Empty, 0));
+
+    public IReadOnlyList<ViCoConfigurationField> Fields => new[]
+    {
+        User, Location, Software, ProjectIp, Other
+    };
+
+    public bool IsEditable => CardId > 0 && Fields.Any(field => field.CanSave);
+}
+
 public sealed record ViCoWorkstation(
     string DisplayName,
     string PcName,
@@ -55,7 +92,8 @@ public sealed record ViCoWorkstation(
     IReadOnlyList<string> Projects,
     IReadOnlyList<string> Details,
     IReadOnlyList<AutomationSoftwareInfo>? Software = null,
-    IReadOnlyList<ViCoRobotInfo>? Robots = null)
+    IReadOnlyList<ViCoRobotInfo>? Robots = null,
+    ViCoWorkstationConfiguration? Configuration = null)
 {
     public IReadOnlyList<AutomationSoftwareInfo> AutomationSoftware { get; } =
         Software ?? Array.Empty<AutomationSoftwareInfo>();
@@ -86,6 +124,9 @@ public sealed record ViCoWorkstation(
     public string RobotSummary => RobotDetails.Count == 0
         ? "Keine Robotik-Karte zugeordnet"
         : string.Join(" | ", RobotDetails.Select(robot => $"{robot.Name}: {robot.Status}"));
+
+    public ViCoWorkstationConfiguration WorkstationConfiguration =>
+        Configuration ?? ViCoWorkstationConfiguration.Empty;
 }
 
 public sealed record ViCoWorkstationSnapshot(
@@ -110,13 +151,6 @@ public interface IViCoRelatedPathResolver
     string? Resolve(ViCoWorkstation workstation, string project, ViCoRelatedPathKind kind);
 }
 
-public interface IRemoteCredentialStore
-{
-    void Save(string hostName, string userName);
-
-    void RemoveLater(string hostName, TimeSpan delay);
-}
-
 public interface INetworkAvailabilityService
 {
     Task<bool> PingAsync(string hostName, CancellationToken cancellationToken = default);
@@ -126,7 +160,32 @@ public interface IRemoteDesktopService
 {
     int MonitorCount { get; }
 
+    /// <summary>Starts RDP with locally saved Windows credentials.</summary>
     void Connect(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes);
+
+    /// <summary>Starts RDP without inserting credentials so Windows shows its sign-in dialog.</summary>
+    void ConnectWithCredentialPrompt(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes);
+}
+
+/// <summary>
+/// Read-only remote-session data. <see cref="IsAvailable"/> is false when
+/// Windows denies the remote query or the session service cannot be reached.
+/// </summary>
+public sealed record ViCoRemoteSessionInfo(
+    bool IsAvailable,
+    string ActiveUser,
+    string LastLogonUser,
+    DateTimeOffset? LastLogonAt)
+{
+    public static ViCoRemoteSessionInfo NotAvailable { get; } = new(false, string.Empty, string.Empty, null);
+}
+
+/// <summary>Queries terminal-server/RDP session information without modifying the remote PC.</summary>
+public interface IRemoteSessionService
+{
+    Task<ViCoRemoteSessionInfo> GetSessionInfoAsync(
+        string hostName,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IViCoOnlineRefreshService
@@ -134,6 +193,17 @@ public interface IViCoOnlineRefreshService
     bool IsConfigured { get; }
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>Writes only existing KONFIGURATION subtasks back to Kanbanize.</summary>
+public interface IViCoWorkstationConfigurationService
+{
+    bool IsConfigured { get; }
+
+    Task SaveFieldsAsync(
+        int configurationCardId,
+        IReadOnlyCollection<ViCoConfigurationField> fields,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkstationDirectoryEntry(string PcName, string UserName);
