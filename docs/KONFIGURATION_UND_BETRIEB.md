@@ -48,6 +48,7 @@ Die konkreten UNC-Standardwerte stehen nur in `ViCoPathsOptions.cs`, damit sie n
 | Termine | lokales Outlook-Profil | Verwaltung aktualisieren |
 | TIA-Versionen | lokale Siemens-PublicAPI-Verzeichnisse | ViewModel-Erzeugung |
 | Kartenpositionen / Kartenerstellung | Kanbanize v2 API | beim Öffnen/Aktualisieren des Kartenreiters bzw. auf Benutzeraktion |
+| VIBN→Arbeitsplätze-Abgleich | Kanbanize Boards der gewählten Quelle und des Ziels | nur nach **Prüfen** bzw. **Synchronisieren**, immer mit frischem Snapshot |
 
 ## Häufige Fehler
 
@@ -72,9 +73,9 @@ Den innersten `InnerException`-Text und den gebundenen Property-Namen erfassen. 
 
 Nach **Connect** wird maximal 10 Sekunden auf den tatsächlichen FEE-Zustand `Connected` gewartet. Bei Zeitüberschreitung wird die Verbindung getrennt, `Connected to` bleibt `---` und die Statuszeile meldet den Fehler. PC-/Projektselektion, Netzverbindung und den betreffenden UNC-Pfad prüfen. Die Statuszeile ist für Anwender formuliert; das Diagnoseprotokoll enthält die technische Ursache.
 
-### Kanbanize-Karte kann nicht erstellt werden
+### Kanbanize-Synchronisierung oder Karte kann nicht ausgeführt werden
 
-Board, Lane, Spalte und Titel prüfen. Der API-Schlüssel muss für das Board die Berechtigung **Create Card** besitzen. Die Kartenfunktion teilt den ViCo-API-Schlüssel, hat aber keine Lizenzanfrage oder Lizenzabhängigkeit. Details stehen im [Kartenhandbuch](KANBANIZE_KARTEN.md).
+Board, Lane, Spalte und Titel prüfen. Der API-Schlüssel muss für das Board die Berechtigung **Create Card** besitzen. Für die VIBN-Synchronisierung kommen Leserechte auf Quell- und Zielboard sowie die Berechtigung zum Aktualisieren der Deadline hinzu. Die Kartenfunktion teilt den ViCo-API-Schlüssel, hat aber keine Lizenzanfrage oder Lizenzabhängigkeit. Details stehen im [Kartenhandbuch](KANBANIZE_KARTEN.md).
 
 ### TIA Bridge verbindet sich nicht
 

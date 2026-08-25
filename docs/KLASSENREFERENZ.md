@@ -14,7 +14,8 @@ Diese Referenz erklärt Zuständigkeiten und sinnvolle Erweiterungspunkte. Sie e
 | `IFolderSelectionService`, `WpfFolderSelectionService` | UI-unabhängiger Vertrag und WPF-Ordnerdialog | ViewModels einen Ordner auswählen lassen sollen |
 | `ViCoRemoteCredentialStore` | kompatible Bereitstellung der RDP-Anmeldedaten | der spätere sichere Credential-Speicher migriert wird |
 | `LegacyLicenseCompatibility` | Auflösung des vorhandenen Kompatibilitätsschlüssels | das Lizenzformat in der Sicherheitsphase migriert wird |
-| `KanbanizeCardPage` / `KanbanizeCardPageVM` | einzelne Kanbanize-Karte erstellen, ohne Lizenzworkflow | Kartenfelder oder Bedienablauf ergänzt werden |
+| `KanbanizeCardPage` / `KanbanizeCardPageVM` | Host für optionale manuelle Karten und VIBN-Synchronisierung, ohne Lizenzworkflow | Kartenreiter oder gemeinsame Board-Ladelogik ergänzt werden |
+| `VibnWorkplaceSynchronizationVM` | Auswahl, Vorschau, Status und bewusste Ausführung der VIBN→Arbeitsplätze-Automatik | Bedienung, Zielauswahl oder Vorschautabelle ergänzt werden |
 
 Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `.xaml.cs` beschränkt sich auf Initialisierung und UI-Lebenszyklus; Fachlogik gehört in ViewModel/Core.
 
@@ -29,7 +30,8 @@ Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `
 | `TiaPortalPageVM` | Bridge-Lebenszyklus, TIA-/PLC-Auswahl, Baumdaten und Import-/Export-Workflows |
 | `ViCoAdministrationPageVM` | Outlook, Update, Lizenzanzeige und Ausführung validierter Lizenzänderungspläne |
 | `ViCoWorkspacePageVM` | prüft das aktuelle Level und blendet Verwaltung unter Level7 aus |
-| `KanbanizeCardPageVM` | Boards, Lanes, Workflow-Spalten, Kartendraft, Validierung und asynchrone Erstellung |
+| `KanbanizeCardPageVM` | Boards, Lanes, Workflow-Spalten, manueller Kartendraft und asynchrone Erstellung |
+| `VibnWorkplaceSynchronizationVM` | VIBN-Quelle/Zielpositionen, sichere Vorschau, Konfliktanzeige und Synchronisierungscommand |
 
 ## `VIBN_Tools.Core/ViCo`
 
@@ -60,6 +62,7 @@ Zu jedem `*PageVM` gehört in `Application/View/` eine gleichnamige XAML-View. `
 | `WorkspaceContext.cs` | geteilte ViCo-Auswahl zwischen Suche, Projekten und Transfer; Projektstrukturvertrag |
 | `Administration.cs` | Lizenz-, Termin- und Updateverträge sowie `LicenseAdministrationPolicy` |
 | `Kanbanize/CardCreation.cs` | Board-/Positionsmodelle, Kartenentwurf, Validierung und HTTP-unabhängiger Kartenvertrag |
+| `Kanbanize/VibnWorkplaceSynchronization.cs` | Quellfilter, Idempotenz über `custom_id`, Vorschau, Konfliktschutz und erlaubte Schreibaktionen |
 | `Diagnostics.cs` | Logmodell, Level, `IApplicationLog` und Null-Implementierung für Tests |
 
 Core ist der richtige Ort für Regeln, die unabhängig davon gelten, ob Daten aus Dateien, HTTP oder später einer Datenbank kommen.
@@ -84,7 +87,7 @@ Core ist der richtige Ort für Regeln, die unabhängig davon gelten, ob Daten au
 | `OutlookMeetingService` | liest heutige Termine über Outlook-Interop |
 | `FileSystemViCoUpdateService` | findet die neueste Version im Versionsverzeichnis |
 | `WindowsPathLauncher` | öffnet Datei-/Ordnerziele über Windows |
-| `KanbanizeCardApiService` | lädt Boards/Positionen und erstellt eine Karte über Kanbanize v2; keine Lizenzlogik |
+| `KanbanizeCardApiService` | lädt Boards/Positionen/Karten, erstellt manuelle oder VIBN-verknüpfte Karten und patcht gezielt Deadlines; keine Lizenzlogik |
 
 Parseränderungen für das vorhandene Cacheformat gehören in `LegacyWorkstationCatalog`; Änderungen an der Kanbanize-API-Abfrage in `KanbanizeRefreshService`. Diese Trennung verhindert, dass die UI vom Transportformat abhängt.
 

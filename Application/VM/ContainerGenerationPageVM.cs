@@ -22,6 +22,11 @@ using VIBN_Tools.ContainerGeneration.AI;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Coordinates the container-generation workspace: input files, settings,
+    /// generation, validation, review, undo/redo and export. The domain rules
+    /// remain in <c>ContainerGeneration/BusinessLogic</c>.
+    /// </summary>
     public class ContainerGenerationPageVM : MvvmBase
     {
 

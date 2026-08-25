@@ -23,6 +23,16 @@ Run this checklist on a GROB desktop with VPN/network access, fe.screen-sim, Out
 - `[B]`, `[P]`, `[W]` and `[D]` are displayed with the documented meaning.
 - Remote Desktop uses the Kanbanize user and starts without another workflow step.
 - All project-path buttons open the expected directories.
+- Belegung ist bei Frei grün und bei Belegt rot; der Online-Ping bleibt separat grün/rot.
+
+## Kanbanize
+
+- **Prüfen** im VIBN→Arbeitsplätze-Reiter erzeugt keine Karte und zeigt neue, unveränderte, Deadline- und Konfliktfälle korrekt.
+- Eine fehlende VIBN-Karte erzeugt genau eine verknüpfte Zielkarte mit Quell-ID als `custom_id`.
+- Ein wiederholter Lauf erzeugt keine Duplikate.
+- Bei einer abweichenden Deadline wird nur die Deadline der eindeutigen Zielkarte angepasst.
+- Mehrdeutige `custom_id`-Zuordnungen bleiben unverändert und werden als Konflikt angezeigt.
+- Eine manuell erstellte Karte im zweiten Kanbanize-Reiter funktioniert unabhängig von der Synchronisierung.
 
 ## Transfer and TIA
 

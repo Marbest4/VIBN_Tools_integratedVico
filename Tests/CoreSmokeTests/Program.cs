@@ -1,9 +1,12 @@
 using VIBN_Tools.Core.ViCo;
 using VIBN_Tools.Core.Kanbanize;
+using VIBN_Tools.Infrastructure.Kanbanize;
 using VIBN_Tools.Infrastructure.ViCo;
 using VIBN_Tools.Tia.Client;
 using VIBN_Tools.Tia.Contracts;
 using System.IO.Pipes;
+using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 
 var temporaryRoot = Path.Combine(Path.GetTempPath(), $"vibn-vico-tests-{Guid.NewGuid():N}");
@@ -31,6 +34,10 @@ try
     VerifyLicenseAdministrationPolicy();
     Console.WriteLine("Running Kanbanize card draft policy smoke test...");
     VerifyKanbanizeCardDraftPolicy();
+    Console.WriteLine("Running idempotent VIBN workplace synchronization smoke test...");
+    await VerifyVibnWorkplaceSynchronizationAsync();
+    Console.WriteLine("Running narrow Kanbanize HTTP write-scope smoke test...");
+    await VerifyKanbanizeHttpWriteScopeAsync();
     if (OperatingSystem.IsWindows())
     {
         Console.WriteLine("Running legacy license and update smoke test...");
@@ -331,6 +338,106 @@ static void VerifyKanbanizeCardDraftPolicy()
         "Kanbanize card priority must be bounded.");
 }
 
+static async Task VerifyVibnWorkplaceSynchronizationAsync()
+{
+    var sourceDeadline = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+    var service = new MemoryKanbanizeCardService(
+        new[]
+        {
+            new KanbanizeCardInfo(101, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM1000", null, sourceDeadline),
+            new KanbanizeCardInfo(102, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM2000", null, sourceDeadline),
+            new KanbanizeCardInfo(105, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM5000", null, sourceDeadline),
+            new KanbanizeCardInfo(106, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM6000", null, sourceDeadline),
+            new KanbanizeCardInfo(107, 1392, 10, 20, "[VIBN] Grundinbetriebnahme Vorlage", null, sourceDeadline),
+            new KanbanizeCardInfo(108, 1392, 10, 25236, "[VIBN] Grundinbetriebnahme Archiv", null, sourceDeadline)
+        },
+        new[]
+        {
+            new KanbanizeCardInfo(201, 1541, 28125, 29373, "Bestehende Karte", "102", sourceDeadline.AddDays(-3)),
+            new KanbanizeCardInfo(205, 1541, 28125, 29373, "Bereits aktuell", "105", sourceDeadline),
+            new KanbanizeCardInfo(206, 1541, 28125, 29373, "Doppelte Eins", "106", sourceDeadline),
+            new KanbanizeCardInfo(207, 1541, 28125, 29373, "Doppelte Zwei", "106", sourceDeadline)
+        });
+    var synchronization = new VibnWorkplaceSynchronizationService(service);
+    var settings = new VibnWorkplaceSynchronizationSettings(1392, 1541, 28125, 29373, 3, true);
+
+    var preview = await synchronization.PreviewAsync(settings);
+    Assert(preview.CreateCount == 1 && preview.DeadlineUpdateCount == 1 && preview.UnchangedCount == 1,
+        "The preview must distinguish missing, stale and already-current target cards.");
+    Assert(preview.ConflictCount == 1 && preview.ExcludedSourceCardCount == 2,
+        "Duplicate target IDs must be reported and template/archive source cards excluded.");
+
+    var withoutDeadlineSync = await synchronization.PreviewAsync(settings with { SynchronizeDeadlines = false });
+    Assert(withoutDeadlineSync.DeadlineUpdateCount == 0,
+        "Deadline synchronization must be explicitly suppressible without affecting duplicate detection.");
+
+    var result = await synchronization.SynchronizeAsync(settings);
+    Assert(result.CreatedCount == 1 && result.DeadlineUpdateCount == 1 && result.Failures.Count == 0,
+        "Synchronization should create the missing target and adjust only its stale deadline.");
+    Assert(service.GeneratedCards.Single().SourceCardId == 101 &&
+           service.GeneratedCards.Single().Title == "*[Gen]* GM1000",
+        "A generated card must preserve the legacy title marker and source identity.");
+    Assert(service.DeadlineChanges.SequenceEqual(new[] { new DeadlineChange(201, sourceDeadline) }),
+        "Only the existing target deadline may be changed; no other target field is updated.");
+
+    var repeat = await synchronization.SynchronizeAsync(settings);
+    Assert(repeat.CreatedCount == 0 && repeat.DeadlineUpdateCount == 0,
+        "A second synchronization must not create duplicates or repeat unchanged deadline updates.");
+}
+
+static async Task VerifyKanbanizeHttpWriteScopeAsync()
+{
+    var deadline = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+    using var handler = new RecordingHttpMessageHandler();
+    handler.EnqueueJson("""
+        {"data":{"data":[{"card_id":101,"board_id":1392,"lane_id":10,"column_id":20,"title":"[VIBN] Grundinbetriebnahme GM1000","custom_id":null,"deadline":"2026-09-15T12:00:00.0000000Z"}],"pagination":{"all_pages":1}}}
+        """);
+    handler.EnqueueJson("""
+        {"data":{"card_id":9001,"title":"*[Gen]* GM1000"}}
+        """);
+    handler.EnqueueJson("{}");
+    using var httpClient = new HttpClient(handler);
+    var api = new KanbanizeCardApiService(httpClient, "test-only-key", "https://example.test/api/v2");
+
+    var cards = await api.LoadCardsAsync(1392);
+    await api.CreateGeneratedCardAsync(new KanbanizeGeneratedCardDraft(
+        101,
+        28125,
+        29373,
+        "*[Gen]* GM1000",
+        3,
+        deadline));
+    await api.UpdateDeadlineAsync(9001, deadline);
+
+    Assert(cards.Count == 1 && string.IsNullOrEmpty(cards[0].CustomId),
+        "The card reader must preserve the source card fields used for duplicate detection.");
+    Assert(handler.Requests.Count == 3, "The API adapter should make one read and two narrowly scoped writes.");
+    Assert(handler.Requests[0].RelativeUrl.Contains("per_page=1000", StringComparison.Ordinal) &&
+           handler.Requests[0].RelativeUrl.Contains("custom_id", StringComparison.Ordinal),
+        "The synchronization reader must request all relevant card identity fields.");
+    Assert(handler.Requests.All(request => request.ApiKey == "test-only-key"),
+        "Every Kanbanize request must carry the configured API key.");
+
+    using var createPayload = JsonDocument.Parse(handler.Requests[1].Body);
+    var create = createPayload.RootElement;
+    Assert(create.GetProperty("lane_id").GetInt32() == 28125 &&
+           create.GetProperty("column_id").GetInt32() == 29373 &&
+           create.GetProperty("custom_id").GetString() == "101",
+        "A generated workplace card must retain the selected destination and source identity.");
+    Assert(create.GetProperty("links_to_existing_cards_to_add_or_update")[0]
+               .GetProperty("linked_card_id").GetInt32() == 101,
+        "A generated workplace card must retain the parent link to its source card.");
+    Assert(!create.TryGetProperty("actual_end_time", out _) &&
+           !create.TryGetProperty("description", out _),
+        "The synchronization must not add unrelated card fields when creating a workplace card.");
+
+    using var patchPayload = JsonDocument.Parse(handler.Requests[2].Body);
+    var patchFields = patchPayload.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
+    Assert(patchFields.SequenceEqual(new[] { "deadline" }, StringComparer.Ordinal) &&
+           patchPayload.RootElement.GetProperty("deadline").GetString() == deadline.UtcDateTime.ToString("O"),
+        "The deadline sync must PATCH only the deadline field of an existing target card.");
+}
+
 static async Task VerifyAdministrationIdentityAsync()
 {
     var licenses = new MemoryLicenseService(new ViCoLicenseEntry(@"grob\user", "Level9", "memory"));
@@ -442,6 +549,110 @@ sealed class SnapshotCatalog(params ViCoWorkstation[] workstations) : IViCoWorks
 {
     public Task<ViCoWorkstationSnapshot> LoadAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new ViCoWorkstationSnapshot(workstations, Array.Empty<string>()));
+}
+
+sealed record CapturedHttpRequest(HttpMethod Method, string RelativeUrl, string ApiKey, string Body);
+
+/// <summary>
+/// In-memory HTTP boundary for payload tests. It ensures the Kanbanize adapter
+/// can be verified without any network call or mutation of a real board.
+/// </summary>
+sealed class RecordingHttpMessageHandler : HttpMessageHandler
+{
+    private readonly Queue<HttpResponseMessage> _responses = new();
+
+    public List<CapturedHttpRequest> Requests { get; } = new();
+
+    public void EnqueueJson(string json) =>
+        _responses.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var body = request.Content is null
+            ? string.Empty
+            : await request.Content.ReadAsStringAsync(cancellationToken);
+        var apiKey = request.Headers.TryGetValues("apikey", out var values)
+            ? values.SingleOrDefault() ?? string.Empty
+            : string.Empty;
+        Requests.Add(new CapturedHttpRequest(
+            request.Method,
+            request.RequestUri?.PathAndQuery ?? string.Empty,
+            apiKey,
+            body));
+
+        if (_responses.Count == 0)
+            throw new InvalidOperationException("No mocked Kanbanize response was provided.");
+        return _responses.Dequeue();
+    }
+}
+
+sealed record DeadlineChange(int CardId, DateTimeOffset? Deadline);
+
+sealed class MemoryKanbanizeCardService : IKanbanizeCardService
+{
+    private readonly List<KanbanizeCardInfo> _sourceCards;
+    private readonly List<KanbanizeCardInfo> _targetCards;
+    private int _nextCardId = 9000;
+
+    public MemoryKanbanizeCardService(
+        IEnumerable<KanbanizeCardInfo> sourceCards,
+        IEnumerable<KanbanizeCardInfo> targetCards)
+    {
+        _sourceCards = sourceCards.ToList();
+        _targetCards = targetCards.ToList();
+    }
+
+    public bool IsConfigured => true;
+
+    public List<KanbanizeGeneratedCardDraft> GeneratedCards { get; } = new();
+
+    public List<DeadlineChange> DeadlineChanges { get; } = new();
+
+    public Task<IReadOnlyList<KanbanizeBoardInfo>> LoadBoardsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<KanbanizeBoardInfo>>(Array.Empty<KanbanizeBoardInfo>());
+
+    public Task<KanbanizeBoardStructure> LoadBoardStructureAsync(int boardId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new KanbanizeBoardStructure(Array.Empty<KanbanizeLaneInfo>(), Array.Empty<KanbanizeColumnInfo>()));
+
+    public Task<IReadOnlyList<KanbanizeCardInfo>> LoadCardsAsync(int boardId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<KanbanizeCardInfo>>(
+            (boardId == 1392 ? _sourceCards : _targetCards).ToArray());
+
+    public Task<KanbanizeCreatedCard> CreateCardAsync(KanbanizeCardDraft draft, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new KanbanizeCreatedCard(++_nextCardId, draft.Title));
+
+    public Task<KanbanizeCreatedCard> CreateGeneratedCardAsync(
+        KanbanizeGeneratedCardDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        GeneratedCards.Add(draft);
+        var created = new KanbanizeCardInfo(
+            ++_nextCardId,
+            1541,
+            draft.TargetLaneId,
+            draft.TargetColumnId,
+            draft.Title,
+            draft.SourceCardId.ToString(),
+            draft.Deadline);
+        _targetCards.Add(created);
+        return Task.FromResult(new KanbanizeCreatedCard(created.Id, created.Title));
+    }
+
+    public Task UpdateDeadlineAsync(int cardId, DateTimeOffset? deadline, CancellationToken cancellationToken = default)
+    {
+        var index = _targetCards.FindIndex(card => card.Id == cardId);
+        if (index < 0)
+            throw new InvalidOperationException("Target card not found.");
+        _targetCards[index] = _targetCards[index] with { Deadline = deadline };
+        DeadlineChanges.Add(new DeadlineChange(cardId, deadline));
+        return Task.CompletedTask;
+    }
 }
 
 sealed class MemoryLicenseService : IViCoLicenseService

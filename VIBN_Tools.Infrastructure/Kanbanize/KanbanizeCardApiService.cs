@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 using VIBN_Tools.Core.Kanbanize;
 
 namespace VIBN_Tools.Infrastructure.Kanbanize;
@@ -71,6 +72,46 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         return new KanbanizeBoardStructure(lanes, columns);
     }
 
+    /// <summary>
+    /// Loads every page for one board. The VIBN synchronizer needs an exact
+    /// target snapshot before it can decide safely that a source card is not
+    /// already represented by its custom ID.
+    /// </summary>
+    public async Task<IReadOnlyList<KanbanizeCardInfo>> LoadCardsAsync(
+        int boardId,
+        CancellationToken cancellationToken = default)
+    {
+        if (boardId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(boardId));
+
+        // Keep the established v2 query parameter from the earlier tool. It
+        // requests enough cards for the two operational boards in one call;
+        // the page loop remains as a safe fallback for larger boards.
+        const int pageSize = 1000;
+        const string fields = "card_id,board_id,lane_id,column_id,title,custom_id,deadline";
+        using var firstPage = await GetJsonAsync(
+            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}&fields={fields}",
+            cancellationToken);
+        var cards = ParseCards(firstPage.RootElement).ToList();
+        var pageCount = Math.Max(1, ReadPageCount(firstPage.RootElement));
+
+        // Fetch additional pages sequentially. This keeps the synchronization
+        // responsive without creating a burst of requests against Kanbanize.
+        for (var page = 2; page <= pageCount; page++)
+        {
+            using var nextPage = await GetJsonAsync(
+                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}&fields={fields}",
+                cancellationToken);
+            cards.AddRange(ParseCards(nextPage.RootElement));
+        }
+
+        return cards
+            .GroupBy(card => card.Id)
+            .Select(group => group.First())
+            .OrderBy(card => card.Id)
+            .ToArray();
+    }
+
     public async Task<KanbanizeCreatedCard> CreateCardAsync(
         KanbanizeCardDraft draft,
         CancellationToken cancellationToken = default)
@@ -93,6 +134,84 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         if (draft.Deadline is not null)
             payload["deadline"] = draft.Deadline.Value.UtcDateTime.ToString("O");
 
+        return await CreateCardFromPayloadAsync(payload, draft.Title.Trim(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates the sole permitted projection of a VIBN source card. The source
+    /// ID is persisted as custom ID and parent link, so later runs recognize it
+    /// without relying on mutable titles or descriptions.
+    /// </summary>
+    public async Task<KanbanizeCreatedCard> CreateGeneratedCardAsync(
+        KanbanizeGeneratedCardDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        if (draft.SourceCardId <= 0 || draft.TargetLaneId <= 0 || draft.TargetColumnId <= 0)
+            throw new ArgumentException("Quellkarte, Ziel-Lane und Zielspalte müssen gültig sein.", nameof(draft));
+        if (string.IsNullOrWhiteSpace(draft.Title) || draft.Title.Trim().Length > 255)
+            throw new ArgumentException("Der generierte Kartentitel ist ungültig.", nameof(draft));
+        if (draft.Priority < KanbanizeCardDraftPolicy.MinimumPriority ||
+            draft.Priority > KanbanizeCardDraftPolicy.MaximumPriority)
+        {
+            throw new ArgumentException("Die generierte Kartenpriorität ist ungültig.", nameof(draft));
+        }
+        EnsureConfigured();
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["lane_id"] = draft.TargetLaneId,
+            ["column_id"] = draft.TargetColumnId,
+            ["title"] = draft.Title.Trim(),
+            ["custom_id"] = draft.SourceCardId.ToString(CultureInfo.InvariantCulture),
+            ["priority"] = draft.Priority,
+            ["links_to_existing_cards_to_add_or_update"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["linked_card_id"] = draft.SourceCardId,
+                    ["link_type"] = "parent"
+                }
+            }
+        };
+        if (draft.Deadline is not null)
+            payload["deadline"] = draft.Deadline.Value.UtcDateTime.ToString("O");
+
+        return await CreateCardFromPayloadAsync(payload, draft.Title.Trim(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Patches precisely one scalar field. This is deliberately not a generic
+    /// update method: the automation must never move, delete or overwrite a
+    /// user's workplace card.
+    /// </summary>
+    public async Task UpdateDeadlineAsync(
+        int cardId,
+        DateTimeOffset? deadline,
+        CancellationToken cancellationToken = default)
+    {
+        if (cardId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(cardId));
+        EnsureConfigured();
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["deadline"] = deadline?.UtcDateTime.ToString("O")
+        };
+        using var request = CreateRequest(HttpMethod.Patch, $"/cards/{cardId}");
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    private async Task<KanbanizeCreatedCard> CreateCardFromPayloadAsync(
+        Dictionary<string, object?> payload,
+        string fallbackTitle,
+        CancellationToken cancellationToken)
+    {
         using var request = CreateRequest(HttpMethod.Post, "/cards");
         request.Content = new StringContent(
             JsonSerializer.Serialize(payload),
@@ -103,12 +222,12 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
 
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(responseText))
-            return new KanbanizeCreatedCard(0, draft.Title.Trim());
+            return new KanbanizeCreatedCard(0, fallbackTitle);
 
         using var document = JsonDocument.Parse(responseText);
         var card = GetPayloadObject(document.RootElement);
         var cardId = ReadInt(card, "card_id", "id");
-        return new KanbanizeCreatedCard(cardId, ReadString(card, "title", draft.Title.Trim()));
+        return new KanbanizeCreatedCard(cardId, ReadString(card, "title", fallbackTitle));
     }
 
     private async Task<JsonDocument> GetJsonAsync(string relativeUrl, CancellationToken cancellationToken)
@@ -161,6 +280,28 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         return root;
     }
 
+    private static IEnumerable<KanbanizeCardInfo> ParseCards(JsonElement root) =>
+        GetDataElements(root)
+            .Select(element => new KanbanizeCardInfo(
+                ReadInt(element, "card_id", "id"),
+                ReadInt(element, "board_id"),
+                ReadInt(element, "lane_id"),
+                ReadInt(element, "column_id"),
+                ReadString(element, "title"),
+                ReadString(element, "custom_id"),
+                ReadDateTimeOffset(element, "deadline")))
+            .Where(card => card.Id > 0);
+
+    private static int ReadPageCount(JsonElement root)
+    {
+        var data = root;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var nestedData))
+            data = nestedData;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("pagination", out var pagination))
+            return ReadInt(pagination, "all_pages");
+        return 1;
+    }
+
     private static int ReadInt(JsonElement element, params string[] names)
     {
         if (element.ValueKind != JsonValueKind.Object)
@@ -182,6 +323,18 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         element.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null
             ? value.ToString().Trim()
             : fallback;
+
+    private static DateTimeOffset? ReadDateTimeOffset(JsonElement element, string name)
+    {
+        var raw = ReadString(element, name);
+        return DateTimeOffset.TryParse(
+            raw,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed)
+            ? parsed
+            : null;
+    }
 
     private static string ExtractErrorDetail(string responseText)
     {

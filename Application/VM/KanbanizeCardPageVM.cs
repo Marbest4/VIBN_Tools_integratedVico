@@ -7,8 +7,9 @@ using VIBN_Tools.GlobalClasses;
 namespace VIBN_Tools.Application.VM;
 
 /// <summary>
-/// Coordinates the standalone Kanbanize card page. It contains no license or
-/// permission-request workflow; authorization remains solely a Kanbanize API concern.
+/// Coordinates shared board data and the optional manual portion of the
+/// Kanbanize page. The VIBN workplace automation is delegated to its own view
+/// model; neither workflow contains license or permission-request logic.
 /// </summary>
 public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
 {
@@ -19,10 +20,17 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
     private IReadOnlyList<KanbanizeColumnInfo> _boardColumns = Array.Empty<KanbanizeColumnInfo>();
     private bool _initialized;
 
-    public KanbanizeCardPageVM(IKanbanizeCardService cards, IApplicationLog? log = null)
+    public KanbanizeCardPageVM(
+        IKanbanizeCardService cards,
+        IVibnWorkplaceSynchronizationService workplaceSynchronization,
+        IApplicationLog? log = null)
     {
         _cards = cards ?? throw new ArgumentNullException(nameof(cards));
         _log = log ?? NullApplicationLog.Instance;
+        WorkplaceSynchronization = new VibnWorkplaceSynchronizationVM(
+            _cards,
+            workplaceSynchronization,
+            _log);
         foreach (var priority in Enumerable.Range(
                      KanbanizeCardDraftPolicy.MinimumPriority,
                      KanbanizeCardDraftPolicy.MaximumPriority - KanbanizeCardDraftPolicy.MinimumPriority + 1))
@@ -35,6 +43,13 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
     }
 
     public ObservableCollection<KanbanizeBoardInfo> Boards { get; } = new();
+
+    /// <summary>
+    /// Separate workflow for the idempotent VIBN-to-workplace automation. The
+    /// existing properties in this view model remain exclusively responsible
+    /// for optional, manually created cards.
+    /// </summary>
+    public VibnWorkplaceSynchronizationVM WorkplaceSynchronization { get; }
 
     public ObservableCollection<KanbanizeLaneInfo> Lanes { get; } = new();
 
@@ -203,6 +218,7 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
 
     public void Dispose()
     {
+        WorkplaceSynchronization.Dispose();
         _structureCancellation?.Cancel();
         _structureCancellation?.Dispose();
         _lifetimeCancellation.Cancel();
@@ -226,6 +242,7 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
         {
             var boards = await _cards.LoadBoardsAsync(_lifetimeCancellation.Token);
             Replace(Boards, boards);
+            WorkplaceSynchronization.SetBoards(boards);
             SelectedBoard = Boards.FirstOrDefault();
             StatusText = boards.Count == 0
                 ? "Es wurden keine zugänglichen Kanbanize-Boards gefunden."

@@ -14,6 +14,11 @@ using RobotType = VIBN_Tools.GlobalClasses.RobotType;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Owns the import options and conversion command for ZuLi/interface data.
+    /// Format-specific writing belongs to the converter strategies, not to the
+    /// WPF view model.
+    /// </summary>
     public class ZuliConverterPageVM : MvvmBase
     {
 

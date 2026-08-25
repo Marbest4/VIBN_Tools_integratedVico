@@ -8,6 +8,11 @@ using VIBN_Tools.Settings;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Coordinates CAD-derived FEE helper generation such as joints, sensors,
+    /// conveyors and templates. Creation commands remain asynchronous because
+    /// they operate on the connected simulation model.
+    /// </summary>
     public class CadWizardPageVM : MvvmBase
     {
 

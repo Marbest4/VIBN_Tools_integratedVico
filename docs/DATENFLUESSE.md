@@ -59,7 +59,21 @@ flowchart TD
     Z --> N["Lizenzbestand neu laden"]
 ```
 
-## Kanbanize-Karte erstellen
+## Kanbanize: VIBN → Arbeitsplätze
+
+```mermaid
+flowchart LR
+    S["VIBN-Board: Grundinbetriebnahme"] --> R["KanbanizeCardApiService: Karten lesen"]
+    T["Arbeitsplätze-Board"] --> R
+    R --> P["VibnWorkplaceSynchronizationService: Vorschau"]
+    P -->|fehlend| C["POST: verknüpfte Zielkarte erstellen"]
+    P -->|eindeutig, Deadline abweichend| D["PATCH: nur deadline"]
+    P -->|mehrdeutig| X["Konflikt: keine Änderung"]
+```
+
+Der Vergleich erfolgt vor jeder Synchronisierung erneut. Die Quellkarten-ID ist die `custom_id` der Zielkarte. Die Automation löscht, verschiebt, benennt oder beschreibt keine bestehende Karte.
+
+## Kanbanize: eigene Karte erstellen
 
 ```mermaid
 flowchart LR

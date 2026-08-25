@@ -13,8 +13,10 @@ Neue und geänderte öffentliche Klassen, Interfaces, Fachregeln und nicht offen
 | `ProjectIdentity` | Priorität Belegt vor Frei bei gemischten Karten |
 | `FeeConnectionService` | tatsächliche FEE-Verbindungsbestätigung nach `Connect` |
 | `KanbanizeCardDraftPolicy` | validierbare Eingabegrenzen vor einem externen Schreibvorgang |
-| `KanbanizeCardApiService` | v2-HTTP-Grenze, API-Schlüssel nur im Header, keine Lizenzlogik |
-| `KanbanizeCardPageVM` | Abbruch, Workflow-Spaltenfilter, Reset nach erfolgreicher Erstellung |
+| `VibnWorkplaceSynchronizationPolicy` | historischer Quellfilter, Titelmarker und Deadline-Vergleich |
+| `VibnWorkplaceSynchronizationService` | frische Snapshots, idempotente Zuordnung, Konfliktstopp und einzige erlaubte Änderungen |
+| `KanbanizeCardApiService` | v2-HTTP-Grenze, API-Schlüssel nur im Header, minimale Create-/Deadline-Payloads, keine Lizenzlogik |
+| `KanbanizeCardPageVM` / `VibnWorkplaceSynchronizationVM` | getrennte manuelle Karte bzw. sichere Vorschau/Synchronisierung |
 
 ## Lesereihenfolge für neue Entwickler
 
@@ -33,3 +35,5 @@ Neue und geänderte öffentliche Klassen, Interfaces, Fachregeln und nicht offen
 - Neue Bindings zu schreibgeschützten Werten immer explizit `Mode=OneWay` setzen.
 
 Die bestehende, historisch gewachsene VIBN-Funktionalität wurde bewusst nicht zeilenweise mit Redundanz-Kommentaren überzogen. Ihre Zuständigkeiten sind in der Klassenreferenz beschrieben; neue Umbauten sollen schrittweise in kleine Dienste mit Tests überführt werden.
+
+Die [Gesamtübersicht der Solution](GESAMTLOESUNG.md) ergänzt diese Regel um den Wegweiser für alle bestehenden VIBN-Module. Die wichtigsten Page-ViewModels der historischen Reiter tragen eine kurze Klassenbeschreibung; für fachliche Details sind ihre Commands, Services und die zugehörige View gemeinsam zu lesen.

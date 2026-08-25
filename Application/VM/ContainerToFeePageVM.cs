@@ -16,6 +16,11 @@ using static VIBN_Tools.GlobalClasses.Interfaces;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Guides the controlled transfer from container XML to existing FEE
+    /// objects. It owns selection/progress state while factories and services
+    /// perform the actual model mapping.
+    /// </summary>
     public class ContainerToFeePageVM : MvvmBase
     {
 

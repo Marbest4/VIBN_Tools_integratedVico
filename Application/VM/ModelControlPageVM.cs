@@ -13,6 +13,11 @@ using VIBN_Tools.ModelControl;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Coordinates interactive control of robots, axes and selected FEE
+    /// objects. Motion implementations stay in ModelControl/RobotControl so
+    /// UI state is not coupled to device-specific SDK calls.
+    /// </summary>
     public class ModelControlPageVM : MvvmBase
     {
 

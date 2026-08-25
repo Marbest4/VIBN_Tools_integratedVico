@@ -4,7 +4,10 @@ using VIBN_Tools.Application.VM;
 
 namespace VIBN_Tools.Application.View;
 
-/// <summary>Hosts the independently usable Kanbanize card-creation workflow.</summary>
+/// <summary>
+/// Hosts the safe VIBN-to-workplace synchronization and the optional manual
+/// Kanbanize card workflow.
+/// </summary>
 public partial class KanbanizeCardPage : UserControl
 {
     private readonly KanbanizeCardPageVM _viewModel;

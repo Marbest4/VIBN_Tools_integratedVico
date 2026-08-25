@@ -4,6 +4,8 @@
 
 VIBN Tools bündelt Werkzeuge für virtuelle Inbetriebnahme, FEE-/Simulationsprojekte und die ViCo-Arbeitsabläufe in einer WPF-Desktopanwendung. Die bisherigen VIBN-Werkzeuge bleiben eigenständige Reiter. ViCo ergänzt PC-/Projektsuche, Remote-Zugriff, Favoriten, Transfer, TIA Portal und Verwaltung.
 
+Eine Beschreibung aller aktiven VIBN-Reiter mit typischen Arbeitsabläufen enthält die [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Dieses Handbuch vertieft vor allem Einstellungen, Kanbanize und ViCo.
+
 ## Grundbedienung
 
 Die Hauptnavigation steht links. Der Reiter **ViCo** besitzt eine zweite, thematisch gruppierte Navigation. Am unteren Fensterrand kann das **Diagnoseprotokoll** aufgeklappt werden. Lange Tabellen sind virtualisiert; Sortieren, Auswählen und Scrollen laden nicht sämtliche Zeilen gleichzeitig in die Oberfläche.
@@ -22,7 +24,22 @@ Das Dropdown und die ViCo-PC-Suche verwenden dasselbe `WorkstationDirectory`. Di
 
 ## Kanbanize Karten
 
-Der Hauptreiter **Kanbanize Karten** erstellt einzelne Karten direkt in einem Board. Er benötigt weder eine VIBN- noch eine ViCo-Lizenzanfrage.
+Der Hauptreiter **Kanbanize Karten** hat zwei getrennte Arbeitsweisen und benötigt weder eine VIBN- noch eine ViCo-Lizenzanfrage.
+
+### VIBN → Arbeitsplätze
+
+Dieser Reiter übernimmt die bisherige Canbanize-Automatik sicher in die integrierte Anwendung.
+
+1. **Boards aktualisieren** wählen. Quelle, Zielboard, Ziel-Lane und Zielspalte kontrollieren.
+2. **Prüfen** wählen. Das Ergebnis ist ausschließlich eine Vorschau und verändert keine Karte.
+3. Neue Karten, Deadline-Anpassungen, unveränderte Karten und Konflikte kontrollieren.
+4. Erst dann **Synchronisieren** wählen.
+
+Die Quelle sind VIBN-Karten mit `Grundinbetriebnahme`; Vorlagen und die historische Archivspalte werden nicht übernommen. Eine Zielkarte wird über die Quellkarten-ID als `custom_id` erkannt. Fehlt sie, entsteht eine verknüpfte Karte. Existiert genau eine Karte, wird – sofern aktiviert – nur ihre Deadline an die Quelle angepasst. Titel, Beschreibung, Position, Status und manuelle Änderungen bestehender Karten bleiben unverändert. Mehrere Zielkarten mit derselben Quell-ID erscheinen rot als Konflikt und werden nicht verändert.
+
+Der zweite Lauf ist dadurch idempotent: bereits erstellte Karten werden nicht dupliziert.
+
+### Eigene Karte
 
 1. **Boards aktualisieren** wählen und ein zugängliches Board auswählen.
 2. Lane auswählen; die Spaltenliste wird auf denselben Workflow eingeschränkt.
@@ -101,6 +118,8 @@ Der Reiter ist nur ab **Level7** sichtbar. Lizenzlevel ab Level8 dürfen Einträ
 `lutzma` ist fest als Level9-Systemadministrator hinterlegt und wird beim Öffnen der Verwaltung auch in den kompatiblen Lizenzspeicher geschrieben. Dieser Benutzer kann dort nicht auf ein niedrigeres Level gesetzt werden.
 
 ## Bestehende VIBN-Werkzeuge
+
+Die vollständige, funktionsbezogene Anleitung für diese Reiter steht in der [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Die folgende Tabelle dient als Kurzorientierung.
 
 | Reiter | Aufgabe |
 |---|---|

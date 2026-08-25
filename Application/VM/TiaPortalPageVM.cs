@@ -6,6 +6,11 @@ using VIBN_Tools.Tia.Contracts;
 
 namespace VIBN_Tools.Application.VM;
 
+/// <summary>
+/// UI coordinator for TIA Portal operations. Every Siemens Openness call is
+/// delegated through the isolated named-pipe bridge so an Openness failure does
+/// not terminate the WPF host process.
+/// </summary>
 public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
 {
     private readonly ITiaBridgeClient _client;

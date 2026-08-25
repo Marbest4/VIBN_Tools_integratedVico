@@ -6,6 +6,7 @@ Windows-Desktopanwendung für Arbeitsabläufe der virtuellen Inbetriebnahme. Die
 
 Der vollständige Einstieg für Anwender, Entwickler und Betrieb befindet sich im [Dokumentationsindex](docs/README.md).
 
+- [Gesamtübersicht der vollständigen Solution](docs/GESAMTLOESUNG.md)
 - [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md)
 - [Kanbanize Karten](docs/KANBANIZE_KARTEN.md)
 - [Entwicklerhandbuch](docs/ENTWICKLERHANDBUCH.md)

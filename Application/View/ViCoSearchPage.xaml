@@ -38,7 +38,18 @@
                       HorizontalScrollBarVisibility="Auto"
                       FrozenColumnCount="2">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Belegung" Binding="{Binding Status, Mode=OneWay}" Width="82" />
+                    <DataGridTemplateColumn Header="Belegung" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Margin="3"
+                                        Padding="5,3"
+                                        Background="{Binding StatusBackground, Mode=OneWay}"
+                                        CornerRadius="3">
+                                    <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{Binding Status, Mode=OneWay}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="PC" Binding="{Binding PcName, Mode=OneWay}" Width="90" />
                     <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="135" />
                     <DataGridTextColumn Header="Projekt(e)" Binding="{Binding ProjectSummary, Mode=OneWay}" Width="190" />
@@ -78,6 +89,13 @@
             <ScrollViewer Grid.Column="2" Padding="12,0,4,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel TextBlock.FontSize="14">
                     <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding SelectedWorkstation.DisplayName, Mode=OneWay}" TextWrapping="Wrap" />
+
+                    <Border Margin="0,8,0,0"
+                            Padding="7,4"
+                            Background="{Binding SelectedWorkstation.StatusBackground, Mode=OneWay}"
+                            CornerRadius="3">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding SelectedWorkstation.Status, Mode=OneWay}" />
+                    </Border>
 
                     <Grid Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>

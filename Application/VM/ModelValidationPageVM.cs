@@ -7,6 +7,10 @@ using VIBN_Tools.ModelValidation;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Presents grouped validation findings for the connected FEE model and
+    /// delegates rule evaluation/change tracking to the ModelValidation layer.
+    /// </summary>
     public class ModelValidationPageVM : MvvmBase
     {
 

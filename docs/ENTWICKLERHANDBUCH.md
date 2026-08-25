@@ -4,6 +4,8 @@
 
 Die Anwendung folgt für den integrierten ViCo-Bereich einer geschichteten MVVM-Struktur. Die bestehende VIBN-Funktionalität bleibt im WPF-Host und wird nicht unnötig verändert. Neue ViCo-Fachlogik gehört nicht in Code-behind oder in eine große ViewModel-Klasse, sondern in kleine Core-Dienste mit Interfaces und austauschbare Infrastrukturadapter.
 
+Die vollständige Landkarte aller historischen und neuen Module steht in [Gesamtübersicht der Solution](GESAMTLOESUNG.md). Dieses Dokument beschreibt die verbindlichen Erweiterungsregeln für die gesamte Lösung.
+
 ```text
 WPF View
    ↓ Binding / Command
@@ -38,7 +40,9 @@ Der zentrale Composition Root ist `Application/ViCoFeatureBootstrapper.cs`. Nur 
 5. Project Settings und ViCo Search verwenden dieselbe `IWorkstationDirectory`-Instanz.
 6. Views rufen asynchrone `InitializeAsync`-Methoden erst auf, wenn sie benötigt werden.
 
-Der Hauptreiter **Kanbanize Karten** ist kein Unterteil von ViCo-Lizenzen. Sein Datenfluss ist `KanbanizeCardPage` → `KanbanizeCardPageVM` → `IKanbanizeCardService` → `KanbanizeCardApiService`. Der API-Schlüssel wird nur im HTTP-Header verwendet; das Modul enthält keine Lizenz- oder Anfrageklassen.
+Der Hauptreiter **Kanbanize Karten** ist kein Unterteil von ViCo-Lizenzen. Die manuelle Kartenerstellung folgt `KanbanizeCardPage` → `KanbanizeCardPageVM` → `IKanbanizeCardService` → `KanbanizeCardApiService`. Die VIBN-Übernahme ist bewusst getrennt: `VibnWorkplaceSynchronizationVM` → `IVibnWorkplaceSynchronizationService` → `VibnWorkplaceSynchronizationService` → `IKanbanizeCardService`. Der API-Schlüssel wird nur im HTTP-Header verwendet; das Modul enthält keine Lizenz- oder Anfrageklassen.
+
+Die Synchronisierung darf nur eine fehlende Zielkarte erstellen oder die Deadline einer eindeutig verknüpften Zielkarte patchen. Delete-, Move-, Archive-, Titel- und Beschreibungsendpunkte gehören ausdrücklich nicht in diesen Ablauf.
 
 ## Programmierregeln
 
@@ -78,6 +82,14 @@ Der Hauptreiter **Kanbanize Karten** ist kein Unterteil von ViCo-Lizenzen. Sein 
 3. Alle externen Schreibvorgänge vor dem Senden validieren und nach Erfolg Status/Log schreiben.
 4. Board-IDs nie fest in XAML oder ViewModel schreiben; aus der API laden.
 5. Keine Lizenzfelder, -anfragen oder Schlüsselanzeige in das Modul aufnehmen.
+
+### VIBN-Kartenübernahme ändern
+
+1. Die Filter- und Idempotenzregeln ausschließlich in `VibnWorkplaceSynchronizationPolicy` ändern.
+2. Vor dem Hinzufügen eines Schreibvorgangs prüfen, ob er mit dem Grundsatz „neue Karte oder Deadline, nichts sonst“ vereinbar ist.
+3. Jede neue Aktion als Vorschauposition modellieren und im Core-Smoketest absichern.
+4. Mehrdeutige Zielzuordnungen immer als Konflikt behandeln, niemals automatisch auflösen.
+5. API-Payloads so klein halten, dass `UpdateDeadlineAsync` wirklich nur `deadline` sendet.
 
 ### Neue TIA-Operation
 
@@ -120,5 +132,6 @@ Vor einer Veröffentlichung zusätzlich die WPF-Start-/Interaktionstests und die
 - Level9-Änderungen laufen über `LicenseAdministrationPolicy`.
 - `lutzma` bleibt über `MandatoryLevel9User` auf Level9; der Verwaltungsreiter ist ab Level7 sichtbar.
 - Kanbanize-Karten nutzen `IKanbanizeCardService` und enthalten keine Lizenzlogik.
+- VIBN-Synchronisierung verwendet die Quellkarten-ID als `custom_id`, erstellt keine Duplikate und verändert bestehende Karten nur an der Deadline.
 - Fehler sind bedienbar formuliert und technisch protokolliert.
 - Mindestens ein automatisierter Test schützt die neue Fachregel.

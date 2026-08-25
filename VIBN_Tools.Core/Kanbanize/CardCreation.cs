@@ -34,6 +34,33 @@ public sealed record KanbanizeCardDraft(
 public sealed record KanbanizeCreatedCard(int Id, string Title);
 
 /// <summary>
+/// Read-only representation of a Kanbanize card used by the VIBN workplace
+/// synchronizer. It intentionally contains only fields needed to decide
+/// whether a card has to be created or its deadline adjusted.
+/// </summary>
+public sealed record KanbanizeCardInfo(
+    int Id,
+    int BoardId,
+    int LaneId,
+    int ColumnId,
+    string Title,
+    string? CustomId,
+    DateTimeOffset? Deadline);
+
+/// <summary>
+/// Minimal, deterministic payload for a card generated from a virtual
+/// commissioning card. The source ID becomes the target card's custom ID and
+/// parent link, which makes repeated synchronizations idempotent.
+/// </summary>
+public sealed record KanbanizeGeneratedCardDraft(
+    int SourceCardId,
+    int TargetLaneId,
+    int TargetColumnId,
+    string Title,
+    int Priority,
+    DateTimeOffset? Deadline);
+
+/// <summary>
 /// Boundary for the card-creation feature. Implementations may use HTTP, while
 /// view models remain testable and independent of Kanbanize response formats.
 /// </summary>
@@ -45,7 +72,21 @@ public interface IKanbanizeCardService
 
     Task<KanbanizeBoardStructure> LoadBoardStructureAsync(int boardId, CancellationToken cancellationToken = default);
 
+    /// <summary>Loads all cards of exactly one board, including their custom ID and deadline.</summary>
+    Task<IReadOnlyList<KanbanizeCardInfo>> LoadCardsAsync(int boardId, CancellationToken cancellationToken = default);
+
     Task<KanbanizeCreatedCard> CreateCardAsync(KanbanizeCardDraft draft, CancellationToken cancellationToken = default);
+
+    /// <summary>Creates one linked VIBN-generated target card.</summary>
+    Task<KanbanizeCreatedCard> CreateGeneratedCardAsync(
+        KanbanizeGeneratedCardDraft draft,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Changes only a card's deadline. No title, workflow, lane, column or
+    /// other card field may be supplied by this operation.
+    /// </summary>
+    Task UpdateDeadlineAsync(int cardId, DateTimeOffset? deadline, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

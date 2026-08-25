@@ -98,7 +98,10 @@ public static class ViCoFeatureBootstrapper
         IKanbanizeCardService cards = new KanbanizeCardApiService(
             new HttpClient(),
             ResolveKanbanizeApiKey());
-        return new KanbanizeCardPageVM(cards, ApplicationLogService.Instance);
+        return new KanbanizeCardPageVM(
+            cards,
+            new VibnWorkplaceSynchronizationService(cards),
+            ApplicationLogService.Instance);
     }
 
     public static ViCoAdministrationPageVM CreateAdministrationViewModel()

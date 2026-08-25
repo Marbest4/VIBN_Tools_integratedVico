@@ -3,12 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontSize="14"
              UseLayoutRounding="True"
-             SnapsToDevicePixels="True">
+             SnapsToDevicePixels="True"
+             TextOptions.TextFormattingMode="Display">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,16">
@@ -17,158 +17,258 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock FontSize="24" FontWeight="SemiBold" Text="Kanbanize Karten" />
+                <TextBlock FontSize="24" FontWeight="SemiBold" Text="Kanbanize" />
                 <TextBlock Margin="0,4,0,0"
                            Foreground="#FF666666"
-                           Text="Neue Karte direkt in einem zugänglichen Board anlegen – ohne Lizenz- oder Anfragenworkflow."
+                           Text="VIBN-Karten sicher in das Arbeitsplätze-Board übernehmen oder einzelne eigene Karten erstellen."
                            TextWrapping="Wrap" />
             </StackPanel>
             <Button Grid.Column="1"
-                    MinWidth="170"
+                    MinWidth="180"
                     MinHeight="38"
                     VerticalAlignment="Center"
                     Content="Boards aktualisieren"
                     Command="{Binding ReloadBoardsCommand}" />
         </Grid>
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="420" />
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="1.35*" MinWidth="420" />
-            </Grid.ColumnDefinitions>
-
-            <GroupBox Grid.Column="0" Header="Zielposition">
-                <Grid Margin="12">
+        <TabControl Grid.Row="1">
+            <TabItem Header="VIBN → Arbeitsplätze">
+                <Grid Margin="12" DataContext="{Binding WorkplaceSynchronization}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="125" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.05*" MinWidth="300" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="1.35*" MinWidth="370" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="0.9*" MinWidth="250" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Board:" />
-                    <ComboBox Grid.Row="0"
-                              Grid.Column="1"
-                              MinHeight="34"
-                              Margin="0,0,0,12"
-                              ItemsSource="{Binding Boards}"
-                              DisplayMemberPath="DisplayName"
-                              SelectedItem="{Binding SelectedBoard}" />
+                    <GroupBox Grid.Row="0" Grid.Column="0" Header="Quelle: Virtuelle Inbetriebnahme">
+                        <StackPanel Margin="12">
+                            <TextBlock Text="Board:" />
+                            <ComboBox MinHeight="34"
+                                      Margin="0,5,0,8"
+                                      ItemsSource="{Binding Boards}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedItem="{Binding SelectedSourceBoard}" />
+                            <TextBlock Foreground="#FF666666"
+                                       Text="Es werden nur aktive Karten mit ‚Grundinbetriebnahme‘ übernommen. Vorlagen und archivierte Quellspalten bleiben ausgeschlossen."
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </GroupBox>
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Lane:" />
-                    <ComboBox Grid.Row="1"
-                              Grid.Column="1"
-                              MinHeight="34"
-                              Margin="0,0,0,12"
-                              ItemsSource="{Binding Lanes}"
-                              DisplayMemberPath="Name"
-                              SelectedItem="{Binding SelectedLane}" />
+                    <GroupBox Grid.Row="0" Grid.Column="2" Header="Ziel: Arbeitsplätze">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="65" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center" Text="Spalte:" />
-                    <ComboBox Grid.Row="2"
-                              Grid.Column="1"
-                              MinHeight="34"
-                              ItemsSource="{Binding Columns}"
-                              DisplayMemberPath="Name"
-                              SelectedItem="{Binding SelectedColumn}" />
+                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center" Text="Board:" />
+                            <ComboBox Grid.Row="0" Grid.Column="1"
+                                      MinHeight="34"
+                                      Margin="0,0,0,8"
+                                      ItemsSource="{Binding Boards}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedItem="{Binding SelectedTargetBoard}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center" Text="Lane:" />
+                            <ComboBox Grid.Row="1" Grid.Column="1"
+                                      MinHeight="34"
+                                      Margin="0,0,0,8"
+                                      ItemsSource="{Binding TargetLanes}"
+                                      DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedTargetLane}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" Text="Spalte:" />
+                            <ComboBox Grid.Row="2" Grid.Column="1"
+                                      MinHeight="34"
+                                      ItemsSource="{Binding TargetColumns}"
+                                      DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedTargetColumn}" />
+                        </Grid>
+                    </GroupBox>
 
-                    <Border Grid.Row="3"
-                            Grid.ColumnSpan="2"
-                            Margin="0,18,0,0"
-                            Padding="12"
+                    <GroupBox Grid.Row="0" Grid.Column="4" Header="Sicherer Ablauf">
+                        <StackPanel Margin="12">
+                            <TextBlock Text="Priorität neuer Karten:" />
+                            <ComboBox MinHeight="34"
+                                      Margin="0,5,0,10"
+                                      ItemsSource="{Binding Priorities}"
+                                      SelectedItem="{Binding SelectedPriority}" />
+                            <CheckBox Content="Deadlines aus Quelle synchronisieren"
+                                      IsChecked="{Binding SynchronizeDeadlines}" />
+                            <TextBlock Margin="0,10,0,0"
+                                       Foreground="#FF666666"
+                                       Text="Bestehende Karten werden weder verschoben, umbenannt noch gelöscht. Bei eindeutiger Zuordnung wird ausschließlich die Deadline angepasst."
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <Border Grid.Row="1"
+                            Grid.ColumnSpan="5"
+                            Margin="0,14,0,12"
+                            Padding="10"
                             Background="#FFF3F5F7"
                             CornerRadius="4">
-                        <TextBlock Foreground="#FF555555"
-                                   Text="Nach der Lane-Auswahl zeigt die Spaltenliste nur Positionen desselben Workflows. Die Berechtigung zum Erstellen prüft Kanbanize mit dem hinterlegten API-Schlüssel."
-                                   TextWrapping="Wrap" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <WrapPanel VerticalAlignment="Center">
+                                <TextBlock Margin="0,0,14,0" FontWeight="SemiBold" Text="Vorschau:" />
+                                <TextBlock Margin="0,0,12,0" Text="{Binding CreateCount, StringFormat={}Neu: {0}}" />
+                                <TextBlock Margin="0,0,12,0" Text="{Binding DeadlineUpdateCount, StringFormat={}Deadline: {0}}" />
+                                <TextBlock Margin="0,0,12,0" Text="{Binding UnchangedCount, StringFormat={}Unverändert: {0}}" />
+                                <TextBlock Margin="0,0,12,0" Text="{Binding ConflictCount, StringFormat={}Konflikte: {0}}" />
+                                <TextBlock Text="{Binding ExcludedSourceCardCount, StringFormat={}Ausgeschlossen: {0}}" />
+                            </WrapPanel>
+                            <Button Grid.Column="1"
+                                    MinWidth="120"
+                                    MinHeight="36"
+                                    Margin="12,0,0,0"
+                                    Content="Prüfen"
+                                    Command="{Binding PreviewCommand}"
+                                    IsEnabled="{Binding CanPreview}" />
+                            <Button Grid.Column="2"
+                                    MinWidth="205"
+                                    MinHeight="36"
+                                    Margin="8,0,0,0"
+                                    Content="Synchronisieren"
+                                    Command="{Binding SynchronizeCommand}"
+                                    IsEnabled="{Binding CanSynchronize}" />
+                        </Grid>
+                    </Border>
+
+                    <DataGrid Grid.Row="2"
+                              Grid.ColumnSpan="5"
+                              ItemsSource="{Binding PreviewItems}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True"
+                              RowHeight="32"
+                              ColumnHeaderHeight="36"
+                              HorizontalScrollBarVisibility="Auto"
+                              FrozenColumnCount="2">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Aktion" Width="102">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="3" Padding="5,3" Background="{Binding ActionBackground, Mode=OneWay}" CornerRadius="3">
+                                            <TextBlock HorizontalAlignment="Center" Text="{Binding ActionText, Mode=OneWay}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="VIBN-Karte" Binding="{Binding SourceTitle, Mode=OneWay}" Width="2*" MinWidth="240" />
+                            <DataGridTextColumn Header="Quell-ID" Binding="{Binding SourceCardId, Mode=OneWay}" Width="90" />
+                            <DataGridTextColumn Header="Quell-Deadline" Binding="{Binding SourceDeadline, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Ziel-ID" Binding="{Binding TargetCardId, Mode=OneWay}" Width="90" />
+                            <DataGridTextColumn Header="Ziel-Deadline" Binding="{Binding TargetDeadline, Mode=OneWay}" Width="145" />
+                            <DataGridTextColumn Header="Hinweis" Binding="{Binding Details, Mode=OneWay}" Width="2*" MinWidth="270" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="3" Grid.ColumnSpan="5" Margin="0,12,0,0" Padding="10,7" Background="#FFF3F5F7" CornerRadius="3">
+                        <TextBlock Text="{Binding StatusText, Mode=OneWay}" TextWrapping="Wrap" />
                     </Border>
                 </Grid>
-            </GroupBox>
+            </TabItem>
 
-            <GroupBox Grid.Column="2" Header="Neue Karte">
+            <TabItem Header="Eigene Karte">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="135" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Titel:*" />
-                    <TextBox Grid.Row="0"
-                             Grid.Column="1"
-                             MinHeight="34"
-                             Margin="0,0,0,12"
-                             MaxLength="255"
-                             Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Externe ID:" />
-                    <TextBox Grid.Row="1"
-                             Grid.Column="1"
-                             MinHeight="34"
-                             Margin="0,0,0,12"
-                             Text="{Binding CustomId, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
+                    <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="18" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="*" MinWidth="420" />
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="1.35*" MinWidth="420" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" Text="Priorität:" />
-                        <ComboBox Grid.Column="1"
-                                  MinHeight="34"
-                                  ItemsSource="{Binding Priorities}"
-                                  SelectedItem="{Binding SelectedPriority}" />
-                        <CheckBox Grid.Column="3"
-                                  VerticalAlignment="Center"
-                                  Content="Deadline"
-                                  IsChecked="{Binding HasDeadline}" />
-                        <DatePicker Grid.Column="4"
-                                    Margin="8,0,0,0"
-                                    IsEnabled="{Binding HasDeadline}"
-                                    SelectedDate="{Binding Deadline}" />
+
+                        <GroupBox Grid.Column="0" Header="Zielposition">
+                            <Grid Margin="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="125" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Board:" />
+                                <ComboBox Grid.Row="0" Grid.Column="1" MinHeight="34" Margin="0,0,0,12" ItemsSource="{Binding Boards}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedBoard}" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Lane:" />
+                                <ComboBox Grid.Row="1" Grid.Column="1" MinHeight="34" Margin="0,0,0,12" ItemsSource="{Binding Lanes}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedLane}" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center" Text="Spalte:" />
+                                <ComboBox Grid.Row="2" Grid.Column="1" MinHeight="34" ItemsSource="{Binding Columns}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedColumn}" />
+                                <Border Grid.Row="3" Grid.ColumnSpan="2" Margin="0,18,0,0" Padding="12" Background="#FFF3F5F7" CornerRadius="4">
+                                    <TextBlock Foreground="#FF555555" Text="Nach der Lane-Auswahl zeigt die Spaltenliste nur Positionen desselben Workflows. Diese optionale, manuelle Kartenerstellung ist unabhängig von der VIBN-Synchronisierung." TextWrapping="Wrap" />
+                                </Border>
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Grid.Column="2" Header="Neue Karte">
+                            <Grid Margin="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="135" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Titel:*" />
+                                <TextBox Grid.Row="0" Grid.Column="1" MinHeight="34" Margin="0,0,0,12" MaxLength="255" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,10,12" VerticalAlignment="Center" Text="Externe ID:" />
+                                <TextBox Grid.Row="1" Grid.Column="1" MinHeight="34" Margin="0,0,0,12" Text="{Binding CustomId, UpdateSourceTrigger=PropertyChanged}" />
+                                <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="150" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" Text="Priorität:" />
+                                    <ComboBox Grid.Column="1" MinHeight="34" ItemsSource="{Binding Priorities}" SelectedItem="{Binding SelectedPriority}" />
+                                    <CheckBox Grid.Column="3" VerticalAlignment="Center" Content="Deadline" IsChecked="{Binding HasDeadline}" />
+                                    <DatePicker Grid.Column="4" Margin="8,0,0,0" IsEnabled="{Binding HasDeadline}" SelectedDate="{Binding Deadline}" />
+                                </Grid>
+                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Details:" />
+                                <TextBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" MinHeight="180" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="0,14,0,0" Orientation="Horizontal">
+                                    <Button MinWidth="160" MinHeight="38" Content="Karte erstellen" Command="{Binding CreateCardCommand}" IsEnabled="{Binding CanCreate}" />
+                                    <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#FF666666" Text="Priorität 1 = hoch, 4 = niedrig" />
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
                     </Grid>
-                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Details:" />
-
-                    <TextBox Grid.Row="3"
-                             Grid.Column="0"
-                             Grid.ColumnSpan="2"
-                             MinHeight="180"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="0,14,0,0" Orientation="Horizontal">
-                        <Button MinWidth="160"
-                                MinHeight="38"
-                                Content="Karte erstellen"
-                                Command="{Binding CreateCardCommand}"
-                                IsEnabled="{Binding CanCreate}" />
-                        <TextBlock Margin="14,0,0,0"
-                                   VerticalAlignment="Center"
-                                   Foreground="#FF666666"
-                                   Text="Priorität 1 = hoch, 4 = niedrig" />
-                    </StackPanel>
+                    <Border Grid.Row="1" Margin="0,16,0,0" Padding="10,7" Background="#FFF3F5F7" CornerRadius="3">
+                        <TextBlock Text="{Binding StatusText, Mode=OneWay}" TextWrapping="Wrap" />
+                    </Border>
                 </Grid>
-            </GroupBox>
-        </Grid>
-
-        <Border Grid.Row="2" Margin="0,16,0,0" Padding="10,7" Background="#FFF3F5F7" CornerRadius="3">
-            <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
-        </Border>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

@@ -14,6 +14,11 @@ using VIBN_Tools.InterfaceOperation;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Coordinates selection, filtering and explicit connection/merge actions
+    /// for FEE interfaces and their signals. The implementation details reside
+    /// in <c>InterfaceOperationService</c>.
+    /// </summary>
     public class InterfaceOperationPageVM : MvvmBase
     {
 

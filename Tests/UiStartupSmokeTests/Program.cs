@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VIBN_Tools.Application.View;
 using VIBN_Tools.Application.VM;
+using VIBN_Tools.Core.Kanbanize;
 using VIBN_Tools.Core.ViCo;
 
 namespace VIBN_Tools.UiStartup.SmokeTests;
@@ -40,7 +41,7 @@ internal static class Program
                 "FEE 5",
                 "LAN Industrial",
                 new[] { "[W] GM1234/05-130 Demo" },
-                new[] { "TIA Portal V19", "Beckhoff TwinCAT 3", "Robot: R01 – In Arbeit" },
+                new[] { "[W] GM1234/05-130 Demo", "TIA Portal V19", "Beckhoff TwinCAT 3", "Robot: R01 – In Arbeit" },
                 new[]
                 {
                     new AutomationSoftwareInfo(AutomationPlatform.SiemensTiaPortal, "TIA Portal V19", "TIA Portal V19"),
@@ -56,6 +57,23 @@ internal static class Program
             administrationViewModel.LicenseEntries.Add(new ViCoLicenseEntry(@"grob\user", "Level9", "test"));
 
             var kanbanizeCardPage = new KanbanizeCardPage();
+            var kanbanizeViewModel = (KanbanizeCardPageVM)kanbanizeCardPage.DataContext;
+            // Populate the deferred DataGrid template as well: this catches
+            // bindings in the coloured synchronization preview before release.
+            kanbanizeViewModel.WorkplaceSynchronization.PreviewItems.Add(
+                new VibnWorkplaceSynchronizationRowVM(
+                    new VibnWorkplaceSynchronizationItem(
+                        VibnWorkplaceSynchronizationAction.Create,
+                        new KanbanizeCardInfo(
+                            4711,
+                            1392,
+                            1,
+                            2,
+                            "[VIBN] Grundinbetriebnahme UI-Prüfung",
+                            null,
+                            DateTimeOffset.UtcNow),
+                        null,
+                        "UI-Prüfdatensatz ohne externen Schreibzugriff.")));
 
             FrameworkElement[] integratedViews =
             [

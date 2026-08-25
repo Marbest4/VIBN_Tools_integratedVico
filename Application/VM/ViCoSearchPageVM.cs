@@ -19,6 +19,19 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
     public string DisplayName => Model.DisplayName;
     public string UserName => Model.UserName;
     public string Status => Model.Status;
+
+    /// <summary>
+    /// Keeps the operational state visually scannable without putting WPF
+    /// brushes into the view model. Free workstations are green; planning or
+    /// active work makes a workstation occupied and therefore red.
+    /// </summary>
+    public string StatusBackground => Status switch
+    {
+        "Frei" => "#FFC6EFCE",
+        "Belegt" => "#FFFFC7CE",
+        _ => "#FFF3F5F7"
+    };
+
     public string ProjectSummary => Model.ProjectSummary;
     public string AdditionalProjects => Model.AdditionalProjects;
     public string SoftwareInformation => Model.SoftwareInformation;

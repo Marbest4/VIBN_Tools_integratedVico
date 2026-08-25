@@ -7,6 +7,11 @@ using static VIBN_Tools.SpecialDevices.DeviceCatalog;
 
 namespace VIBN_Tools.Application.VM
 {
+    /// <summary>
+    /// Presents the special-device catalog and coordinates adding, deleting
+    /// and creating configured device instances in the connected model.
+    /// Device-specific behavior belongs to the catalog/factory and device type.
+    /// </summary>
     public class SpecialDevicePageVM : MvvmBase
     {
 
