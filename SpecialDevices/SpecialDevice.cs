@@ -150,7 +150,10 @@ namespace VIBN_Tools.SpecialDevices
             if (await DeviceInterface.CreateInterfaceAsync())
             {
                 foreach (var signal in DeviceSignals)
-                    await signal.CreateSignalAsync(DeviceInterface);
+                {
+                    if (!await signal.CreateSignalAsync(DeviceInterface))
+                        return false;
+                }
 
                 //foreach (var signal in DeviceSignals)
                 //{

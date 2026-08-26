@@ -151,14 +151,11 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
             return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         using var document = JsonDocument.Parse(body);
-        var data = UnwrapData(document.RootElement);
-        if (data.ValueKind != JsonValueKind.Array)
-            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        return data.EnumerateArray()
+        return BusinessmapSubtaskJsonParser.Parse(document.RootElement, isEndpointPayload: true)
             .Select(subtask => new
             {
-                Id = ReadInt(subtask, "subtask_id", "id", "card_id"),
-                Key = ReadConfigurationKey(subtask)
+                subtask.Id,
+                Key = ReadConfigurationKey(subtask.Description)
             })
             .Where(subtask => subtask.Id > 0 && subtask.Key.Length > 0)
             .GroupBy(subtask => subtask.Key, StringComparer.OrdinalIgnoreCase)
@@ -198,9 +195,8 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
         return request;
     }
 
-    private static string ReadConfigurationKey(JsonElement subtask)
+    private static string ReadConfigurationKey(string description)
     {
-        var description = ReadSubtaskText(subtask);
         if (description.Length == 0)
             return string.Empty;
         var separator = description.IndexOf(':');
@@ -217,17 +213,6 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
             "PROJEKTIP" => "PROJEKT-IP",
             _ => normalized
         };
-    }
-
-    private static string ReadSubtaskText(JsonElement subtask)
-    {
-        foreach (var propertyName in new[] { "description", "title", "name" })
-        {
-            var value = ReadTextProperty(subtask, propertyName);
-            if (value.Length > 0)
-                return value;
-        }
-        return string.Empty;
     }
 
     private static string ReadTextProperty(JsonElement element, string propertyName)

@@ -98,7 +98,23 @@ public sealed class TiaHardwareModuleInfo
 
     public int InputLength { get; set; }
 
+    public int InputEndByte => InputStartByte >= 0 && InputLength > 0
+        ? InputStartByte + InputLength - 1
+        : -1;
+
+    public string InputAddressRange => FormatAddressRange(InputStartByte, InputEndByte);
+
     public int OutputStartByte { get; set; } = -1;
 
     public int OutputLength { get; set; }
+
+    public int OutputEndByte => OutputStartByte >= 0 && OutputLength > 0
+        ? OutputStartByte + OutputLength - 1
+        : -1;
+
+    public string OutputAddressRange => FormatAddressRange(OutputStartByte, OutputEndByte);
+
+    private static string FormatAddressRange(int start, int end) => start < 0
+        ? "—"
+        : end > start ? $"{start}–{end}" : start.ToString();
 }

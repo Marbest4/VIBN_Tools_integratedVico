@@ -454,16 +454,19 @@ public sealed class ViCoWorkstationSearch : IViCoWorkstationSearch
             return Normalize(workstation.DisplayName + workstation.PcName + workstation.UserName)
                 .Contains(normalizedQuery, StringComparison.Ordinal);
 
-        // The single visible search intentionally covers every useful identifier
-        // so operators do not need to decide up front whether a value is a PC,
-        // project number or Kanbanize user.
+        // Keep this list aligned with the visible operational columns. Status,
+        // RDP diagnostics and hidden Kanbanize details must not produce
+        // surprising matches in the overview filter.
         var searchable = string.Join(" ", new[]
         {
-            workstation.DisplayName,
             workstation.PcName,
             workstation.UserName,
             string.Join(" ", workstation.Projects),
-            string.Join(" ", workstation.Details)
+            workstation.SoftwareInformation,
+            workstation.WorkstationConfiguration.Software.Value,
+            workstation.WorkstationConfiguration.Location.Value,
+            workstation.WorkstationConfiguration.ProjectIp.Value,
+            workstation.WorkstationConfiguration.Other.Value
         });
         return Normalize(searchable).Contains(normalizedQuery, StringComparison.Ordinal);
     }

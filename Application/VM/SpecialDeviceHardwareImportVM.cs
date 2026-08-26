@@ -93,6 +93,10 @@ public sealed class TiaHardwareDeviceRowVM : MvvmBase
 
     public int OutputLength => Module.OutputLength;
 
+    public string InputAddressRange => FormatAddressRange(InputByte, InputLength);
+
+    public string OutputAddressRange => FormatAddressRange(OutputByte, OutputLength);
+
     public bool Include
     {
         get => _include;
@@ -121,6 +125,7 @@ public sealed class TiaHardwareDeviceRowVM : MvvmBase
         {
             _inputByte = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(InputAddressRange));
         }
     }
 
@@ -131,6 +136,7 @@ public sealed class TiaHardwareDeviceRowVM : MvvmBase
         {
             _outputByte = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(OutputAddressRange));
         }
     }
 
@@ -213,5 +219,13 @@ public sealed class TiaHardwareDeviceRowVM : MvvmBase
             .ToArray())
             .Trim('_');
         return result.Length == 0 ? "Device" : result;
+    }
+
+    private static string FormatAddressRange(int? start, int length)
+    {
+        if (start is null)
+            return "—";
+        var end = length > 0 ? start.Value + length - 1 : start.Value;
+        return end > start.Value ? $"{start.Value}–{end}" : start.Value.ToString();
     }
 }

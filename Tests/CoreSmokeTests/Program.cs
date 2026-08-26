@@ -207,6 +207,31 @@ static void VerifyWorkstationOccupancyAndUnifiedSearch()
         "Unified search must find a Kanbanize user without selecting a separate mode.");
     Assert(search.Search(new[] { free, occupied }, "GM1000/01-001", ViCoSearchMode.All).Single() == free,
         "Unified search must continue to find project numbers.");
+
+    var configuration = new ViCoWorkstationConfiguration(
+        701,
+        new ViCoConfigurationField("USER", "zkds-busy", 711),
+        new ViCoConfigurationField("STANDORT", "Werk München", 712),
+        new ViCoConfigurationField("SW", "TIA V20", 713),
+        new ViCoConfigurationField("PROJEKT-IP", "10.25.30.40", 714),
+        new ViCoConfigurationField("SONSTIGES", "Prüfplatz Nord", 715));
+    var configured = occupied with
+    {
+        SoftwareInformation = "TIA Portal V20",
+        Details = occupied.Details.Concat(new[] { "nur-in-kanbanize-details" }).ToArray(),
+        Configuration = configuration
+    };
+    foreach (var visibleValue in new[]
+             {
+                 "GM10002", "GM2000/01-001", "TIA V20", "München", "10.25.30.40",
+                 "Prüfplatz", "zkds-busy"
+             })
+    {
+        Assert(search.Search(new[] { configured }, visibleValue, ViCoSearchMode.All).Count == 1,
+            $"Overview search did not include visible field '{visibleValue}'.");
+    }
+    Assert(search.Search(new[] { configured }, "nur-in-kanbanize-details", ViCoSearchMode.All).Count == 0,
+        "Overview search must ignore hidden Kanbanize details and diagnostic columns.");
 }
 
 static async Task VerifyWorkstationDirectoryAsync()
@@ -584,7 +609,8 @@ static async Task VerifyWorkstationConfigurationWriteScopeAsync()
         "The missing standard subtask description is incorrect.");
 
     using var staleHandler = new RecordingHttpMessageHandler();
-    staleHandler.EnqueueJson("{\"data\":[{\"subtask_id\":799,\"title\":\"SONSTIGES: bereits vorhanden\"}]}");
+    staleHandler.EnqueueJson(
+        "{\"data\":{\"subtask_details\":{\"799\":{\"title\":{\"text\":\"SONSTIGES: bereits vorhanden\"}}}}}");
     staleHandler.EnqueueJson("{}");
     using var staleClient = new HttpClient(staleHandler);
     var staleService = new KanbanizeWorkstationConfigurationService(staleClient, "test-only-key");
@@ -624,8 +650,8 @@ static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
                                        url.Contains("fields=", StringComparison.OrdinalIgnoreCase)),
         "The card query must omit the API instance's incompatible fields parameter.");
     Assert(handler.Requests.Any(url => url.Contains("expand=subtasks", StringComparison.OrdinalIgnoreCase)) &&
-           !handler.Requests.Contains("/api/v2/cards/501/subtasks", StringComparer.Ordinal),
-        "Embedded KONFIGURATION subtasks should be used without an unnecessary follow-up request.");
+           handler.Requests.Contains("/api/v2/cards/501/subtasks", StringComparer.Ordinal),
+        "The authoritative card-level endpoint must also be read for web-created KONFIGURATION subtasks.");
 
     using var cache = JsonDocument.Parse(await File.ReadAllTextAsync(
         Path.Combine(cacheRoot, "WorkstationBoardCache.json")));
@@ -633,8 +659,10 @@ static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
     Assert(cards.GetArrayLength() == 2,
         "All cards returned for the workstation lane must be retained in the structured cache.");
     var configuration = cards.EnumerateArray().Single(card => card.GetProperty("id").GetInt32() == 501);
-    Assert(configuration.GetProperty("subtasks")[0].GetProperty("description").GetString() == "STANDORT: Werk 1",
-        "The embedded KONFIGURATION subtasks were not cached.");
+    Assert(configuration.GetProperty("subtasks").GetArrayLength() == 2 &&
+           configuration.GetProperty("subtasks").EnumerateArray().Any(subtask =>
+               subtask.GetProperty("description").GetString() == "SW: TIA V20"),
+        "Nested/dictionary KONFIGURATION subtasks from the direct card endpoint were not cached.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
@@ -733,7 +761,9 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
                             ModuleType = "Digital IO",
                             FirmwareVersion = "V1.0",
                             InputStartByte = 8,
-                            OutputStartByte = 12
+                            InputLength = 12,
+                            OutputStartByte = 12,
+                            OutputLength = 6
                         }
                     }),
                     _ => JsonSerializer.Serialize((object?)null)
@@ -756,7 +786,8 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
         var hardware = await client.ListHardwareAsync();
         Assert(hardware.Count == 1 && hardware[0].InputStartByte == 8 && hardware[0].OutputStartByte == 12 &&
                hardware[0].DeviceName == "PLC test" && hardware[0].ModuleType == "Digital IO" &&
-               hardware[0].FirmwareVersion == "V1.0",
+               hardware[0].FirmwareVersion == "V1.0" &&
+               hardware[0].InputAddressRange == "8–19" && hardware[0].OutputAddressRange == "12–17",
             "TIA hardware configuration must survive the typed pipe boundary.");
     }
     finally
@@ -836,6 +867,8 @@ sealed class KanbanizeRefreshHttpMessageHandler : HttpMessageHandler
             "/api/v2/boards/1541/lanes" => "{\"data\":[{\"lane_id\":28125,\"name\":\"GM12345 Tool PC\"}]}",
             var value when value.StartsWith("/api/v2/cards?board_ids=1541", StringComparison.Ordinal) =>
                 "{\"data\":{\"data\":[{\"card_id\":501,\"lane_id\":28125,\"column_id\":29373,\"title\":\"Arbeitsplatz KONFIGURATION\",\"subtasks\":[{\"card_id\":601,\"description\":\"STANDORT: Werk 1\"}]},{\"card_id\":502,\"lane_id\":28125,\"column_id\":29375,\"title\":\"GM9000/01-001\"}],\"pagination\":{\"all_pages\":1}}}",
+            "/api/v2/cards/501/subtasks" =>
+                "{\"data\":{\"subtasks\":{\"601\":{\"subtask_id\":601,\"description\":\"STANDORT: Werk 1\"},\"602\":{\"description\":{\"text\":\"SW: TIA V20\"}}}}}",
             var value when value.StartsWith("/api/v2/cards?board_ids=846", StringComparison.Ordinal) =>
                 "{\"data\":{\"data\":[],\"pagination\":{\"all_pages\":1}}}",
             var value when value.StartsWith("/api/v2/boards/846/columns", StringComparison.Ordinal) => "{\"data\":[]}",

@@ -146,15 +146,15 @@
                               RowHeight="30"
                               ColumnHeaderHeight="34">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="PLC" Binding="{Binding DeviceName, Mode=OneWay}" Width="170" />
+                            <DataGridTextColumn Header="Gerät" Binding="{Binding DeviceName, Mode=OneWay}" Width="240" />
                             <DataGridTextColumn Header="Slot" Binding="{Binding Slot, Mode=OneWay}" Width="70" />
                             <DataGridTextColumn Header="Modul" Binding="{Binding ModuleName, Mode=OneWay}" Width="220" />
                             <DataGridTextColumn Header="Modultyp" Binding="{Binding ModuleType, Mode=OneWay}" Width="180" />
                             <DataGridTextColumn Header="Typkennung" Binding="{Binding TypeIdentifier, Mode=OneWay}" Width="240" />
                             <DataGridTextColumn Header="Firmware" Binding="{Binding FirmwareVersion, Mode=OneWay}" Width="90" />
-                            <DataGridTextColumn Header="Eingang (Byte)" Binding="{Binding InputStartByte, Mode=OneWay}" Width="115" />
+                            <DataGridTextColumn Header="E-Adresse" Binding="{Binding InputAddressRange, Mode=OneWay}" Width="105" />
                             <DataGridTextColumn Header="E-Länge (Byte)" Binding="{Binding InputLength, Mode=OneWay}" Width="110" />
-                            <DataGridTextColumn Header="Ausgang (Byte)" Binding="{Binding OutputStartByte, Mode=OneWay}" Width="120" />
+                            <DataGridTextColumn Header="A-Adresse" Binding="{Binding OutputAddressRange, Mode=OneWay}" Width="105" />
                             <DataGridTextColumn Header="A-Länge (Byte)" Binding="{Binding OutputLength, Mode=OneWay}" Width="110" />
                         </DataGrid.Columns>
                     </DataGrid>

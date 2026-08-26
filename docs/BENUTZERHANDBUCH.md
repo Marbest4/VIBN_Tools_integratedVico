@@ -48,7 +48,7 @@ Scheitert die Verbindung oder läuft der Timeout ab, bleibt `Connected to: ---` 
 
 ### Übersicht & Verbindung
 
-Die Unterseite **PC-/Projektsuche** besitzt ein gemeinsames Suchfeld. Es findet PC-Namen, Kanbanize-Benutzer, Projekt-, GM- und GU-Nummern; eine Vorabentscheidung „PC oder Projekt“ ist daher nicht mehr nötig.
+Die Unterseite **PC-/Projektsuche** besitzt ein gemeinsames Suchfeld. Es durchsucht ausschließlich die sichtbaren Betriebsdaten PC, Projekt, Software, Standort, Projekt-IP, Sonstiges und Benutzer. Status-, RDP- und ausgeblendete Diagnosedaten erzeugen keine unerwarteten Treffer.
 
 ![ViCo-Arbeitsplatzsuche mit Konfiguration und Remote-Informationen](screenshots/vico-search.png)
 
@@ -58,7 +58,7 @@ Die Tabelle zeigt:
 | --- | --- |
 | Belegung | **Frei** (grün), wenn nur Backlog/Erledigt vorliegt; **Belegt** (rot), sobald Planung oder In Arbeit vorliegt |
 | PC | dynamischer Arbeitsplatzname |
-| Projekt(e) | alle Karten der Arbeitsplatz-Lane außer der separat behandelten `KONFIGURATION`-Karte |
+| Projekt(e) | ausschließlich Karten in Planung oder In Arbeit; Backlog und Erledigt stehen unter **Alle Kanbanize-Informationen** |
 | Software | ausschließlich der Wert der Unteraufgabe `SW:` |
 | Standort, Projekt-IP, Sonstiges | Werte aus der Karte `KONFIGURATION` und ihren Unteraufgaben |
 | RDP-Sitzung | aktiver Remote-Benutzer oder „Keine aktive Sitzung“ |
@@ -67,7 +67,7 @@ Die Tabelle zeigt:
 | Online | Grün für erreichbar, Rot für offline |
 | Konfiguration | **Vorhanden** (grün) oder **Konfigurationskarte fehlt!** (rot) |
 
-Die Legende verwendet `[B]` für Backlog, `[P]` für Planung, `[W]` für In Arbeit und `[D]` für Erledigt. Alle Lane-Karten werden in der Projektspalte und zusätzlich vollständig im ausklappbaren Bereich **Alle Kanbanize-Informationen** angeboten.
+Die Legende verwendet `[B]` für Backlog, `[P]` für Planung, `[W]` für In Arbeit und `[D]` für Erledigt. Der ausklappbare Bereich **Alle Kanbanize-Informationen** enthält weiterhin sämtliche Lane-Karten.
 
 Wenn Windows die Abfrage einer Remote-Sitzung nicht erlaubt, stehen RDP-Sitzung und letzte Anmeldung auf **Nicht abrufbar**. Dies ist kein Offline-Status. Bei Start unter einem Konto mit ausreichender Remote-Abfrageberechtigung werden die Informationen normal angezeigt.
 
@@ -151,8 +151,8 @@ Hersteller, Gerätetyp, Präfix und Byteadressen auswählen. Das Gerät wird zun
 1. Auf der gemeinsamen Seite zum Bereich **Hardware aus geöffnetem TIA-Projekt lesen** wechseln.
 2. TIA-Version wählen, **Mit TIA verbinden** und PLC auswählen.
 3. **Hardware auslesen** drücken.
-4. In der Tabelle Gerätename, Modul, Modultyp, Typkennung, optionale Firmware, Eingangs-/Ausgangsbyte, Byte-Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
-5. Erforderlichenfalls Logik, Byteadressen und Robotertyp korrigieren.
+4. In der Tabelle Gerätename einschließlich TIA-Gerätekopf, Modul, Modultyp, Typkennung, optionale Firmware, E-/A-Start, daraus berechnete Adressbereiche, Byte-Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
+5. Erforderlichenfalls Logik und Byteadressen korrigieren.
 6. Gewünschte Zeilen markieren und **Ausgewählte Geräte in Warteschlange übernehmen** drücken.
 7. In der rechts oben sichtbaren **Warteschlange** kontrollieren und erst danach **In FEE erzeugen** ausführen.
 

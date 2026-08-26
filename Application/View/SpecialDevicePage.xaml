@@ -89,22 +89,21 @@
                 <DataGrid Grid.Row="2" ItemsSource="{Binding TiaHardwareRows}" AutoGenerateColumns="False" CanUserAddRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" RowHeight="32" ColumnHeaderHeight="36" HorizontalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
                         <DataGridCheckBoxColumn Header="Übernehmen" Binding="{Binding Include}" Width="86" />
-                        <DataGridTextColumn Header="Gerät" Binding="{Binding DeviceName, Mode=OneWay}" IsReadOnly="True" Width="150" />
+                        <DataGridTextColumn Header="Gerät" Binding="{Binding DeviceName, Mode=OneWay}" IsReadOnly="True" Width="240" />
                         <DataGridTextColumn Header="Slot" Binding="{Binding Slot, Mode=OneWay}" IsReadOnly="True" Width="60" />
                         <DataGridTextColumn Header="Modul" Binding="{Binding ModuleName, Mode=OneWay}" IsReadOnly="True" Width="160" />
                         <DataGridTextColumn Header="Modultyp" Binding="{Binding ModuleType, Mode=OneWay}" IsReadOnly="True" Width="150" />
                         <DataGridTextColumn Header="TIA-Typkennung" Binding="{Binding TypeIdentifier, Mode=OneWay}" IsReadOnly="True" Width="220" />
                         <DataGridTextColumn Header="Firmware" Binding="{Binding FirmwareVersion, Mode=OneWay}" IsReadOnly="True" Width="85" />
-                        <DataGridTextColumn Header="E-Byte" Binding="{Binding InputByte, UpdateSourceTrigger=PropertyChanged}" Width="78" />
-                        <DataGridTextColumn Header="A-Byte" Binding="{Binding OutputByte, UpdateSourceTrigger=PropertyChanged}" Width="78" />
+                        <DataGridTextColumn Header="E-Start" Binding="{Binding InputByte, UpdateSourceTrigger=PropertyChanged}" Width="75" />
+                        <DataGridTextColumn Header="E-Bereich" Binding="{Binding InputAddressRange, Mode=OneWay}" IsReadOnly="True" Width="92" />
+                        <DataGridTextColumn Header="A-Start" Binding="{Binding OutputByte, UpdateSourceTrigger=PropertyChanged}" Width="75" />
+                        <DataGridTextColumn Header="A-Bereich" Binding="{Binding OutputAddressRange, Mode=OneWay}" IsReadOnly="True" Width="92" />
                         <DataGridTextColumn Header="E-Länge (Byte)" Binding="{Binding InputLength, Mode=OneWay}" IsReadOnly="True" Width="105" />
                         <DataGridTextColumn Header="A-Länge (Byte)" Binding="{Binding OutputLength, Mode=OneWay}" IsReadOnly="True" Width="105" />
                         <DataGridTextColumn Header="Präfix" Binding="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" Width="135" />
                         <DataGridTemplateColumn Header="Logik" Width="235">
                             <DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox MinHeight="27" ItemsSource="{Binding DataContext.HardwareLogicOptions, RelativeSource={RelativeSource AncestorType=UserControl}}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedLogic}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Robotertyp" Width="125">
-                            <DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox MinHeight="27" ItemsSource="{Binding DataContext.RobotTypes, RelativeSource={RelativeSource AncestorType=UserControl}}" SelectedItem="{Binding SelectedRobotType}" Visibility="{Binding RequiresRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Status" Binding="{Binding State, Mode=OneWay}" IsReadOnly="True" Width="105" />
                     </DataGrid.Columns>

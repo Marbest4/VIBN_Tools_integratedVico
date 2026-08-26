@@ -340,11 +340,19 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         int deviceIndex,
         string deviceName,
         ICollection<TiaHardwareModuleInfo> modules,
-        ISet<string> identities)
+        ISet<string> identities,
+        string? deviceItemName = null)
     {
         foreach (var item in GetChildDeviceItems(parent))
         {
             var moduleName = ReadStringMember(item, "Name");
+            var rootDeviceItemName = string.IsNullOrWhiteSpace(deviceItemName)
+                ? moduleName
+                : deviceItemName;
+            var displayDeviceName = string.IsNullOrWhiteSpace(rootDeviceItemName) ||
+                                    string.Equals(deviceName, rootDeviceItemName, StringComparison.OrdinalIgnoreCase)
+                ? deviceName
+                : $"{deviceName} ({rootDeviceItemName})";
             var typeIdentifier = ReadStringMember(item, "TypeIdentifier");
             var moduleType = ReadStringMember(item, "TypeName", "Classification");
             var firmwareVersion = ReadStringMember(item, "FirmwareVersion");
@@ -378,7 +386,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
                 {
                     DeviceIndex = deviceIndex,
                     Slot = slot,
-                    DeviceName = deviceName,
+                    DeviceName = displayDeviceName,
                     ModuleName = moduleName,
                     ModuleType = moduleType,
                     TypeIdentifier = typeIdentifier,
@@ -390,80 +398,38 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
                 });
             }
 
-            TraverseHardwareItems(item, deviceIndex, deviceName, modules, identities);
+            TraverseHardwareItems(item, deviceIndex, deviceName, modules, identities, rootDeviceItemName);
         }
     }
 
     private static IReadOnlyList<object> GetChildDeviceItems(object target)
-    {
-        try
-        {
-            dynamic dynamicTarget = target;
-            object items = dynamicTarget.DeviceItems;
-            return items is System.Collections.IEnumerable enumerable
-                ? enumerable.Cast<object>().Where(item => item is not null).ToArray()
-                : Array.Empty<object>();
-        }
-        catch (Exception)
-        {
-            return Array.Empty<object>();
-        }
-    }
+        => ReadEnumerableMember(target, "DeviceItems");
 
     private static IReadOnlyList<object> GetAddresses(object target)
+        => ReadEnumerableMember(target, "Addresses");
+
+    /// <summary>
+    /// Openness proxy objects frequently expose compositions through an
+    /// explicit interface or a public base class. A plain dynamic access can
+    /// therefore fail although DeviceItems/Addresses are available. Resolve
+    /// the complete runtime type hierarchy and implemented interfaces.
+    /// </summary>
+    private static IReadOnlyList<object> ReadEnumerableMember(object target, string memberName)
     {
-        try
-        {
-            dynamic dynamicTarget = target;
-            object addresses = dynamicTarget.Addresses;
-            return addresses is System.Collections.IEnumerable enumerable
-                ? enumerable.Cast<object>().Where(address => address is not null).ToArray()
-                : Array.Empty<object>();
-        }
-        catch (Exception)
-        {
-            return Array.Empty<object>();
-        }
+        var value = ReadMemberValue(target, memberName);
+        return value is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Where(item => item is not null).ToArray()
+            : Array.Empty<object>();
     }
 
     private static string ReadAddressIoType(object address)
-    {
-        try
-        {
-            dynamic dynamicAddress = address;
-            return Convert.ToString(dynamicAddress.IoType) ?? string.Empty;
-        }
-        catch (Exception)
-        {
-            return ReadStringMember(address, "IoType");
-        }
-    }
+        => ReadStringMember(address, "IoType", "IOType", "AddressType");
 
     private static int ReadAddressStart(object address)
-    {
-        try
-        {
-            dynamic dynamicAddress = address;
-            return Convert.ToInt32(dynamicAddress.StartAddress);
-        }
-        catch (Exception)
-        {
-            return ReadIntMember(address, "StartAddress", "StartAdress");
-        }
-    }
+        => ReadIntMember(address, "StartAddress", "StartAdress", "StartByte");
 
     private static int ReadAddressLength(object address)
-    {
-        try
-        {
-            dynamic dynamicAddress = address;
-            return Convert.ToInt32(dynamicAddress.Length);
-        }
-        catch (Exception)
-        {
-            return ReadIntMember(address, "Length");
-        }
-    }
+        => ReadIntMember(address, "Length", "ByteLength", "Size");
 
     private static void MergeAddressRange(
         ref int currentStart,
@@ -497,8 +463,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         {
             try
             {
-                var value = target.GetType().GetProperty(name)?.GetValue(target, null)
-                    ?? ReadEngineeringAttribute(target, name);
+                var value = ReadMemberValue(target, name);
                 if (value is not null)
                     return Convert.ToString(value) ?? string.Empty;
             }
@@ -516,8 +481,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         {
             try
             {
-                var value = target.GetType().GetProperty(name)?.GetValue(target, null)
-                    ?? ReadEngineeringAttribute(target, name);
+                var value = ReadMemberValue(target, name);
                 if (value is not null && int.TryParse(Convert.ToString(value), out var number))
                     return number;
             }
@@ -527,6 +491,53 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             }
         }
         return -1;
+    }
+
+    private static object? ReadMemberValue(object target, string name)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
+                                   BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+        for (var type = target.GetType(); type is not null; type = type.BaseType)
+        {
+            var property = type.GetProperties(flags).FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (property is not null)
+            {
+                try
+                {
+                    return property.GetValue(target, null);
+                }
+                catch (Exception)
+                {
+                    // Explicit Openness interfaces are attempted below.
+                }
+            }
+        }
+
+        foreach (var interfaceType in target.GetType().GetInterfaces())
+        {
+            var property = interfaceType.GetProperties().FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (property is null)
+                continue;
+            try
+            {
+                return property.GetValue(target, null);
+            }
+            catch (Exception)
+            {
+                // Not every Openness proxy supports every interface member.
+            }
+        }
+
+        try
+        {
+            return ReadEngineeringAttribute(target, name);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static object? ReadEngineeringAttribute(object target, string name)

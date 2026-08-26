@@ -82,7 +82,7 @@ Vorhandene Standard-Unteraufgaben werden per PATCH gespeichert; fehlende Standar
 
 ### Kanbanize meldet 400 bei `fields`
 
-`subtasks`, Positionsfelder und Custom Fields sind in dieser Instanz keine zulässigen Werte des Kartenparameters `fields`. Die Arbeitsplatzabfrage verzichtet deshalb auf `fields`, paginiert über alle Seiten und verwendet `expand=subtasks`. Fehlen die Unteraufgaben in einer gefundenen KONFIGURATION-Karte dennoch, wird gezielt `/cards/{card_id}/subtasks` nachgeladen.
+`subtasks`, Positionsfelder und Custom Fields sind in dieser Instanz keine zulässigen Werte des Kartenparameters `fields`. Die Arbeitsplatzabfrage verzichtet deshalb auf `fields`, paginiert über alle Seiten und verwendet `expand=subtasks`. Für jede gefundene KONFIGURATION-Karte wird zusätzlich der autoritative Endpunkt `/cards/{card_id}/subtasks` gelesen und mit der Expansion zusammengeführt. Dadurch werden auch direkt in der Businessmap-Oberfläche erzeugte oder nur teilweise expandierte Unteraufgaben übernommen.
 
 ### Kanbanize-Vorschau zeigt Konflikt
 
@@ -94,7 +94,7 @@ Keinen Synchronisieren-Lauf erzwingen. Prüfen, ob die betroffene Quellkarte ein
 2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath`, wartet bei großen Projekten bis zu 90 Sekunden auf die Openness-Projektfreigabe und unterstützt sowohl `Projects` als auch eine bereits geöffnete `LocalSessions[n].Project`-Sitzung.
 3. Gruppe `Siemens TIA Openness`, TIA-Funktionsrecht **Edit project via Openness API**, Firewallfreigabe und installierte Optionen/HSPs prüfen.
 4. Im Diagnosepanel die Bridge-Fehler lesen.
-5. Für Special Devices Gerätename, Modul/Typ, Firmware, Eingangs-/Ausgangsbyte, Byte-Längen und Logik kontrollieren. Die Hardwareabfrage durchläuft alle `Project.Devices`, weil dezentrale PROFINET-/PROFIBUS-Geräte nicht unterhalb des PLC-Racks liegen. Bei Modulen, die keine Openness-Adresse bereitstellen, fehlende Adressen manuell ergänzen.
+5. Für Special Devices Gerätename/Gerätekopf, Modul/Typ, Firmware, E-/A-Adressbereich, Byte-Längen und Logik kontrollieren. Die Hardwareabfrage durchläuft alle `Project.Devices` und liest `DeviceItems` sowie `Addresses` auch über deren explizite Openness-Schnittstellen, weil dezentrale PROFINET-/PROFIBUS-Geräte nicht unterhalb des PLC-Racks liegen. Bei Modulen, die keine Openness-Adresse bereitstellen, fehlende Adressen manuell ergänzen.
 6. Die Bridge läuft als 64-Bit-fähiger .NET-Framework-Prozess. Nach einer Änderung der lokalen Gruppe `Siemens TIA Openness` Windows ab- und wieder anmelden; ein bloßer Neustart des Tools aktualisiert das Windows-Gruppentoken nicht.
 
 Unterstützt werden lokal erkannte PublicAPI-Installationen V15 bis V22. Es wird immer die Assembly der ausgewählten Version geladen; V20 verwendet ausschließlich `Portal V20/PublicAPI/V20/Siemens.Engineering.dll`.

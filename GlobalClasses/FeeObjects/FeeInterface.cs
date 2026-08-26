@@ -95,13 +95,16 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
             {
                 var currentInterfaces = await Services.ApiInstance.Interface.GetAllInterfacesAsync();
 
-                if (currentInterfaces.Any(x => x == Guid.ToString()))
-                    break;
+                if (currentInterfaces.Any(value =>
+                        System.Guid.TryParse(value, out var parsedGuid) && parsedGuid == Guid))
+                    return true;
 
                 await Task.Delay(10);
             }
 
-            return true;
+            // Do not continue with variable creation against an interface that
+            // the SDK has not made visible yet.
+            return false;
         }
 
 
