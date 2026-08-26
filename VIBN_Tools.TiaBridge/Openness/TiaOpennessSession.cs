@@ -81,7 +81,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         // confirmation can take noticeably longer than the former ten-second
         // window. Also support an already opened Multiuser local session: its
         // project is exposed through LocalSessions[n].Project, not Projects[0].
-        const int maximumProjectWaits = 120;
+        const int maximumProjectWaits = 360;
         for (var attempt = 0; attempt < maximumProjectWaits; attempt++)
         {
             _project = TryResolveOpenProject(_portal);
@@ -93,7 +93,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         {
             var selectedPath = candidates.FirstOrDefault()?.ProjectPath;
             throw new InvalidOperationException(
-                $"Die verbundene TIA-Instanz {_selectedVersion} stellt nach 30 Sekunden weder ein Einzelprojekt noch eine geöffnete Multiuser-Local-Session über Openness bereit." +
+                $"Die verbundene TIA-Instanz {_selectedVersion} stellt nach 90 Sekunden weder ein Einzelprojekt noch eine geöffnete Multiuser-Local-Session über Openness bereit." +
                 (string.IsNullOrWhiteSpace(selectedPath) ? string.Empty : $" Gemeldeter ProjectPath: {selectedPath}.") +
                 " Den Openness-Firewall-Dialog in TIA mit 'Immer zulassen' bestätigen und TIA sowie VIBN Tools nach einer Änderung der Gruppe 'Siemens TIA Openness' neu anmelden.");
         }
@@ -174,9 +174,9 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
     }
 
     /// <summary>
-    /// Enumerates the selected PLC device tree and reads the input/output
-    /// address compositions exposed by TIA Openness. Address offsets are kept
-    /// in bytes; no TIA project data is modified by this operation.
+    /// Enumerates the selected PLC first and then every device tree in the open
+    /// project, reading the input/output address compositions exposed by TIA
+    /// Openness. Address offsets are kept in bytes; no project data is modified.
     /// </summary>
     public IReadOnlyList<TiaHardwareModuleInfo> ListHardware()
     {
@@ -184,14 +184,29 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         if (!_selectedPlcIndex.HasValue)
             throw new InvalidOperationException("Select a PLC before reading hardware.");
 
-        var deviceIndex = _selectedPlcIndex.Value;
-        dynamic device = project.Devices[deviceIndex];
-        var deviceName = ReadStringMember(device, "Name");
         var modules = new List<TiaHardwareModuleInfo>();
         var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        TraverseHardwareItems(device, deviceIndex, deviceName, modules, identities);
+
+        // PROFINET/PROFIBUS IO devices are independent entries in
+        // Project.Devices, not children of the selected PLC rack. Traversing
+        // only project.Devices[selectedPlc] therefore found CPU modules but
+        // missed the process addresses of robots and special devices.
+        var selectedDeviceIndex = _selectedPlcIndex.Value;
+        var deviceCount = Convert.ToInt32((object)project.Devices.Count);
+        var deviceOrder = Enumerable.Range(0, deviceCount)
+            .OrderBy(index => index == selectedDeviceIndex ? 0 : 1)
+            .ThenBy(index => index);
+        foreach (var deviceIndex in deviceOrder)
+        {
+            dynamic device = project.Devices[deviceIndex];
+            var deviceName = ReadStringMember(device, "Name");
+            TraverseHardwareItems(device, deviceIndex, deviceName, modules, identities);
+        }
+
         return modules
-            .OrderBy(module => module.Slot < 0 ? int.MaxValue : module.Slot)
+            .OrderBy(module => module.DeviceIndex == selectedDeviceIndex ? 0 : 1)
+            .ThenBy(module => module.DeviceName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(module => module.Slot < 0 ? int.MaxValue : module.Slot)
             .ThenBy(module => module.ModuleName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -331,6 +346,10 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         {
             var moduleName = ReadStringMember(item, "Name");
             var typeIdentifier = ReadStringMember(item, "TypeIdentifier");
+            var moduleType = ReadStringMember(item, "TypeName", "Classification");
+            var firmwareVersion = ReadStringMember(item, "FirmwareVersion");
+            if (string.IsNullOrWhiteSpace(firmwareVersion))
+                firmwareVersion = ExtractFirmwareVersion(typeIdentifier);
             var slot = ReadIntMember(item, "PositionNumber", "Slot");
             var inputStart = -1;
             var inputLength = 0;
@@ -339,18 +358,16 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
 
             foreach (var address in GetAddresses(item))
             {
-                var ioType = ReadStringMember(address, "IoType");
-                var start = ReadIntMember(address, "StartAddress", "StartAdress");
-                var length = Math.Max(0, ReadIntMember(address, "Length"));
+                var ioType = ReadAddressIoType(address);
+                var start = ReadAddressStart(address);
+                var length = Math.Max(0, ReadAddressLength(address));
                 if (ioType.IndexOf("Input", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    inputStart = start;
-                    inputLength = length;
+                    MergeAddressRange(ref inputStart, ref inputLength, start, length);
                 }
                 else if (ioType.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    outputStart = start;
-                    outputLength = length;
+                    MergeAddressRange(ref outputStart, ref outputLength, start, length);
                 }
             }
 
@@ -363,7 +380,9 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
                     Slot = slot,
                     DeviceName = deviceName,
                     ModuleName = moduleName,
+                    ModuleType = moduleType,
                     TypeIdentifier = typeIdentifier,
+                    FirmwareVersion = firmwareVersion,
                     InputStartByte = inputStart,
                     InputLength = inputLength,
                     OutputStartByte = outputStart,
@@ -379,7 +398,8 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
     {
         try
         {
-            var items = target.GetType().GetProperty("DeviceItems")?.GetValue(target, null);
+            dynamic dynamicTarget = target;
+            object items = dynamicTarget.DeviceItems;
             return items is System.Collections.IEnumerable enumerable
                 ? enumerable.Cast<object>().Where(item => item is not null).ToArray()
                 : Array.Empty<object>();
@@ -394,7 +414,8 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
     {
         try
         {
-            var addresses = target.GetType().GetProperty("Addresses")?.GetValue(target, null);
+            dynamic dynamicTarget = target;
+            object addresses = dynamicTarget.Addresses;
             return addresses is System.Collections.IEnumerable enumerable
                 ? enumerable.Cast<object>().Where(address => address is not null).ToArray()
                 : Array.Empty<object>();
@@ -405,6 +426,71 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         }
     }
 
+    private static string ReadAddressIoType(object address)
+    {
+        try
+        {
+            dynamic dynamicAddress = address;
+            return Convert.ToString(dynamicAddress.IoType) ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            return ReadStringMember(address, "IoType");
+        }
+    }
+
+    private static int ReadAddressStart(object address)
+    {
+        try
+        {
+            dynamic dynamicAddress = address;
+            return Convert.ToInt32(dynamicAddress.StartAddress);
+        }
+        catch (Exception)
+        {
+            return ReadIntMember(address, "StartAddress", "StartAdress");
+        }
+    }
+
+    private static int ReadAddressLength(object address)
+    {
+        try
+        {
+            dynamic dynamicAddress = address;
+            return Convert.ToInt32(dynamicAddress.Length);
+        }
+        catch (Exception)
+        {
+            return ReadIntMember(address, "Length");
+        }
+    }
+
+    private static void MergeAddressRange(
+        ref int currentStart,
+        ref int currentLength,
+        int candidateStart,
+        int candidateLength)
+    {
+        if (candidateStart < 0)
+            return;
+        if (currentStart < 0)
+        {
+            currentStart = candidateStart;
+            currentLength = candidateLength;
+            return;
+        }
+
+        var end = Math.Max(currentStart + currentLength, candidateStart + candidateLength);
+        currentStart = Math.Min(currentStart, candidateStart);
+        currentLength = Math.Max(0, end - currentStart);
+    }
+
+    private static string ExtractFirmwareVersion(string typeIdentifier)
+    {
+        var match = Regex.Match(typeIdentifier ?? string.Empty, @"/(?<version>V[^/]+)$", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups["version"].Value.Trim() : string.Empty;
+    }
+
     private static string ReadStringMember(object target, params string[] names)
     {
         foreach (var name in names)
@@ -412,7 +498,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             try
             {
                 var value = target.GetType().GetProperty(name)?.GetValue(target, null)
-                    ?? target.GetType().GetMethod("GetAttribute", new[] { typeof(string) })?.Invoke(target, new object[] { name });
+                    ?? ReadEngineeringAttribute(target, name);
                 if (value is not null)
                     return Convert.ToString(value) ?? string.Empty;
             }
@@ -431,7 +517,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             try
             {
                 var value = target.GetType().GetProperty(name)?.GetValue(target, null)
-                    ?? target.GetType().GetMethod("GetAttribute", new[] { typeof(string) })?.Invoke(target, new object[] { name });
+                    ?? ReadEngineeringAttribute(target, name);
                 if (value is not null && int.TryParse(Convert.ToString(value), out var number))
                     return number;
             }
@@ -441,6 +527,18 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             }
         }
         return -1;
+    }
+
+    private static object? ReadEngineeringAttribute(object target, string name)
+    {
+        var publicMethod = target.GetType().GetMethod("GetAttribute", new[] { typeof(string) });
+        if (publicMethod is not null)
+            return publicMethod.Invoke(target, new object[] { name });
+
+        var engineeringInterface = target.GetType().GetInterfaces().FirstOrDefault(type =>
+            string.Equals(type.FullName, "Siemens.Engineering.IEngineeringObject", StringComparison.Ordinal));
+        return engineeringInterface?.GetMethod("GetAttribute", new[] { typeof(string) })
+            ?.Invoke(target, new object[] { name });
     }
 
     private sealed class PortalProcess

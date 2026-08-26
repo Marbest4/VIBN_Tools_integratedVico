@@ -88,7 +88,11 @@ public sealed class TiaHardwareModuleInfo
 
     public string ModuleName { get; set; } = string.Empty;
 
+    public string ModuleType { get; set; } = string.Empty;
+
     public string TypeIdentifier { get; set; } = string.Empty;
+
+    public string FirmwareVersion { get; set; } = string.Empty;
 
     public int InputStartByte { get; set; } = -1;
 

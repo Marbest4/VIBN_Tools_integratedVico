@@ -128,9 +128,9 @@ Der Reiter hat zwei bewusst getrennte Arbeitsweisen.
 Für jede zulässige VIBN-Karte mit `Grundinbetriebnahme` gilt:
 
 - Start der Zielkarte = Deadline dieser VIBN-Karte minus 14 Tage.
-- Ende/Deadline der Zielkarte = Deadline der genau einen VIBN-Karte mit `Grundinbetriebnahme` und `Vorlage` plus 56 Tage.
+- Ende/Deadline der Zielkarte = Deadline derselben VIBN-Quellkarte plus 56 Tage.
 
-Die Synchronisierung verwendet die Quellkarten-ID als stabile Ziel-ID. Mehrere Zielkarten mit derselben Quell-ID gelten als Konflikt. In diesem Fall sowie bei fehlender/mehrdeutiger Vorlage wird nichts geändert. Bestehende Zielkarten werden weder verschoben noch umbenannt noch gelöscht; nur Starttermin und Deadline einer eindeutigen generierten Karte dürfen angepasst werden.
+Die Synchronisierung verwendet die Quellkarten-ID als stabile Ziel-ID und erkennt ältere generierte Karten zusätzlich am eindeutigen Titel. Mehrere passende Zielkarten gelten als Konflikt. Eine separate Vorlagenkarte wird nicht benötigt. Bestehende Zielkarten werden weder verschoben noch umbenannt noch gelöscht; nur Starttermin und Deadline einer eindeutigen generierten Karte dürfen angepasst werden.
 
 ### Eigene Karte
 
@@ -151,7 +151,7 @@ Hersteller, Gerätetyp, Präfix und Byteadressen auswählen. Das Gerät wird zun
 1. Auf der gemeinsamen Seite zum Bereich **Hardware aus geöffnetem TIA-Projekt lesen** wechseln.
 2. TIA-Version wählen, **Mit TIA verbinden** und PLC auswählen.
 3. **Hardware auslesen** drücken.
-4. In der Tabelle Modul, TIA-Typ, Eingangs-/Ausgangsbyte, Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
+4. In der Tabelle Gerätename, Modul, Modultyp, Typkennung, optionale Firmware, Eingangs-/Ausgangsbyte, Byte-Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
 5. Erforderlichenfalls Logik, Byteadressen und Robotertyp korrigieren.
 6. Gewünschte Zeilen markieren und **Ausgewählte Geräte in Warteschlange übernehmen** drücken.
 7. In der rechts oben sichtbaren **Warteschlange** kontrollieren und erst danach **In FEE erzeugen** ausführen.

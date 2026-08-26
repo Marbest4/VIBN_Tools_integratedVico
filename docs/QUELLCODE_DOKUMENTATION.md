@@ -10,7 +10,7 @@ Die neuen und geänderten Integrationsklassen besitzen XML-Kommentare an ihren �
 | `ViCoWorkstation`, `ViCoConfigurationField` | Statusregel und sichere Zuordnung von Kanbanize-Unteraufgaben |
 | `ViCoSearchPageVM` | begrenzte Ping-/RDP-Abfragen, Offline-Schutz sowie Bearbeiten/standardisiertes Anlegen der Konfiguration |
 | `WindowsRemoteSessionService` | read-only Abfrage und „Nicht abrufbar“ bei fehlender Berechtigung |
-| `VibnWorkplaceSynchronizationPolicy` | Vorlage, Terminformel, Konflikt- und Duplikatschutz |
+| `VibnWorkplaceSynchronizationPolicy` | quellkartenbezogene Terminformel, Konflikt- und Duplikatschutz |
 | `KanbanizeCardApiService` | minimaler HTTP-Write-Scope ohne Fremdfelder |
 | `TiaHardwareModuleInfo`, `TiaOpennessSession` | read-only Hardwaredaten und Byteadress-Semantik |
 | `SpecialDeviceHardwareImportVM` | Prüfzone zwischen TIA-Erkennung und FEE-Schreibvorgang |

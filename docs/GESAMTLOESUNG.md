@@ -58,7 +58,7 @@ WPF View → ViewModel → Core-Vertrag → Infrastructure-Adapter
 - Frei bedeutet ausschließlich Backlog/Erledigt; Planung oder In Arbeit bedeutet Belegt.
 - Offline-PCs haben keine Remote- oder Pfadbuttons.
 - Die VIBN-Synchronisierung nutzt die Quellkarten-ID als eindeutige Ziel-ID. Sie erstellt keine Duplikate und verändert niemals Titel, Position, Beschreibung oder fremde Felder bestehender Karten.
-- Die Zeitplanung lautet: Start = Quell-Deadline − 14 Tage; Ende/Deadline = Deadline der eindeutigen VIBN-Vorlage + 56 Tage.
+- Die Zeitplanung lautet: Start = Deadline der jeweiligen Quellkarte − 14 Tage; Ende/Deadline = Deadline derselben Quellkarte + 56 Tage.
 - `lutzma` ist fest Level9; mindestens zwei unterschiedliche Level9-Benutzer sind beim Speichern erforderlich.
 - TIA-Daten werden nur gelesen, bis der Benutzer eine explizite Import-/Speicher-/FEE-Erzeugungsaktion ausführt.
 

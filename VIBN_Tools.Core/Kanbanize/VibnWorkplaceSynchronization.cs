@@ -101,19 +101,13 @@ public static class VibnWorkplaceSynchronizationPolicy
     /// </summary>
     public const int WorkplaceStartDateFieldId = 508;
     public const int StartLeadDays = 14;
-    public const int EndAfterTemplateDays = 56;
+    public const int EndAfterSourceDays = 56;
 
     /// <summary>Only genuine virtual-commissioning cards from active source columns are synchronized.</summary>
     public static bool IsEligibleSourceCard(KanbanizeCardInfo card) =>
         card.ColumnId != ExcludedArchiveColumnId &&
         card.Title.Contains(RequiredSourceTitleFragment, StringComparison.OrdinalIgnoreCase) &&
         !card.Title.Contains(ExcludedSourceTitleFragment, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Identifies the single schedule template in the source board.</summary>
-    public static bool IsScheduleTemplateCard(KanbanizeCardInfo card) =>
-        card.ColumnId != ExcludedArchiveColumnId &&
-        card.Title.Contains(RequiredSourceTitleFragment, StringComparison.OrdinalIgnoreCase) &&
-        card.Title.Contains(ExcludedSourceTitleFragment, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Retains the recognizable title convention of the preceding tool without
@@ -135,19 +129,17 @@ public static class VibnWorkplaceSynchronizationPolicy
     }
 
     /// <summary>
-    /// Calculates the workplace period from the requested rules. A schedule is
-    /// intentionally rejected when the source board has no single dated
-    /// template, because guessing a finish date would change operational data
-    /// incorrectly.
+    /// Calculates the workplace period directly from the source card. The
+    /// predecessor tool already treated the source-card ID as the stable
+    /// identity; using the same card's deadline also avoids a hidden dependency
+    /// on a separately named template card.
     /// </summary>
     public static bool TryCreateSchedule(
         KanbanizeCardInfo sourceCard,
-        IEnumerable<KanbanizeCardInfo> sourceCards,
         out VibnWorkplaceSchedule? schedule,
         out string error)
     {
         ArgumentNullException.ThrowIfNull(sourceCard);
-        ArgumentNullException.ThrowIfNull(sourceCards);
         schedule = null;
 
         if (sourceCard.Deadline is null)
@@ -156,25 +148,9 @@ public static class VibnWorkplaceSynchronizationPolicy
             return false;
         }
 
-        var templates = sourceCards
-            .Where(IsScheduleTemplateCard)
-            .Where(card => card.Deadline is not null)
-            .OrderBy(card => card.Id)
-            .ToArray();
-        if (templates.Length == 0)
-        {
-            error = "Keine datierte VIBN-Karte mit ‚Grundinbetriebnahme‘ und ‚Vorlage‘ gefunden; es wird nichts geändert.";
-            return false;
-        }
-        if (templates.Length > 1)
-        {
-            error = $"{templates.Length} datierte VIBN-Vorlagen gefunden; die Zieltermine wären mehrdeutig und werden nicht geändert.";
-            return false;
-        }
-
         schedule = new VibnWorkplaceSchedule(
             sourceCard.Deadline.Value.AddDays(-StartLeadDays),
-            templates[0].Deadline!.Value.AddDays(EndAfterTemplateDays));
+            sourceCard.Deadline.Value.AddDays(EndAfterSourceDays));
         error = string.Empty;
         return true;
     }
@@ -323,13 +299,16 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
             .Where(card => !string.IsNullOrWhiteSpace(card.CustomId))
             .GroupBy(card => card.CustomId!.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+        var targetCardsByTitle = targetCards
+            .Where(card => !string.IsNullOrWhiteSpace(card.Title))
+            .GroupBy(card => card.Title.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
         var items = new List<VibnWorkplaceSynchronizationItem>(eligibleSourceCards.Length);
 
         foreach (var sourceCard in eligibleSourceCards)
         {
             if (!VibnWorkplaceSynchronizationPolicy.TryCreateSchedule(
                     sourceCard,
-                    sourceCards,
                     out var schedule,
                     out var scheduleError))
             {
@@ -342,7 +321,9 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
             }
 
             var sourceId = sourceCard.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!targetCardsBySourceId.TryGetValue(sourceId, out var matchingTargets))
+            var generatedTitle = VibnWorkplaceSynchronizationPolicy.GetGeneratedTitle(sourceCard.Title).Trim();
+            if (!targetCardsBySourceId.TryGetValue(sourceId, out var matchingTargets) &&
+                !targetCardsByTitle.TryGetValue(generatedTitle, out matchingTargets))
             {
                 items.Add(new VibnWorkplaceSynchronizationItem(
                     VibnWorkplaceSynchronizationAction.Create,
@@ -359,7 +340,7 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
                     VibnWorkplaceSynchronizationAction.Conflict,
                     sourceCard,
                     null,
-                    $"{matchingTargets.Length} Zielkarten verwenden dieselbe Quellkarten-ID; keine Änderung durchgeführt.",
+                    $"{matchingTargets.Length} Zielkarten verwenden dieselbe Quellkarten-ID oder denselben generierten Titel; keine Änderung durchgeführt.",
                     schedule));
                 continue;
             }

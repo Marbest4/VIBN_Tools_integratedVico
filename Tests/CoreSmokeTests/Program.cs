@@ -421,13 +421,14 @@ static async Task VerifyVibnWorkplaceSynchronizationAsync()
             new KanbanizeCardInfo(102, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM2000", null, sourceDeadline),
             new KanbanizeCardInfo(105, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM5000", null, sourceDeadline),
             new KanbanizeCardInfo(106, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM6000", null, sourceDeadline),
-            new KanbanizeCardInfo(107, 1392, 10, 20, "[VIBN] Grundinbetriebnahme Vorlage", null, sourceDeadline),
+            new KanbanizeCardInfo(109, 1392, 10, 20, "[VIBN] Grundinbetriebnahme GM9000", null, sourceDeadline),
             new KanbanizeCardInfo(108, 1392, 10, 25236, "[VIBN] Grundinbetriebnahme Archiv", null, sourceDeadline)
         },
         new[]
         {
             new KanbanizeCardInfo(201, 1541, 28125, 29373, "Bestehende Karte", "102", sourceDeadline.AddDays(-3), expectedStart.AddDays(-1)),
             new KanbanizeCardInfo(205, 1541, 28125, 29373, "Bereits aktuell", "105", expectedEnd, expectedStart),
+            new KanbanizeCardInfo(209, 1541, 28125, 29373, "*[Gen]* GM9000", null, expectedEnd, expectedStart),
             new KanbanizeCardInfo(206, 1541, 28125, 29373, "Doppelte Eins", "106", sourceDeadline),
             new KanbanizeCardInfo(207, 1541, 28125, 29373, "Doppelte Zwei", "106", sourceDeadline)
         });
@@ -435,10 +436,15 @@ static async Task VerifyVibnWorkplaceSynchronizationAsync()
     var settings = new VibnWorkplaceSynchronizationSettings(1392, 1541, 28125, 29373, 3, true);
 
     var preview = await synchronization.PreviewAsync(settings);
-    Assert(preview.CreateCount == 1 && preview.DeadlineUpdateCount == 1 && preview.UnchangedCount == 1,
+    Assert(preview.CreateCount == 1 && preview.DeadlineUpdateCount == 1 && preview.UnchangedCount == 2,
         "The preview must distinguish missing, stale and already-current target schedules.");
-    Assert(preview.ConflictCount == 1 && preview.ExcludedSourceCardCount == 2,
-        "Duplicate target IDs must be reported and template/archive source cards excluded.");
+    Assert(preview.Items.Single(item => item.SourceCard.Id == 109).Action == VibnWorkplaceSynchronizationAction.Unchanged,
+        "A legacy generated title must prevent duplicates even if its custom source ID is absent.");
+    Assert(preview.ConflictCount == 1 && preview.ExcludedSourceCardCount == 1,
+        "Duplicate target IDs must be reported and archived source cards excluded.");
+    Assert(preview.Items.Where(item => item.SourceCard.Deadline is not null).All(item =>
+            item.Schedule is null || item.Schedule.EndDate == item.SourceCard.Deadline!.Value.AddDays(56)),
+        "Every VIBN card must derive its end date from its own deadline without requiring a template card.");
 
     var withoutDeadlineSync = await synchronization.PreviewAsync(settings with { SynchronizeDeadlines = false });
     Assert(withoutDeadlineSync.DeadlineUpdateCount == 0,
@@ -588,6 +594,22 @@ static async Task VerifyWorkstationConfigurationWriteScopeAsync()
     Assert(staleHandler.Requests[1].Method == HttpMethod.Patch &&
            staleHandler.Requests[1].RelativeUrl == "/api/v2/cards/710/subtasks/799",
         "A stale local ID must not create a duplicate subtask when the key already exists remotely.");
+
+    using var existingCardHandler = new RecordingHttpMessageHandler();
+    existingCardHandler.EnqueueJson("{\"data\":{\"data\":[{\"card_id\":720,\"title\":\"Arbeitsplatz KONFIGURATION\"}]}}");
+    existingCardHandler.EnqueueJson("{\"data\":[{\"card_id\":801,\"description\":\"USER: alt\"}]}");
+    existingCardHandler.EnqueueJson("{}");
+    using var existingCardClient = new HttpClient(existingCardHandler);
+    var existingCardService = new KanbanizeWorkstationConfigurationService(existingCardClient, "test-only-key");
+    var resolvedCardId = await existingCardService.CreateStandardAsync(
+        28125,
+        29373,
+        new[] { new ViCoConfigurationField("USER", "neu", 0) });
+    Assert(resolvedCardId == 720 &&
+           existingCardHandler.Requests.All(request =>
+               request.Method != HttpMethod.Post || request.RelativeUrl != "/api/v2/cards") &&
+           existingCardHandler.Requests[^1].RelativeUrl == "/api/v2/cards/720/subtasks/801",
+        "Create must reuse and update a live KONFIGURATION card instead of creating a duplicate.");
 }
 
 static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
@@ -601,8 +623,9 @@ static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
            !handler.Requests.Any(url => url.StartsWith("/api/v2/cards?", StringComparison.Ordinal) &&
                                        url.Contains("fields=", StringComparison.OrdinalIgnoreCase)),
         "The card query must omit the API instance's incompatible fields parameter.");
-    Assert(handler.Requests.Contains("/api/v2/cards/501/subtasks", StringComparer.Ordinal),
-        "KONFIGURATION subtasks must be loaded through the card-level subtasks endpoint.");
+    Assert(handler.Requests.Any(url => url.Contains("expand=subtasks", StringComparison.OrdinalIgnoreCase)) &&
+           !handler.Requests.Contains("/api/v2/cards/501/subtasks", StringComparer.Ordinal),
+        "Embedded KONFIGURATION subtasks should be used without an unnecessary follow-up request.");
 
     using var cache = JsonDocument.Parse(await File.ReadAllTextAsync(
         Path.Combine(cacheRoot, "WorkstationBoardCache.json")));
@@ -611,7 +634,7 @@ static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
         "All cards returned for the workstation lane must be retained in the structured cache.");
     var configuration = cards.EnumerateArray().Single(card => card.GetProperty("id").GetInt32() == 501);
     Assert(configuration.GetProperty("subtasks")[0].GetProperty("description").GetString() == "STANDORT: Werk 1",
-        "The separately loaded KONFIGURATION subtasks were not cached.");
+        "The embedded KONFIGURATION subtasks were not cached.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
@@ -705,7 +728,10 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
                         new TiaHardwareModuleInfo
                         {
                             Slot = 2,
+                            DeviceName = "PLC test",
                             ModuleName = "DI/DO test module",
+                            ModuleType = "Digital IO",
+                            FirmwareVersion = "V1.0",
                             InputStartByte = 8,
                             OutputStartByte = 12
                         }
@@ -728,7 +754,9 @@ static async Task VerifyTypedTiaPipeProtocolAsync()
         await client.ConnectAsync().WaitAsync(TimeSpan.FromSeconds(6));
         Assert(await client.PingAsync(), "Typed TIA pipe response failed.");
         var hardware = await client.ListHardwareAsync();
-        Assert(hardware.Count == 1 && hardware[0].InputStartByte == 8 && hardware[0].OutputStartByte == 12,
+        Assert(hardware.Count == 1 && hardware[0].InputStartByte == 8 && hardware[0].OutputStartByte == 12 &&
+               hardware[0].DeviceName == "PLC test" && hardware[0].ModuleType == "Digital IO" &&
+               hardware[0].FirmwareVersion == "V1.0",
             "TIA hardware configuration must survive the typed pipe boundary.");
     }
     finally
@@ -807,11 +835,10 @@ sealed class KanbanizeRefreshHttpMessageHandler : HttpMessageHandler
         {
             "/api/v2/boards/1541/lanes" => "{\"data\":[{\"lane_id\":28125,\"name\":\"GM12345 Tool PC\"}]}",
             var value when value.StartsWith("/api/v2/cards?board_ids=1541", StringComparison.Ordinal) =>
-                "{\"data\":{\"data\":[{\"card_id\":501,\"lane_id\":28125,\"column_id\":29373,\"title\":\"KONFIGURATION\"},{\"card_id\":502,\"lane_id\":28125,\"column_id\":29375,\"title\":\"GM9000/01-001\"}],\"pagination\":{\"all_pages\":1}}}",
+                "{\"data\":{\"data\":[{\"card_id\":501,\"lane_id\":28125,\"column_id\":29373,\"title\":\"Arbeitsplatz KONFIGURATION\",\"subtasks\":[{\"card_id\":601,\"description\":\"STANDORT: Werk 1\"}]},{\"card_id\":502,\"lane_id\":28125,\"column_id\":29375,\"title\":\"GM9000/01-001\"}],\"pagination\":{\"all_pages\":1}}}",
             var value when value.StartsWith("/api/v2/cards?board_ids=846", StringComparison.Ordinal) =>
                 "{\"data\":{\"data\":[],\"pagination\":{\"all_pages\":1}}}",
             var value when value.StartsWith("/api/v2/boards/846/columns", StringComparison.Ordinal) => "{\"data\":[]}",
-            "/api/v2/cards/501/subtasks" => "{\"data\":[{\"subtask_id\":601,\"title\":\"STANDORT: Werk 1\"}]}",
             _ => throw new InvalidOperationException($"Unexpected Kanbanize refresh request: {url}")
         };
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

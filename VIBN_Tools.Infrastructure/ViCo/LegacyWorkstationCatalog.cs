@@ -328,7 +328,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
     }
 
     private static bool IsConfigurationTitle(string value) =>
-        string.Equals(value.Trim().TrimEnd(':'), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
+        value.Contains("KONFIGURATION", StringComparison.OrdinalIgnoreCase);
 
     private static ViCoWorkstationConfiguration BuildConfiguration(WorkstationCardCacheEntry card)
     {

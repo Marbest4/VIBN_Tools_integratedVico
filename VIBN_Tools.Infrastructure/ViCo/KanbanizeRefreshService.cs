@@ -127,14 +127,14 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
     {
         const int pageSize = 1000;
         using var firstPage = await GetJsonAsync(
-            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}",
+            BuildCardsUrl(boardId, 1, pageSize, loadConfigurationSubtasks),
             cancellationToken);
         var cards = GetCardEntries(firstPage.RootElement);
         var pageCount = Math.Max(1, ReadPageCount(firstPage.RootElement));
         for (var page = 2; page <= pageCount; page++)
         {
             using var nextPage = await GetJsonAsync(
-                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}",
+                BuildCardsUrl(boardId, page, pageSize, loadConfigurationSubtasks),
                 cancellationToken);
             cards.AddRange(GetCardEntries(nextPage.RootElement));
         }
@@ -148,6 +148,10 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         return cards;
     }
 
+    private static string BuildCardsUrl(int boardId, int page, int pageSize, bool expandSubtasks) =>
+        $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}" +
+        (expandSubtasks ? "&expand=subtasks" : string.Empty);
+
     /// <summary>
     /// This Businessmap API does not accept positional fields or subtasks in
     /// the optional cards <c>fields</c> query. Omitting that filter and loading
@@ -160,7 +164,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
     {
         using var throttle = new SemaphoreSlim(6);
         var requests = cards
-            .Where(card => IsConfigurationTitle(card.Title))
+            .Where(card => IsConfigurationTitle(card.Title) && card.Subtasks.Count == 0)
             .Select(async card =>
             {
                 await throttle.WaitAsync(cancellationToken);
@@ -286,7 +290,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
                 LaneId = TryGetScalar(card, "lane_id", out var laneId) ? laneId : string.Empty,
                 ColumnId = TryGetScalar(card, "column_id", out var columnId) ? columnId : string.Empty,
                 Title = TryGetScalar(card, "title", out var title) ? title : string.Empty,
-                Subtasks = new List<WorkstationSubtaskCacheEntry>()
+                Subtasks = GetSubtasks(card)
             })
             .Where(card => card.Id > 0 && card.LaneId.Length > 0)
             .GroupBy(card => card.Id)
@@ -296,7 +300,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
 
     private static List<WorkstationSubtaskCacheEntry> GetSubtasks(JsonElement root)
     {
-        var subtasks = GetDataArray(root);
+        var subtasks = UnwrapSubtasks(root);
         if (subtasks.ValueKind != JsonValueKind.Array)
             return new List<WorkstationSubtaskCacheEntry>();
 
@@ -304,7 +308,10 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             .Where(subtask => subtask.ValueKind == JsonValueKind.Object)
             .Select(subtask => new WorkstationSubtaskCacheEntry
             {
-                Id = TryGetInt(subtask, "subtask_id", "id"),
+                // Expanded subtasks are represented as card objects by some
+                // Businessmap versions and therefore expose card_id instead of
+                // subtask_id. Both identify the same subtask endpoint resource.
+                Id = TryGetInt(subtask, "subtask_id", "id", "card_id"),
                 Description = ReadSubtaskText(subtask)
             })
             .Where(subtask => subtask.Id > 0 && subtask.Description.Length > 0)
@@ -322,15 +329,25 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
     }
 
     private static bool IsConfigurationTitle(string title) =>
-        string.Equals(title.Trim().TrimEnd(':'), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
+        title.Contains("KONFIGURATION", StringComparison.OrdinalIgnoreCase);
 
-    private static JsonElement GetDataArray(JsonElement root)
+    private static JsonElement UnwrapSubtasks(JsonElement root)
     {
         var data = root;
-        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var nested))
-            data = nested;
-        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out nested))
-            data = nested;
+        for (var depth = 0; depth < 5 && data.ValueKind == JsonValueKind.Object; depth++)
+        {
+            if (data.TryGetProperty("subtasks", out var subtasks))
+            {
+                data = subtasks;
+                continue;
+            }
+            if (data.TryGetProperty("data", out var nested))
+            {
+                data = nested;
+                continue;
+            }
+            break;
+        }
         return data;
     }
 

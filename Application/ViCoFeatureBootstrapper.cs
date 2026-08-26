@@ -62,6 +62,7 @@ public static class ViCoFeatureBootstrapper
             "VIBN_Tools.TiaBridge.exe");
         return new NamedPipeTiaBridgeClient(new TiaBridgeClientOptions(
             pipeName,
+            RequestTimeout: TimeSpan.FromMinutes(5),
             BridgeExecutablePath: bridgeExecutable));
     }
 

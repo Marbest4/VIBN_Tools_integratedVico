@@ -13,6 +13,7 @@ namespace VIBN_Tools.Infrastructure.ViCo;
 public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationConfigurationService
 {
     private const string DefaultApiBase = "https://grobgroup.kanbanize.com/api/v2";
+    private const int WorkplaceBoardId = 1541;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly string _apiBase;
@@ -46,9 +47,8 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
         foreach (var field in fields)
         {
             var description = $"{field.Key}: {field.Value.Trim()}";
-            var subtaskId = field.SubtaskId > 0
-                ? field.SubtaskId
-                : existingSubtasks.GetValueOrDefault(field.Key);
+            var liveSubtaskId = existingSubtasks.GetValueOrDefault(NormalizeConfigurationKey(field.Key));
+            var subtaskId = liveSubtaskId > 0 ? liveSubtaskId : field.SubtaskId;
             var method = subtaskId > 0 ? HttpMethod.Patch : HttpMethod.Post;
             var relativeUrl = subtaskId > 0
                 ? $"/cards/{configurationCardId}/subtasks/{subtaskId}"
@@ -80,6 +80,16 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
             throw new ArgumentOutOfRangeException(nameof(columnId));
         ArgumentNullException.ThrowIfNull(fields);
         EnsureConfigured();
+
+        // The UI cache is deliberately only a projection. Recheck the live
+        // lane immediately before POST so an older or differently expanded
+        // KONFIGURATION card can never be duplicated.
+        var existingCardId = await FindConfigurationCardAsync(laneId, cancellationToken);
+        if (existingCardId > 0)
+        {
+            await SaveFieldsAsync(existingCardId, fields, cancellationToken);
+            return existingCardId;
+        }
 
         var responseBody = await SendJsonAsync(
             HttpMethod.Post,
@@ -147,12 +157,37 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
         return data.EnumerateArray()
             .Select(subtask => new
             {
-                Id = ReadInt(subtask, "subtask_id", "id"),
+                Id = ReadInt(subtask, "subtask_id", "id", "card_id"),
                 Key = ReadConfigurationKey(subtask)
             })
             .Where(subtask => subtask.Id > 0 && subtask.Key.Length > 0)
             .GroupBy(subtask => subtask.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<int> FindConfigurationCardAsync(int laneId, CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            $"/cards?board_ids={WorkplaceBoardId}&lane_ids={laneId}&per_page=100&fields=card_id,title");
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw CreateRequestException("Vorhandene KONFIGURATION-Karte konnte nicht geprüft werden", response, body);
+        if (string.IsNullOrWhiteSpace(body))
+            return 0;
+
+        using var document = JsonDocument.Parse(body);
+        var data = UnwrapData(document.RootElement);
+        if (data.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        return data.EnumerateArray()
+            .Where(card => ReadTextProperty(card, "title").Contains(
+                "KONFIGURATION",
+                StringComparison.OrdinalIgnoreCase))
+            .Select(card => ReadInt(card, "card_id", "id"))
+            .FirstOrDefault(id => id > 0);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string relativeUrl)
@@ -170,6 +205,11 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
             return string.Empty;
         var separator = description.IndexOf(':');
         var key = separator < 0 ? description : description[..separator];
+        return NormalizeConfigurationKey(key);
+    }
+
+    private static string NormalizeConfigurationKey(string key)
+    {
         var normalized = key.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
         return normalized switch
         {
@@ -183,14 +223,21 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
     {
         foreach (var propertyName in new[] { "description", "title", "name" })
         {
-            if (subtask.TryGetProperty(propertyName, out var value) &&
-                value.ValueKind == JsonValueKind.String &&
-                !string.IsNullOrWhiteSpace(value.GetString()))
-            {
-                return value.GetString()!.Trim();
-            }
+            var value = ReadTextProperty(subtask, propertyName);
+            if (value.Length > 0)
+                return value;
         }
         return string.Empty;
+    }
+
+    private static string ReadTextProperty(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value) ||
+            value.ValueKind != JsonValueKind.String)
+        {
+            return string.Empty;
+        }
+        return value.GetString()?.Trim() ?? string.Empty;
     }
 
     private static int ReadCreatedSubtaskId(string responseBody)

@@ -27,18 +27,18 @@ Beide Abläufe enthalten keine Lizenzanfrage- oder Lizenzdatenlogik.
 
 ### Auswahlregel
 
-Eine Quellkarte ist nur zulässig, wenn ihr Titel `Grundinbetriebnahme` enthält, sie nicht `Vorlage` heißt und nicht in der Archivspalte liegt. Die VIBN-Vorlage ist genau die nicht archivierte Karte, deren Titel sowohl `Grundinbetriebnahme` als auch `Vorlage` enthält.
+Eine Quellkarte ist zulässig, wenn ihr Titel `Grundinbetriebnahme` enthält, sie nicht `Vorlage` heißt und nicht in der Archivspalte liegt. Eine zusätzliche Vorlagenkarte ist für die Synchronisierung nicht erforderlich.
 
 ### Terminregel
 
 | Zielwert | Berechnung |
 | --- | --- |
 | Start | Deadline der konkreten Quellkarte minus 14 Tage |
-| Ende/Deadline | Deadline der genau einen datierten VIBN-Vorlage plus 56 Tage |
+| Ende/Deadline | Deadline derselben VIBN-Quellkarte plus 56 Tage |
 
 Der Start wird im bestehenden Startdatums-Custom-Field des Arbeitsplätze-Boards (Feld-ID `508`) gespeichert. Das Ende wird als reguläre Kanbanize-Deadline gespeichert. `actual_end_time` wird ausdrücklich nicht geschrieben, weil es einen tatsächlichen Abschluss statt eines Plantermins beschreibt.
 
-Gibt es keine oder mehrere datierte Vorlagen, oder fehlt die Quell-Deadline, zeigt die Vorschau einen Konflikt. Es wird dann keine Karte erstellt und kein Termin verändert.
+Fehlt die Deadline einer Quellkarte, zeigt die Vorschau für genau diese Karte einen Konflikt. Andere gültige, markierte Karten können weiterhin synchronisiert werden.
 
 ### Duplikat- und Änderungsregel
 
@@ -50,7 +50,7 @@ Die Zielkarte speichert die Quellkarten-ID als `custom_id` und Parent-Link. Dadu
 | genau eine Zielkarte mit abweichendem Zeitplan | nur Startdatumsfeld und Deadline patchen |
 | genau eine Zielkarte mit gleichem Zeitplan | unverändert |
 | mehrere Zielkarten mit gleicher Quell-ID | Konflikt, keinerlei Änderung |
-| fehlende/mehrdeutige Vorlage oder fehlende Deadline | Konflikt, keinerlei Änderung |
+| fehlende Quell-Deadline | Konflikt für diese Quellkarte, keinerlei Änderung |
 
 Die Automatik verschiebt, löscht, benennt, beschreibt oder priorisiert keine vorhandene Karte. Jede Einzelausnahme wird in der Vorschau und im Diagnoseprotokoll sichtbar.
 

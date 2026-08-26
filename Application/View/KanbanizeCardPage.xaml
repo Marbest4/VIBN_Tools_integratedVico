@@ -108,7 +108,7 @@
                                       IsChecked="{Binding SynchronizeDeadlines}" />
                             <TextBlock Margin="0,10,0,0"
                                        Foreground="#FF666666"
-                                       Text="Start = Quell-Deadline − 14 Tage. Ende/Deadline = Deadline der eindeutigen VIBN-Vorlage + 56 Tage. Bestehende Karten werden weder verschoben, umbenannt noch gelöscht."
+                                       Text="Start = Deadline der jeweiligen Quellkarte − 14 Tage. Ende/Deadline = Deadline derselben Quellkarte + 56 Tage. Eine separate Vorlagenkarte ist nicht erforderlich."
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </GroupBox>

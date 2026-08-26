@@ -240,7 +240,10 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
             await _client.SelectPlcAsync(SelectedPlc.Index);
             var modules = await _client.ListHardwareAsync();
             Replace(HardwareModules, modules);
-            StatusText = $"{HardwareModules.Count} TIA-Hardwareelement(e) geladen.";
+            var addressed = HardwareModules.Count(module =>
+                module.InputStartByte >= 0 || module.OutputStartByte >= 0);
+            StatusText = $"{HardwareModules.Count} TIA-Hardwareelement(e) geladen; " +
+                         $"{addressed} mit E-/A-Adresse.";
         });
     }
 

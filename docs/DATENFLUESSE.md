@@ -65,9 +65,8 @@ Die alternative Schaltfläche „RDP mit Anmeldedaten“ ruft denselben RDP-Adap
 ```mermaid
 flowchart TD
     S[VIBN-Grundinbetriebnahme-Karte] --> V{zulässig?}
-    T[eindeutige datierte VIBN-Vorlage] --> F[Terminformel]
     V -- nein --> X[ausgeschlossen]
-    V -- ja --> F
+    V -- ja --> F[Terminformel je Quellkarte]
     F --> M{Zielkarte mit custom_id?}
     M -- keine --> C[POST neue verknüpfte Karte]
     M -- genau eine --> D{Start und Deadline gleich?}
@@ -76,7 +75,7 @@ flowchart TD
     M -- mehrere --> K[Konflikt, keine Änderung]
 ```
 
-Die Formel ist Start = Quell-Deadline − 14 Tage, Ende = Deadline der eindeutigen Vorlage + 56 Tage. Fehlende oder mehrdeutige Voraussetzungen sind Konflikte ohne Schreiboperation.
+Die Formel ist Start = Quell-Deadline − 14 Tage, Ende = Deadline derselben Quellkarte + 56 Tage. Eine fehlende Quell-Deadline oder mehrere passende Zielkarten sind Konflikte ohne Schreiboperation.
 
 ## TIA-Hardware und Special Devices
 

@@ -82,19 +82,19 @@ Vorhandene Standard-Unteraufgaben werden per PATCH gespeichert; fehlende Standar
 
 ### Kanbanize meldet 400 bei `fields`
 
-`subtasks`, Positionsfelder und Custom Fields sind in dieser Instanz keine zulässigen Werte des Kartenparameters `fields`. Beide Kartenabrufe verzichten deshalb vollständig auf `fields`, paginieren über alle Seiten und rufen ausschließlich für Karten mit dem exakten Titel `KONFIGURATION` `/cards/{card_id}/subtasks` auf.
+`subtasks`, Positionsfelder und Custom Fields sind in dieser Instanz keine zulässigen Werte des Kartenparameters `fields`. Die Arbeitsplatzabfrage verzichtet deshalb auf `fields`, paginiert über alle Seiten und verwendet `expand=subtasks`. Fehlen die Unteraufgaben in einer gefundenen KONFIGURATION-Karte dennoch, wird gezielt `/cards/{card_id}/subtasks` nachgeladen.
 
 ### Kanbanize-Vorschau zeigt Konflikt
 
-Keinen Synchronisieren-Lauf erzwingen. Prüfen, ob genau eine datierte `Grundinbetriebnahme ... Vorlage`-Karte existiert, die Quellkarte eine Deadline hat und nicht mehrere Zielkarten dieselbe Quell-ID tragen. Konflikte führen bewusst zu keiner Änderung.
+Keinen Synchronisieren-Lauf erzwingen. Prüfen, ob die betroffene Quellkarte eine Deadline hat und nicht mehrere Zielkarten dieselbe Quell-ID oder denselben generierten Titel tragen. Eine separate Vorlagenkarte ist nicht erforderlich; Konflikte führen bewusst zu keiner Änderung.
 
 ### TIA Bridge verbindet sich nicht oder Hardware bleibt leer
 
 1. Exakt passende TIA-Version auswählen und das Projekt vollständig öffnen. Openness arbeitet nicht im Versions-Kompatibilitätsmodus.
-2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath`, wartet bis zu 30 Sekunden auf den Openness-Firewall-Dialog und unterstützt sowohl `Projects` als auch eine bereits geöffnete `LocalSessions[n].Project`-Sitzung.
+2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath`, wartet bei großen Projekten bis zu 90 Sekunden auf die Openness-Projektfreigabe und unterstützt sowohl `Projects` als auch eine bereits geöffnete `LocalSessions[n].Project`-Sitzung.
 3. Gruppe `Siemens TIA Openness`, TIA-Funktionsrecht **Edit project via Openness API**, Firewallfreigabe und installierte Optionen/HSPs prüfen.
 4. Im Diagnosepanel die Bridge-Fehler lesen.
-5. Für Special Devices Eingangs-/Ausgangsbyte und Logik kontrollieren; fehlende Adressen manuell ergänzen.
+5. Für Special Devices Gerätename, Modul/Typ, Firmware, Eingangs-/Ausgangsbyte, Byte-Längen und Logik kontrollieren. Die Hardwareabfrage durchläuft alle `Project.Devices`, weil dezentrale PROFINET-/PROFIBUS-Geräte nicht unterhalb des PLC-Racks liegen. Bei Modulen, die keine Openness-Adresse bereitstellen, fehlende Adressen manuell ergänzen.
 6. Die Bridge läuft als 64-Bit-fähiger .NET-Framework-Prozess. Nach einer Änderung der lokalen Gruppe `Siemens TIA Openness` Windows ab- und wieder anmelden; ein bloßer Neustart des Tools aktualisiert das Windows-Gruppentoken nicht.
 
 Unterstützt werden lokal erkannte PublicAPI-Installationen V15 bis V22. Es wird immer die Assembly der ausgewählten Version geladen; V20 verwendet ausschließlich `Portal V20/PublicAPI/V20/Siemens.Engineering.dll`.

@@ -76,8 +76,11 @@ internal static class Program
                 new TiaHardwareModuleInfo
                 {
                     Slot = 3,
+                    DeviceName = "PLC_1",
                     ModuleName = "Cognex Testmodul",
+                    ModuleType = "PROFINET IO device",
                     TypeIdentifier = "TEST-COGNEX",
+                    FirmwareVersion = "V2.1",
                     InputStartByte = 20,
                     InputLength = 4,
                     OutputStartByte = 40,
