@@ -33,7 +33,7 @@
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="Hersteller" />
                     <ComboBox Grid.Row="0" Grid.Column="1" MinHeight="34" ItemsSource="{Binding Manufacturers}" SelectedItem="{Binding SelectedManufacturer}" />
-                    <TextBlock Grid.Row="1" Margin="0,9,0,0" VerticalAlignment="Center" Text="Gerätetyp" />
+                    <TextBlock Grid.Row="1" Margin="0,9,0,0" VerticalAlignment="Center" Text="Gerätetyp / Logik" />
                     <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,9,0,0" MinHeight="34" ItemsSource="{Binding DeviceTypes}" SelectedItem="{Binding SelectedDevice}" />
                     <TextBlock Grid.Row="2" Margin="0,9,0,0" VerticalAlignment="Center" Text="Robotertyp" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,9,0,0" MinHeight="34" ItemsSource="{Binding RobotTypes}" SelectedItem="{Binding SelectedRobotType}" Visibility="{Binding ShowRobotType, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -58,7 +58,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Präfix" Binding="{Binding DevicePrefix, Mode=OneWay}" Width="*" MinWidth="120" />
                             <DataGridTextColumn Header="Hersteller" Binding="{Binding DeviceManufacturer, Mode=OneWay}" Width="120" />
-                            <DataGridTextColumn Header="Logik" Binding="{Binding DeviceType, Mode=OneWay}" Width="170" />
+                            <DataGridTextColumn Header="Logik" Binding="{Binding DeviceLogicObject.LogicDefinitionName, Mode=OneWay}" Width="210" />
                             <DataGridTextColumn Header="E-Byte" Binding="{Binding DeviceAddresses.Input, Mode=OneWay}" Width="75" />
                             <DataGridTextColumn Header="A-Byte" Binding="{Binding DeviceAddresses.Output, Mode=OneWay}" Width="75" />
                         </DataGrid.Columns>

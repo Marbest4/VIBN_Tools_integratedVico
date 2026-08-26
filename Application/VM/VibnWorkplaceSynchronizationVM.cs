@@ -7,10 +7,16 @@ using VIBN_Tools.GlobalClasses;
 namespace VIBN_Tools.Application.VM;
 
 /// <summary>Display-only row for a safe VIBN workplace synchronization preview.</summary>
-public sealed class VibnWorkplaceSynchronizationRowVM
+public sealed class VibnWorkplaceSynchronizationRowVM : MvvmBase
 {
-    public VibnWorkplaceSynchronizationRowVM(VibnWorkplaceSynchronizationItem item)
+    private readonly Action _selectionChanged;
+    private bool _isSelected;
+
+    public VibnWorkplaceSynchronizationRowVM(
+        VibnWorkplaceSynchronizationItem item,
+        Action? selectionChanged = null)
     {
+        _selectionChanged = selectionChanged ?? (() => { });
         Action = item.Action;
         SourceTitle = item.SourceCard.Title;
         SourceCardId = item.SourceCard.Id;
@@ -24,6 +30,25 @@ public sealed class VibnWorkplaceSynchronizationRowVM
     }
 
     public VibnWorkplaceSynchronizationAction Action { get; }
+
+    public bool CanSynchronize =>
+        Action is VibnWorkplaceSynchronizationAction.Create or
+            VibnWorkplaceSynchronizationAction.UpdateDeadline;
+
+    /// <summary>Only explicitly checked preview rows may be written.</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            var normalized = CanSynchronize && value;
+            if (_isSelected == normalized)
+                return;
+            _isSelected = normalized;
+            OnPropertyChanged();
+            _selectionChanged();
+        }
+    }
 
     public string ActionText => Action switch
     {
@@ -218,7 +243,8 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
         !IsBusy &&
         _preview is { HasChanges: true } &&
         _previewSettings is not null &&
-        _previewSettings == CreateSettings();
+        _previewSettings == CreateSettings() &&
+        PreviewItems.Any(item => item.CanSynchronize && item.IsSelected);
 
     public int CreateCount => _preview?.CreateCount ?? 0;
 
@@ -381,7 +407,19 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
         StatusText = "VIBN-Karten werden sicher synchronisiert …";
         try
         {
-            var result = await _synchronization.SynchronizeAsync(settings, _lifetimeCancellation.Token);
+            var selectedSourceIds = PreviewItems
+                .Where(item => item.CanSynchronize && item.IsSelected)
+                .Select(item => item.SourceCardId)
+                .ToArray();
+            if (selectedSourceIds.Length == 0)
+            {
+                StatusText = "Mindestens eine Änderung in der Vorschau markieren.";
+                return;
+            }
+            var result = await _synchronization.SynchronizeAsync(
+                settings,
+                selectedSourceIds,
+                _lifetimeCancellation.Token);
             var refreshedPreview = await _synchronization.PreviewAsync(settings, _lifetimeCancellation.Token);
             ApplyPreview(refreshedPreview, settings);
 
@@ -425,7 +463,8 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
     {
         _preview = preview;
         _previewSettings = settings;
-        Replace(PreviewItems, preview.Items.Select(item => new VibnWorkplaceSynchronizationRowVM(item)));
+        Replace(PreviewItems, preview.Items.Select(item =>
+            new VibnWorkplaceSynchronizationRowVM(item, OnPreviewSelectionChanged)));
         OnPropertyChanged(nameof(CreateCount));
         OnPropertyChanged(nameof(DeadlineUpdateCount));
         OnPropertyChanged(nameof(UnchangedCount));
@@ -446,6 +485,15 @@ public sealed class VibnWorkplaceSynchronizationVM : MvvmBase, IDisposable
         OnPropertyChanged(nameof(ExcludedSourceCardCount));
         OnPropertyChanged(nameof(CanPreview));
         OnPropertyChanged(nameof(CanSynchronize));
+    }
+
+    private void OnPreviewSelectionChanged()
+    {
+        OnPropertyChanged(nameof(CanSynchronize));
+        var selectedCount = PreviewItems.Count(item => item.CanSynchronize && item.IsSelected);
+        StatusText = selectedCount == 0
+            ? "Die gewünschten Änderungen in der Vorschau markieren."
+            : $"{selectedCount} Änderung(en) für die Synchronisierung markiert.";
     }
 
     private static KanbanizeBoardInfo? SelectPreferredBoard(

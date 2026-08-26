@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
+    <Prefer32Bit>false</Prefer32Bit>
     <AssemblyName>VIBN_Tools.TiaBridge</AssemblyName>
     <RootNamespace>VIBN_Tools.TiaBridge</RootNamespace>
   </PropertyGroup>

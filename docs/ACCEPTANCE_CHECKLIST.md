@@ -36,6 +36,7 @@ Diese Liste auf einem GROB-Desktop mit Netzwerkzugriff, FEE, Kanbanize-Berechtig
 - [ ] Vorschau verwendet Quell- und Zielboard, Lane und Spalte korrekt.
 - [ ] Start ist Quell-Deadline minus 14 Tage.
 - [ ] Ziel-Deadline ist Vorlage-Deadline plus 56 Tage.
+- [ ] Nur in der Vorschau markierte Sync-Zeilen werden erstellt oder aktualisiert.
 - [ ] Ein zweiter Lauf erzeugt keine Duplikate.
 - [ ] Mehrdeutige Zielkarte/Vorlage führt zu Konflikt ohne Änderung.
 - [ ] Bestehende generierte Karte ändert nur Startfeld und Deadline, nicht Titel/Position/Beschreibung.

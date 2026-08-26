@@ -89,10 +89,12 @@ namespace VIBN_Tools.Application.VM
                 _selectedServer = value;
                 OnPropertyChanged();
 
-                if (!string.IsNullOrWhiteSpace(value) &&
-                    !string.Equals(_serverFilter, value, StringComparison.OrdinalIgnoreCase))
+                // The editable ComboBox owns one text value. Keeping a second
+                // SelectedItem binding caused WPF to clear partially typed PC
+                // numbers whenever the filtered collection changed.
+                if (!string.Equals(_serverFilter, value, StringComparison.Ordinal))
                 {
-                    _serverFilter = value;
+                    _serverFilter = value ?? string.Empty;
                     OnPropertyChanged(nameof(ServerFilter));
                     _ = RefreshOnlineServersAsync();
                 }
@@ -106,7 +108,11 @@ namespace VIBN_Tools.Application.VM
                     _isServerChangeActive = false;
                 }
 
-                _ = CheckServerAsync(value);
+                if (string.Equals(value, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                    _workstations.PcNames.Contains(value, StringComparer.OrdinalIgnoreCase))
+                {
+                    _ = CheckServerAsync(value);
+                }
             }
         }
 
@@ -126,14 +132,10 @@ namespace VIBN_Tools.Application.VM
                 _serverFilter = value ?? string.Empty;
                 OnPropertyChanged();
 
-                if (!string.IsNullOrWhiteSpace(_selectedServer) &&
-                    !string.Equals(_selectedServer, _serverFilter, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(_selectedServer, _serverFilter, StringComparison.Ordinal))
                 {
-                    _isServerChangeActive = true;
-                    _selectedServer = string.Empty;
+                    _selectedServer = _serverFilter;
                     OnPropertyChanged(nameof(SelectedServer));
-                    _isServerChangeActive = false;
-                    IsServerReachable = false;
                 }
                 _ = RefreshOnlineServersAsync();
             }
@@ -531,7 +533,13 @@ namespace VIBN_Tools.Application.VM
             try
             {
                 await Task.Delay(250, cancellation.Token);
-                var filter = ServerFilter.Trim();
+                // "localhost" selects the local FEE endpoint, but is not a
+                // useful workstation-name filter. Keep the complete online PC
+                // list visible so the user can immediately choose another PC.
+                var enteredText = ServerFilter.Trim();
+                var filter = string.Equals(enteredText, "localhost", StringComparison.OrdinalIgnoreCase)
+                    ? string.Empty
+                    : enteredText;
                 var candidates = _workstations.PcNames
                     .Where(name => string.IsNullOrWhiteSpace(filter) ||
                         name.Contains(filter, StringComparison.OrdinalIgnoreCase))

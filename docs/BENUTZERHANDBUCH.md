@@ -122,7 +122,8 @@ Der Reiter hat zwei bewusst getrennte Arbeitsweisen.
 
 1. **Boards aktualisieren** und Quell-/Zielboard, Ziel-Lane und Zielspalte auswählen.
 2. **Prüfen** drücken. Die Vorschau zeigt Neueinträge, Zeitplanänderungen, unveränderte Karten und Konflikte.
-3. Erst nach fachlicher Prüfung **Synchronisieren** drücken.
+3. In der Spalte **Sync** nur die tatsächlich gewünschten Änderungen markieren.
+4. Erst nach fachlicher Prüfung **Synchronisieren** drücken. Nicht markierte Karten bleiben unverändert.
 
 Für jede zulässige VIBN-Karte mit `Grundinbetriebnahme` gilt:
 
@@ -133,7 +134,7 @@ Die Synchronisierung verwendet die Quellkarten-ID als stabile Ziel-ID. Mehrere Z
 
 ### Eigene Karte
 
-Im zweiten Unterreiter kann weiterhin freiwillig eine normale Kanbanize-Karte erstellt werden. Board, Lane, Spalte, Titel, Beschreibung, Priorität, externe ID und Deadline werden explizit gewählt. Diese Funktion ist unabhängig von der VIBN-Synchronisierung.
+Im zweiten Unterreiter kann weiterhin freiwillig eine normale Kanbanize-Karte erstellt werden. Arbeitsplätze → Angelegt → Backlog ist die Standardposition; Board, Lane, Spalte, Titel, Beschreibung, Priorität, externe ID und Deadline können weiterhin explizit geändert werden. Diese Funktion ist unabhängig von der VIBN-Synchronisierung.
 
 Weitere Details stehen in [KANBANIZE_KARTEN.md](KANBANIZE_KARTEN.md).
 

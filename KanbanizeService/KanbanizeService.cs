@@ -12,7 +12,10 @@ namespace VIBN_Tools.KanbanizeService
     public class KanbanizeService
     {
         public static string ApiKey =>
-            Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY")?.Trim() ?? string.Empty;
+            (Environment.GetEnvironmentVariable(
+                 "VIBN_VICO_KANBANIZE_API_KEY",
+                 EnvironmentVariableTarget.User) ??
+             Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY"))?.Trim() ?? string.Empty;
 
         private readonly HttpClient _httpClient;
         private readonly SemaphoreSlim _throttle = new SemaphoreSlim(10);    // max. 10 parallel

@@ -243,7 +243,13 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
             var boards = await _cards.LoadBoardsAsync(_lifetimeCancellation.Token);
             Replace(Boards, boards);
             WorkplaceSynchronization.SetBoards(boards);
-            SelectedBoard = Boards.FirstOrDefault();
+            SelectedBoard = Boards.FirstOrDefault(board =>
+                                board.Id == VibnWorkplaceSynchronizationPolicy.DefaultTargetBoardId) ??
+                            Boards.FirstOrDefault(board =>
+                                (board.Name + " " + board.Description).Contains(
+                                    "arbeitsplatz",
+                                    StringComparison.OrdinalIgnoreCase)) ??
+                            Boards.FirstOrDefault();
             StatusText = boards.Count == 0
                 ? "Es wurden keine zugänglichen Kanbanize-Boards gefunden."
                 : $"{boards.Count} Kanbanize-Board(s) geladen.";
@@ -289,7 +295,11 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
 
             Replace(Lanes, structure.Lanes);
             _boardColumns = structure.Columns;
-            SelectedLane = Lanes.FirstOrDefault();
+            SelectedLane = Lanes.FirstOrDefault(lane =>
+                               string.Equals(lane.Name.Trim(), "angelegt", StringComparison.OrdinalIgnoreCase)) ??
+                           Lanes.FirstOrDefault(lane =>
+                               lane.Name.Contains("angelegt", StringComparison.OrdinalIgnoreCase)) ??
+                           Lanes.FirstOrDefault();
             RefreshColumnsForSelectedLane();
             StatusText = $"{Lanes.Count} Lane(s) und {Columns.Count} passende Spalte(n) geladen.";
         }
@@ -315,7 +325,11 @@ public sealed class KanbanizeCardPageVM : MvvmBase, IDisposable
             ? _boardColumns
             : _boardColumns.Where(column => column.WorkflowId == SelectedLane.WorkflowId).ToArray();
         Replace(Columns, matchingColumns);
-        SelectedColumn = Columns.FirstOrDefault();
+        SelectedColumn = Columns.FirstOrDefault(column =>
+                             string.Equals(column.Name.Trim(), "Backlog", StringComparison.OrdinalIgnoreCase)) ??
+                         Columns.FirstOrDefault(column =>
+                             column.Name.Contains("Backlog", StringComparison.OrdinalIgnoreCase)) ??
+                         Columns.FirstOrDefault();
     }
 
     private async Task CreateCardAsync()

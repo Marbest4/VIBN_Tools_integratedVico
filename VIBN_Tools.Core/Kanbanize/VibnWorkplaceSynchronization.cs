@@ -78,6 +78,7 @@ public interface IVibnWorkplaceSynchronizationService
 
     Task<VibnWorkplaceSynchronizationResult> SynchronizeAsync(
         VibnWorkplaceSynchronizationSettings settings,
+        IReadOnlyCollection<int> selectedSourceCardIds,
         CancellationToken cancellationToken = default);
 }
 
@@ -225,11 +226,17 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
 
     public async Task<VibnWorkplaceSynchronizationResult> SynchronizeAsync(
         VibnWorkplaceSynchronizationSettings settings,
+        IReadOnlyCollection<int> selectedSourceCardIds,
         CancellationToken cancellationToken = default)
     {
         var validationError = VibnWorkplaceSynchronizationPolicy.Validate(settings);
         if (validationError is not null)
             throw new ArgumentException(validationError, nameof(settings));
+
+        ArgumentNullException.ThrowIfNull(selectedSourceCardIds);
+        var selectedIds = selectedSourceCardIds.Where(id => id > 0).ToHashSet();
+        if (selectedIds.Count == 0)
+            throw new ArgumentException("Mindestens eine Änderung muss markiert sein.", nameof(selectedSourceCardIds));
 
         await _synchronizationGate.WaitAsync(cancellationToken);
         try
@@ -241,7 +248,7 @@ public sealed class VibnWorkplaceSynchronizationService : IVibnWorkplaceSynchron
             var deadlineUpdateCount = 0;
             var failures = new List<string>();
 
-            foreach (var item in preview.Items)
+            foreach (var item in preview.Items.Where(item => selectedIds.Contains(item.SourceCard.Id)))
             {
                 try
                 {

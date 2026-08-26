@@ -22,7 +22,8 @@ Beide Abläufe enthalten keine Lizenzanfrage- oder Lizenzdatenlogik.
 1. **Boards aktualisieren** drücken.
 2. Quellboard „Virtuelle Inbetriebnahme“ sowie Zielboard „Arbeitsplätze“ und die gewünschte Zielposition auswählen.
 3. **Prüfen** drücken und jede Zeile der Vorschau lesen.
-4. Nur wenn Vorschau und Zielposition fachlich korrekt sind, **Synchronisieren** drücken.
+4. Ausschließlich die gewünschten Zeilen in der Spalte **Sync** markieren.
+5. Nur wenn Vorschau und Zielposition fachlich korrekt sind, **Synchronisieren** drücken. Nicht markierte Zeilen werden garantiert nicht geschrieben.
 
 ### Auswahlregel
 
@@ -55,7 +56,7 @@ Die Automatik verschiebt, löscht, benennt, beschreibt oder priorisiert keine vo
 
 ## Eigene Karte
 
-Im Reiter **Eigene Karte** kann der Benutzer Board, Lane, Spalte, Titel, Beschreibung, Priorität, externe ID und Deadline wählen. Der Entwurf wird vor dem HTTP-Aufruf validiert. Die manuelle Erstellung verwendet keine VIBN-ID und beeinflusst die Synchronisierung nicht.
+Im Reiter **Eigene Karte** kann der Benutzer Board, Lane, Spalte, Titel, Beschreibung, Priorität, externe ID und Deadline wählen. Das Arbeitsplätze-Board, die Lane **Angelegt** und die Spalte **Backlog** werden – sofern über den API-Benutzer erreichbar – als Standard vorausgewählt. Der Entwurf wird vor dem HTTP-Aufruf validiert. Die manuelle Erstellung verwendet keine VIBN-ID und beeinflusst die Synchronisierung nicht.
 
 ## Tests und Codewegweiser
 

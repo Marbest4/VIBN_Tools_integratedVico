@@ -131,9 +131,7 @@ namespace VIBN_Tools.SpecialDevices
             await DeviceBasicFrame.SendAndWaitAsync();
 
             // Create LogicObject
-            await DeviceLogicObject.CreateSendAssignAndWaitAsync();
-
-            if (!await ApiInstance.Logic.AssignLogicToElementAsync(DeviceLogicObject.LogicDefinitionGuid, DeviceLogicObject.LogicDefinitionVersion, DeviceLogicObject.Guid))
+            if (!await DeviceLogicObject.CreateSendAssignAndWaitAsync())
                 return false;
 
 
@@ -151,10 +149,8 @@ namespace VIBN_Tools.SpecialDevices
 
             if (await DeviceInterface.CreateInterfaceAsync())
             {
-                await Parallel.ForEachAsync(DeviceSignals, async (signal, ct) =>
-                {
+                foreach (var signal in DeviceSignals)
                     await signal.CreateSignalAsync(DeviceInterface);
-                });
 
                 //foreach (var signal in DeviceSignals)
                 //{
@@ -168,7 +164,7 @@ namespace VIBN_Tools.SpecialDevices
 
         private async Task<bool> AssignSignalsToDeviceLogic()
         {
-            await Parallel.ForEachAsync(DeviceSignals, async (signal, ct) =>
+            foreach (var signal in DeviceSignals)
             {
                 var slotName = signal.Tag.Substring(this.DevicePrefix.Length + 1);
 
@@ -178,7 +174,7 @@ namespace VIBN_Tools.SpecialDevices
                 }
 
                 await ApiInstance.Interface.SendSlotVarAssignmentAsync(DeviceLogicObject.Guid, slotName, signal.Guid, true);
-            });
+            }
 
 
             //foreach (var signal in DeviceSignals)

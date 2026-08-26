@@ -101,7 +101,13 @@ public sealed class WindowsTemporaryRemoteCredentialStore : IRemoteCredentialSto
 
     public void SaveTemporary(string hostName, string userName)
     {
-        var password = Environment.GetEnvironmentVariable(PasswordEnvironmentVariable);
+        // Read the persistent user value first. This avoids an older value
+        // inherited by a still-running Visual Studio process taking precedence
+        // after the configuration assistant changed the password.
+        var password = Environment.GetEnvironmentVariable(
+                           PasswordEnvironmentVariable,
+                           EnvironmentVariableTarget.User) ??
+                       Environment.GetEnvironmentVariable(PasswordEnvironmentVariable);
         if (string.IsNullOrWhiteSpace(password))
         {
             throw new InvalidOperationException(

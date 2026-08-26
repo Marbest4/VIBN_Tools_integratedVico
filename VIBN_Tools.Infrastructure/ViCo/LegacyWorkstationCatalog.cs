@@ -74,7 +74,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
                 cancellationToken) ?? new WorkstationBoardCache();
             var configurations = cache.Cards
-                .Where(card => string.Equals(card.Title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase))
+                .Where(card => IsConfigurationTitle(card.Title))
                 .Where(card => card.Id > 0 && card.LaneId.Length > 0)
                 .GroupBy(card => card.LaneId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
@@ -201,8 +201,13 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             var softwareSummary = configuration.Software.Value.Trim();
             var fee = string.Join(" | ", details.Where(value => value.Contains("FEE", StringComparison.OrdinalIgnoreCase)));
             var hardware = details.FirstOrDefault(value => value.Contains("LAN", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
-            var projects = laneCards;
-            var robots = FindRobotInformation(projects, robotCards, robotNames, robotColumns);
+            // The compact project column is operational: only planning and
+            // work in progress belong there. Backlog/done cards remain in
+            // Details and are therefore still visible in the expanded view.
+            var projects = laneCards
+                .Where(card => ProjectIdentity.GetStatus(card) is "Planung" or "In Arbeit")
+                .ToArray();
+            var robots = FindRobotInformation(laneCards, robotCards, robotNames, robotColumns);
             foreach (var robot in robots)
                 details.Add($"Robot: {robot.Name} – {robot.Status}");
 
@@ -319,8 +324,11 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
     private static bool IsConfigurationCard(string value)
     {
         var title = Regex.Replace(value, @"^\s*\[[BPWD]\]\s*", string.Empty);
-        return string.Equals(title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
+        return IsConfigurationTitle(title);
     }
+
+    private static bool IsConfigurationTitle(string value) =>
+        string.Equals(value.Trim().TrimEnd(':'), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
 
     private static ViCoWorkstationConfiguration BuildConfiguration(WorkstationCardCacheEntry card)
     {

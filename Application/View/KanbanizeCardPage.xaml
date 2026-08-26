@@ -154,7 +154,7 @@
                               Grid.ColumnSpan="5"
                               ItemsSource="{Binding PreviewItems}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
+                              IsReadOnly="False"
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="True"
                               RowHeight="32"
@@ -162,7 +162,17 @@
                               HorizontalScrollBarVisibility="Auto"
                               FrozenColumnCount="2">
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="Aktion" Width="102">
+                            <DataGridTemplateColumn Header="Sync" IsReadOnly="False" Width="58">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  IsEnabled="{Binding CanSynchronize, Mode=OneWay}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Aktion" IsReadOnly="True" Width="102">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Border Margin="3" Padding="5,3" Background="{Binding ActionBackground, Mode=OneWay}" CornerRadius="3">
@@ -171,15 +181,15 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="VIBN-Karte" Binding="{Binding SourceTitle, Mode=OneWay}" Width="2*" MinWidth="240" />
-                            <DataGridTextColumn Header="Quell-ID" Binding="{Binding SourceCardId, Mode=OneWay}" Width="90" />
-                            <DataGridTextColumn Header="Quell-Deadline" Binding="{Binding SourceDeadline, Mode=OneWay}" Width="145" />
-                            <DataGridTextColumn Header="Geplanter Start" Binding="{Binding CalculatedStart, Mode=OneWay}" Width="145" />
-                            <DataGridTextColumn Header="Geplantes Ende" Binding="{Binding CalculatedEnd, Mode=OneWay}" Width="145" />
-                            <DataGridTextColumn Header="Ziel-ID" Binding="{Binding TargetCardId, Mode=OneWay}" Width="90" />
-                            <DataGridTextColumn Header="Ziel-Start" Binding="{Binding TargetStart, Mode=OneWay}" Width="145" />
-                            <DataGridTextColumn Header="Ziel-Ende" Binding="{Binding TargetDeadline, Mode=OneWay}" Width="145" />
-                            <DataGridTextColumn Header="Hinweis" Binding="{Binding Details, Mode=OneWay}" Width="2*" MinWidth="270" />
+                            <DataGridTextColumn Header="VIBN-Karte" Binding="{Binding SourceTitle, Mode=OneWay}" IsReadOnly="True" Width="2*" MinWidth="240" />
+                            <DataGridTextColumn Header="Quell-ID" Binding="{Binding SourceCardId, Mode=OneWay}" IsReadOnly="True" Width="90" />
+                            <DataGridTextColumn Header="Quell-Deadline" Binding="{Binding SourceDeadline, Mode=OneWay}" IsReadOnly="True" Width="145" />
+                            <DataGridTextColumn Header="Geplanter Start" Binding="{Binding CalculatedStart, Mode=OneWay}" IsReadOnly="True" Width="145" />
+                            <DataGridTextColumn Header="Geplantes Ende" Binding="{Binding CalculatedEnd, Mode=OneWay}" IsReadOnly="True" Width="145" />
+                            <DataGridTextColumn Header="Ziel-ID" Binding="{Binding TargetCardId, Mode=OneWay}" IsReadOnly="True" Width="90" />
+                            <DataGridTextColumn Header="Ziel-Start" Binding="{Binding TargetStart, Mode=OneWay}" IsReadOnly="True" Width="145" />
+                            <DataGridTextColumn Header="Ziel-Ende" Binding="{Binding TargetDeadline, Mode=OneWay}" IsReadOnly="True" Width="145" />
+                            <DataGridTextColumn Header="Hinweis" Binding="{Binding Details, Mode=OneWay}" IsReadOnly="True" Width="2*" MinWidth="270" />
                         </DataGrid.Columns>
                     </DataGrid>
 

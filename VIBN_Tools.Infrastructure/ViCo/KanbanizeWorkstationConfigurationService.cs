@@ -39,9 +39,10 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
         ArgumentNullException.ThrowIfNull(fields);
         EnsureConfigured();
 
-        var existingSubtasks = fields.Any(field => field.SubtaskId <= 0)
-            ? await LoadStandardSubtasksAsync(configurationCardId, cancellationToken)
-            : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        // Always read the live subtask list before a write. Cache IDs may be
+        // stale and older KONFIGURATION cards can use aliases such as
+        // SOFTWARE or PROJEKTIP. Resolving them here makes saving idempotent.
+        var existingSubtasks = await LoadStandardSubtasksAsync(configurationCardId, cancellationToken);
         foreach (var field in fields)
         {
             var description = $"{field.Key}: {field.Value.Trim()}";
@@ -164,12 +165,32 @@ public sealed class KanbanizeWorkstationConfigurationService : IViCoWorkstationC
 
     private static string ReadConfigurationKey(JsonElement subtask)
     {
-        if (!subtask.TryGetProperty("description", out var value) || value.ValueKind != JsonValueKind.String)
+        var description = ReadSubtaskText(subtask);
+        if (description.Length == 0)
             return string.Empty;
-        var description = value.GetString() ?? string.Empty;
         var separator = description.IndexOf(':');
         var key = separator < 0 ? description : description[..separator];
-        return key.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+        var normalized = key.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+        return normalized switch
+        {
+            "SOFTWARE" => "SW",
+            "PROJEKTIP" => "PROJEKT-IP",
+            _ => normalized
+        };
+    }
+
+    private static string ReadSubtaskText(JsonElement subtask)
+    {
+        foreach (var propertyName in new[] { "description", "title", "name" })
+        {
+            if (subtask.TryGetProperty(propertyName, out var value) &&
+                value.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(value.GetString()))
+            {
+                return value.GetString()!.Trim();
+            }
+        }
+        return string.Empty;
     }
 
     private static int ReadCreatedSubtaskId(string responseBody)

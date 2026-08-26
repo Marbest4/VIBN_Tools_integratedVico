@@ -95,8 +95,7 @@
                                  Margin="5"
                                  Watermark="Online-PC eingeben oder auswählen"
                                  ItemsSource="{Binding ServerNames}"
-                                 SelectedItem="{Binding SelectedServer, Mode=TwoWay}"
-                                 Text="{Binding ServerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Text="{Binding SelectedServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  IsEditable="True"
                                  StaysOpenOnEdit="True"
                                  IsTextSearchEnabled="False" />

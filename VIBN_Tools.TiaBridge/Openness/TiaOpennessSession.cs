@@ -77,20 +77,66 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
         dynamic selectedProcess = selected;
         _portal = selectedProcess.Attach();
 
-        const int maximumProjectWaits = 40;
-        for (var attempt = 0; attempt < maximumProjectWaits && _portal.Projects.Count == 0; attempt++)
+        // TIA's process information is a snapshot and the Openness firewall
+        // confirmation can take noticeably longer than the former ten-second
+        // window. Also support an already opened Multiuser local session: its
+        // project is exposed through LocalSessions[n].Project, not Projects[0].
+        const int maximumProjectWaits = 120;
+        for (var attempt = 0; attempt < maximumProjectWaits; attempt++)
+        {
+            _project = TryResolveOpenProject(_portal);
+            if (_project is not null)
+                break;
             Thread.Sleep(250);
-        if (_portal.Projects.Count == 0)
+        }
+        if (_project is null)
         {
             var selectedPath = candidates.FirstOrDefault()?.ProjectPath;
             throw new InvalidOperationException(
-                $"Die verbundene TIA-Instanz {_selectedVersion} stellt nach 10 Sekunden kein Projekt über Openness bereit." +
+                $"Die verbundene TIA-Instanz {_selectedVersion} stellt nach 30 Sekunden weder ein Einzelprojekt noch eine geöffnete Multiuser-Local-Session über Openness bereit." +
                 (string.IsNullOrWhiteSpace(selectedPath) ? string.Empty : $" Gemeldeter ProjectPath: {selectedPath}.") +
-                " TIA-Version, Openness-Rechte, vollständig geladenes Projekt und ggf. Multiuser-/Local-Session-Projekttyp prüfen.");
+                " Den Openness-Firewall-Dialog in TIA mit 'Immer zulassen' bestätigen und TIA sowie VIBN Tools nach einer Änderung der Gruppe 'Siemens TIA Openness' neu anmelden.");
+        }
+        _selectedPlcIndex = null;
+    }
+
+    private static object? TryResolveOpenProject(object portal)
+    {
+        var projects = ReadEnumerableProperty(portal, "Projects");
+        var project = projects.FirstOrDefault();
+        if (project is not null)
+            return project;
+
+        foreach (var localSession in ReadEnumerableProperty(portal, "LocalSessions"))
+        {
+            try
+            {
+                var sessionProject = localSession.GetType().GetProperty("Project")?.GetValue(localSession, null);
+                if (sessionProject is not null)
+                    return sessionProject;
+            }
+            catch (Exception)
+            {
+                // A session can disappear while TIA is switching views.
+            }
         }
 
-        _project = _portal.Projects[0];
-        _selectedPlcIndex = null;
+        return null;
+    }
+
+    private static IReadOnlyList<object> ReadEnumerableProperty(object target, string propertyName)
+    {
+        try
+        {
+            var value = target.GetType().GetProperty(propertyName)?.GetValue(target, null);
+            return value is System.Collections.IEnumerable enumerable
+                ? enumerable.Cast<object>().Where(item => item is not null).ToArray()
+                : Array.Empty<object>();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<object>();
+        }
     }
 
     public IReadOnlyList<TiaPlcInfo> ListPlcs()

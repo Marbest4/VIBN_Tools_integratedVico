@@ -165,8 +165,9 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
            workstation.WorkstationConfiguration.Other.Value.Contains("Freitag", StringComparison.Ordinal),
         "KONFIGURATION fields and subtask identities were not retained for safe editing.");
     Assert(workstation.Status == "Belegt", "Active Kanbanize cards must mark the workstation as occupied.");
-    Assert(workstation.Projects.Count == 7 && workstation.Projects.Any(card => card.Contains("GM9000", StringComparison.Ordinal)),
-        "Every non-configuration card from the workstation lane must remain visible.");
+    Assert(workstation.Projects.Count == 1 && workstation.Projects[0].Contains("GM9000", StringComparison.Ordinal) &&
+           workstation.Details.Any(card => card.Contains("FEE 5.0", StringComparison.Ordinal)),
+        "The compact project column must contain only planning/working cards while full details remain available.");
     Assert(workstation.AutomationSoftware.Count == 2,
         "Software must be detected only from the KONFIGURATION/SW subtask, never from older lane cards.");
     Assert(workstation.SoftwareInformation.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase),
@@ -443,18 +444,31 @@ static async Task VerifyVibnWorkplaceSynchronizationAsync()
     Assert(withoutDeadlineSync.DeadlineUpdateCount == 0,
         "Schedule synchronization must be explicitly suppressible without affecting duplicate detection.");
 
-    var result = await synchronization.SynchronizeAsync(settings);
-    Assert(result.CreatedCount == 1 && result.DeadlineUpdateCount == 1 && result.Failures.Count == 0,
-        "Synchronization should create the missing target and adjust only its stale schedule.");
+    var createOnly = await synchronization.SynchronizeAsync(settings, new[] { 101 });
+    Assert(createOnly.CreatedCount == 1 && createOnly.DeadlineUpdateCount == 0 &&
+           service.ScheduleChanges.Count == 0,
+        "Only explicitly selected preview rows may be synchronized.");
     Assert(service.GeneratedCards.Single().SourceCardId == 101 &&
            service.GeneratedCards.Single().Title == "*[Gen]* GM1000" &&
            service.GeneratedCards.Single().StartDate == expectedStart &&
            service.GeneratedCards.Single().Deadline == expectedEnd,
         "A generated card must preserve its identity and receive the calculated start/end schedule.");
+
+    var deadlineOnly = await synchronization.SynchronizeAsync(settings, new[] { 102 });
+    Assert(deadlineOnly.CreatedCount == 0 && deadlineOnly.DeadlineUpdateCount == 1 &&
+           deadlineOnly.Failures.Count == 0,
+        "The separately selected stale schedule should be adjusted without creating another card.");
     Assert(service.ScheduleChanges.SequenceEqual(new[] { new ScheduleChange(201, expectedStart, expectedEnd) }),
         "Only the existing generated card schedule may be changed; no other target field is updated.");
 
-    var repeat = await synchronization.SynchronizeAsync(settings);
+    var repeatPreview = await synchronization.PreviewAsync(settings);
+    var repeatSelection = repeatPreview.Items
+        .Where(item => item.Action is VibnWorkplaceSynchronizationAction.Create or VibnWorkplaceSynchronizationAction.UpdateDeadline)
+        .Select(item => item.SourceCard.Id)
+        .ToArray();
+    Assert(repeatSelection.Length == 0,
+        "A repeated preview must not expose already applied changes for selection.");
+    var repeat = new VibnWorkplaceSynchronizationResult(repeatPreview, 0, 0, Array.Empty<string>());
     Assert(repeat.CreatedCount == 0 && repeat.DeadlineUpdateCount == 0,
         "A second synchronization must not create duplicates or repeat unchanged schedule updates.");
 }
@@ -491,8 +505,9 @@ static async Task VerifyKanbanizeHttpWriteScopeAsync()
     Assert(handler.Requests.Count == 3, "The API adapter should make one read and two narrowly scoped writes.");
     Assert(handler.Requests[0].RelativeUrl.Contains("per_page=1000", StringComparison.Ordinal) &&
            handler.Requests[0].RelativeUrl.Contains("expand=custom_fields", StringComparison.Ordinal) &&
-           !handler.Requests[0].RelativeUrl.Contains("fields=", StringComparison.Ordinal),
-        "The synchronization reader must expand schedule data without the incompatible fields query.");
+           handler.Requests[0].RelativeUrl.Contains("fields=card_id,title,custom_id,deadline", StringComparison.Ordinal) &&
+           !handler.Requests[0].RelativeUrl.Contains("column_id", StringComparison.Ordinal),
+        "The synchronization reader must explicitly request deadline using only Businessmap-valid fields.");
     Assert(handler.Requests.All(request => request.ApiKey == "test-only-key"),
         "Every Kanbanize request must carry the configured API key.");
 
@@ -563,7 +578,7 @@ static async Task VerifyWorkstationConfigurationWriteScopeAsync()
         "The missing standard subtask description is incorrect.");
 
     using var staleHandler = new RecordingHttpMessageHandler();
-    staleHandler.EnqueueJson("{\"data\":[{\"subtask_id\":799,\"description\":\"SONSTIGES: bereits vorhanden\"}]}");
+    staleHandler.EnqueueJson("{\"data\":[{\"subtask_id\":799,\"title\":\"SONSTIGES: bereits vorhanden\"}]}");
     staleHandler.EnqueueJson("{}");
     using var staleClient = new HttpClient(staleHandler);
     var staleService = new KanbanizeWorkstationConfigurationService(staleClient, "test-only-key");
@@ -796,7 +811,7 @@ sealed class KanbanizeRefreshHttpMessageHandler : HttpMessageHandler
             var value when value.StartsWith("/api/v2/cards?board_ids=846", StringComparison.Ordinal) =>
                 "{\"data\":{\"data\":[],\"pagination\":{\"all_pages\":1}}}",
             var value when value.StartsWith("/api/v2/boards/846/columns", StringComparison.Ordinal) => "{\"data\":[]}",
-            "/api/v2/cards/501/subtasks" => "{\"data\":[{\"subtask_id\":601,\"description\":\"STANDORT: Werk 1\"}]}",
+            "/api/v2/cards/501/subtasks" => "{\"data\":[{\"subtask_id\":601,\"title\":\"STANDORT: Werk 1\"}]}",
             _ => throw new InvalidOperationException($"Unexpected Kanbanize refresh request: {url}")
         };
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

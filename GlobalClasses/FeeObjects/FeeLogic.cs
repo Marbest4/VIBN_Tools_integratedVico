@@ -63,11 +63,14 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
                     if (await Services.ApiInstance.Logic.AssignLogicToElementAsync(LogicDefinitionGuid, LogicDefinitionVersion, Guid))
                     {
                         var slots = await Services.ApiInstance.Object.GetSlotNamesAsync(Guid);
-                        while (slots.Length < 1)
+                        var waitUntil = DateTimeOffset.UtcNow.AddSeconds(10);
+                        while (slots.Length < 1 && DateTimeOffset.UtcNow < waitUntil)
                         {
                             await Task.Delay(20);
                             slots = await Services.ApiInstance.Object.GetSlotNamesAsync(Guid);
                         }
+                        if (slots.Length < 1)
+                            return false;
 
                         if (Parent != null)
                         {
@@ -95,6 +98,8 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
         /// <returns></returns>
         public async static Task<(Guid Guid, string Version)> GetOrImportLogicDefinition(string logicName, string localLogicPath)
         {
+            if (string.IsNullOrWhiteSpace(logicName))
+                return (Guid.Empty, string.Empty);
             bool logicImported = false;
 
             Guid guid = Guid.Empty;
@@ -116,12 +121,25 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
             // Import logic definition if not existing
             if (!logicImported)
             {
+                if (string.IsNullOrWhiteSpace(localLogicPath))
+                    return (Guid.Empty, string.Empty);
+
                 // Import Logic Definition
                 string basePathContent = Path.Combine(AppContext.BaseDirectory, @"Content");
+                var definitionPath = basePathContent + localLogicPath;
+                if (!File.Exists(definitionPath))
+                    throw new FileNotFoundException($"Logic definition '{logicName}' was not found.", definitionPath);
 
-                await Services.ApiInstance.Logic.SendLogicDefinitionAsync(basePathContent + localLogicPath);
+                await Services.ApiInstance.Logic.SendLogicDefinitionAsync(definitionPath);
 
-                (guid, version) = await GetOrImportLogicDefinition(logicName, String.Empty);
+                var refreshedDefinitions = await Services.ApiInstance.Logic.GetAllAvailableLogicDefinitionsAsync();
+                var imported = refreshedDefinitions.FirstOrDefault(definition =>
+                    string.Equals(definition.Name, logicName, StringComparison.Ordinal));
+                if (imported is not null)
+                {
+                    guid = Guid.Parse(imported.Guid);
+                    version = imported.Versions.LastOrDefault() ?? string.Empty;
+                }
             }
 
             return (guid, version);

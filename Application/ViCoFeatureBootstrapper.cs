@@ -192,7 +192,10 @@ public static class ViCoFeatureBootstrapper
 
     private static string? ResolveKanbanizeApiKey()
     {
-        return Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY")?.Trim();
+        return (Environment.GetEnvironmentVariable(
+                    "VIBN_VICO_KANBANIZE_API_KEY",
+                    EnvironmentVariableTarget.User) ??
+                Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY"))?.Trim();
     }
 
     private static IReadOnlyList<string> FindInstalledTiaVersions()

@@ -371,7 +371,7 @@ public sealed class TiaPortalPageVM : MvvmBase, IAsyncDisposable
             // Commands are invoked from async-void WPF command bindings. By
             // handling bridge failures here, the user gets a clear status and
             // a diagnostic entry instead of an unhandled runtime exception.
-            StatusText = "TIA-Vorgang fehlgeschlagen. Details stehen im Protokoll.";
+            StatusText = $"TIA-Vorgang fehlgeschlagen: {exception.Message}";
             _log.Error("TIA Portal", StatusText, exception);
         }
         finally

@@ -31,6 +31,11 @@ Einmalige Einrichtung für den aktuell angemeldeten Windows-Benutzer (Platzhalte
 [Environment]::SetEnvironmentVariable('VIBN_RDP_PASSWORD', '<REMOTE-PASSWORT>', 'User')
 ```
 
+Alternativ kann `Configure-VIBN-Tools.cmd` im Projektstamm gestartet werden.
+Der Assistent fragt beide Werte verdeckt ab und speichert sie für den aktuellen
+Windows-Benutzer. Er enthält selbst weder API-Key noch Kennwort. Danach VIBN
+Tools und gegebenenfalls Visual Studio vollständig neu starten.
+
 Kanbanize/Businessmap verwendet hier keinen Benutzerpasswort-Login, sondern den API-Key im Header `apikey`. Ein abgelaufener, rotierter oder für das Board nicht berechtigter Key führt zu 401/403; eine 400-Feldvalidierung ist dagegen ein Abfragefehler. Der Refresh wiederholt nur sichere GET-Anfragen bei Netzwerk-, 408-, 429- und 5xx-Fehlern.
 
 ## Datenquellen und Aktualisierung
@@ -86,10 +91,11 @@ Keinen Synchronisieren-Lauf erzwingen. Prüfen, ob genau eine datierte `Grundinb
 ### TIA Bridge verbindet sich nicht oder Hardware bleibt leer
 
 1. Exakt passende TIA-Version auswählen und das Projekt vollständig öffnen. Openness arbeitet nicht im Versions-Kompatibilitätsmodus.
-2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath` und wartet bis zu zehn Sekunden auf `Projects`.
+2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath`, wartet bis zu 30 Sekunden auf den Openness-Firewall-Dialog und unterstützt sowohl `Projects` als auch eine bereits geöffnete `LocalSessions[n].Project`-Sitzung.
 3. Gruppe `Siemens TIA Openness`, TIA-Funktionsrecht **Edit project via Openness API**, Firewallfreigabe und installierte Optionen/HSPs prüfen.
 4. Im Diagnosepanel die Bridge-Fehler lesen.
 5. Für Special Devices Eingangs-/Ausgangsbyte und Logik kontrollieren; fehlende Adressen manuell ergänzen.
+6. Die Bridge läuft als 64-Bit-fähiger .NET-Framework-Prozess. Nach einer Änderung der lokalen Gruppe `Siemens TIA Openness` Windows ab- und wieder anmelden; ein bloßer Neustart des Tools aktualisiert das Windows-Gruppentoken nicht.
 
 Unterstützt werden lokal erkannte PublicAPI-Installationen V15 bis V22. Es wird immer die Assembly der ausgewählten Version geladen; V20 verwendet ausschließlich `Portal V20/PublicAPI/V20/Siemens.Engineering.dll`.
 

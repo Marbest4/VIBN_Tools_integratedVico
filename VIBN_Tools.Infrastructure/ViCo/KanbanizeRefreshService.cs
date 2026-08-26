@@ -160,7 +160,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
     {
         using var throttle = new SemaphoreSlim(6);
         var requests = cards
-            .Where(card => string.Equals(card.Title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase))
+            .Where(card => IsConfigurationTitle(card.Title))
             .Select(async card =>
             {
                 await throttle.WaitAsync(cancellationToken);
@@ -305,13 +305,24 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             .Select(subtask => new WorkstationSubtaskCacheEntry
             {
                 Id = TryGetInt(subtask, "subtask_id", "id"),
-                Description = TryGetScalar(subtask, "description", out var description)
-                    ? description
-                    : string.Empty
+                Description = ReadSubtaskText(subtask)
             })
             .Where(subtask => subtask.Id > 0 && subtask.Description.Length > 0)
             .ToList();
     }
+
+    private static string ReadSubtaskText(JsonElement subtask)
+    {
+        foreach (var propertyName in new[] { "description", "title", "name" })
+        {
+            if (TryGetScalar(subtask, propertyName, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+        return string.Empty;
+    }
+
+    private static bool IsConfigurationTitle(string title) =>
+        string.Equals(title.Trim().TrimEnd(':'), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
 
     private static JsonElement GetDataArray(JsonElement root)
     {

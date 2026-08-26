@@ -275,13 +275,31 @@ public sealed class SpecialDevicePageVM : MvvmBase, IAsyncDisposable
 
         try
         {
-            SpecialDevices.Add(DeviceFactory.Create(
+            if (string.IsNullOrWhiteSpace(DevicePrefix))
+            {
+                StatusText = "Für das manuelle Gerät ist ein Präfix erforderlich.";
+                return;
+            }
+            if (ShowRobotType && SelectedRobotType is null)
+            {
+                StatusText = "Für diese Logik muss ein Robotertyp ausgewählt werden.";
+                return;
+            }
+            if (SpecialDevices.Any(device =>
+                    string.Equals(device.DevicePrefix, DevicePrefix.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                StatusText = $"Das Präfix '{DevicePrefix.Trim()}' ist bereits in der Warteschlange. Bitte ein eindeutiges Präfix verwenden.";
+                return;
+            }
+
+            var device = DeviceFactory.Create(
                 SelectedManufacturer.Value,
                 deviceType,
-                DevicePrefix,
+                DevicePrefix.Trim(),
                 DeviceAddresses,
-                SelectedRobotType));
-            StatusText = "Manuelles Special Device wurde zur Warteschlange hinzugefügt.";
+                SelectedRobotType);
+            SpecialDevices.Add(device);
+            StatusText = $"{DeviceCatalog.GetDisplayName(deviceType)} wurde mit der Logik '{device.DeviceLogicObject.LogicDefinitionName}' zur Warteschlange hinzugefügt.";
         }
         catch (Exception exception)
         {
@@ -417,6 +435,12 @@ public sealed class SpecialDevicePageVM : MvvmBase, IAsyncDisposable
                     failures.Add($"{device.DevicePrefix}: {exception.Message}");
                     _log.Error("Special Devices", $"Gerät {device.DevicePrefix} konnte nicht erzeugt werden.", exception);
                 }
+
+                // A failed attempt can already have created partial FEE
+                // objects. Stop here so later queue entries are not attempted
+                // against an uncertain shared SDK state.
+                if (failures.Count > 0)
+                    break;
             }
 
             foreach (var device in created)
@@ -444,7 +468,7 @@ public sealed class SpecialDevicePageVM : MvvmBase, IAsyncDisposable
         }
         catch (Exception exception)
         {
-            StatusText = "TIA-Hardwarevorgang fehlgeschlagen. Details stehen im Protokoll.";
+            StatusText = $"TIA-Hardwarevorgang fehlgeschlagen: {exception.Message}";
             _log.Error("TIA Hardware", StatusText, exception);
         }
         finally
