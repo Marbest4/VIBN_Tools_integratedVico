@@ -38,18 +38,32 @@ public sealed class WindowsRemoteDesktopService : IRemoteDesktopService
 {
     private const int MonitorMetric = 80;
     private readonly string _rdpFile;
+    private readonly IRemoteCredentialStore _credentialStore;
 
-    public WindowsRemoteDesktopService(string workingDirectory)
+    public WindowsRemoteDesktopService(
+        string workingDirectory,
+        IRemoteCredentialStore credentialStore)
     {
         Directory.CreateDirectory(workingDirectory);
         _rdpFile = Path.Combine(workingDirectory, "ViCo.rdp");
+        _credentialStore = credentialStore;
     }
 
     public int MonitorCount => Math.Max(1, GetSystemMetrics(MonitorMetric));
 
     public void Connect(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes)
     {
-        ConnectInternal(hostName, userName, monitorIndexes, promptForCredentials: false);
+        _credentialStore.SaveTemporary(hostName, userName);
+        try
+        {
+            ConnectInternal(hostName, userName, monitorIndexes, promptForCredentials: false);
+        }
+        finally
+        {
+            // mstsc reads the credential immediately. The delayed removal keeps
+            // it available during startup but does not leave it in Credential Manager.
+            _ = _credentialStore.RemoveAfterAsync(hostName, TimeSpan.FromSeconds(20));
+        }
     }
 
     public void ConnectWithCredentialPrompt(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes)
@@ -75,6 +89,102 @@ public sealed class WindowsRemoteDesktopService : IRemoteDesktopService
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);
+}
+
+/// <summary>
+/// Stores a credential only for the RDP startup window. The password comes
+/// from the current user's environment and is never compiled into the tool.
+/// </summary>
+public sealed class WindowsTemporaryRemoteCredentialStore : IRemoteCredentialStore
+{
+    public const string PasswordEnvironmentVariable = "VIBN_RDP_PASSWORD";
+
+    public void SaveTemporary(string hostName, string userName)
+    {
+        var password = Environment.GetEnvironmentVariable(PasswordEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                $"Automatische RDP-Anmeldung ist nicht eingerichtet. Benutzervariable {PasswordEnvironmentVariable} setzen.");
+        }
+        if (string.IsNullOrWhiteSpace(hostName) || string.IsNullOrWhiteSpace(userName))
+            throw new ArgumentException("Remote-PC und Benutzer müssen angegeben sein.");
+
+        RunCmdKey($"TERMSRV/{hostName.Trim()}", userName.Trim(), password);
+    }
+
+    public async Task RemoveAfterAsync(
+        string hostName,
+        TimeSpan delay,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(hostName))
+            return;
+        try
+        {
+            await Task.Delay(delay, cancellationToken);
+            RunCmdKeyDelete($"TERMSRV/{hostName.Trim()}");
+        }
+        catch (OperationCanceledException)
+        {
+            // Application shutdown can cancel delayed cleanup.
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
+        {
+            // Cleanup is best effort and happens after mstsc has started. A
+            // failed delete must not surface as an unobserved background fault.
+        }
+    }
+
+    private static void RunCmdKey(string target, string userName, string password)
+    {
+        using var process = CreateCmdKeyProcess();
+        process.StartInfo.ArgumentList.Add($"/generic:{target}");
+        process.StartInfo.ArgumentList.Add($"/user:{userName}");
+        process.StartInfo.ArgumentList.Add($"/pass:{password}");
+        RunAndVerify(process, "RDP-Anmeldedaten konnten nicht temporär hinterlegt werden");
+    }
+
+    private static void RunCmdKeyDelete(string target)
+    {
+        using var process = CreateCmdKeyProcess();
+        process.StartInfo.ArgumentList.Add($"/delete:{target}");
+        RunAndVerify(process, "Temporäre RDP-Anmeldedaten konnten nicht entfernt werden", ignoreNotFound: true);
+    }
+
+    private static Process CreateCmdKeyProcess() => new()
+    {
+        StartInfo = new ProcessStartInfo
+        {
+            FileName = Path.Combine(Environment.SystemDirectory, "cmdkey.exe"),
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        }
+    };
+
+    private static void RunAndVerify(Process process, string message, bool ignoreNotFound = false)
+    {
+        if (!process.Start())
+            throw new InvalidOperationException(message + ".");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit(5000);
+        if (!process.HasExited)
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException(message + ": cmdkey hat nicht rechtzeitig geantwortet.");
+        }
+        if (process.ExitCode != 0 && !(ignoreNotFound &&
+            (output.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+             output.Contains("nicht gefunden", StringComparison.OrdinalIgnoreCase) ||
+             error.Contains("not found", StringComparison.OrdinalIgnoreCase))))
+        {
+            throw new InvalidOperationException($"{message} (cmdkey ExitCode {process.ExitCode}).");
+        }
+    }
 }
 
 /// <summary>
@@ -118,21 +228,37 @@ public sealed class WindowsRemoteSessionService : IRemoteSessionService
             var errorTask = process.StandardError.ReadToEndAsync(timeout.Token);
             await process.WaitForExitAsync(timeout.Token);
             var output = await outputTask;
-            _ = await errorTask;
+            var error = await errorTask;
             if (process.ExitCode != 0)
-                return ViCoRemoteSessionInfo.NotAvailable;
+                return ViCoRemoteSessionInfo.Unavailable(DescribeFailure(error, process.ExitCode));
 
             return Parse(output);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             TryStop(process);
-            return ViCoRemoteSessionInfo.NotAvailable;
+            return ViCoRemoteSessionInfo.Unavailable("Zeitüberschreitung bei der Remote-Sitzungsabfrage.");
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            return ViCoRemoteSessionInfo.NotAvailable;
+            return ViCoRemoteSessionInfo.Unavailable($"Remote-Sitzungsabfrage nicht verfügbar: {exception.Message}");
         }
+    }
+
+    private static string DescribeFailure(string error, int exitCode)
+    {
+        if (error.Contains("Access is denied", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Zugriff verweigert", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Error 5", StringComparison.OrdinalIgnoreCase) ||
+            error.Contains("Fehler 5", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Berechtigung fehlt. Mit einem für die Remotedienste des Ziel-PCs autorisierten Administratorkonto starten.";
+        }
+
+        var detail = error.Trim();
+        return detail.Length == 0
+            ? $"Remote-Sitzungsabfrage fehlgeschlagen (quser ExitCode {exitCode})."
+            : detail;
     }
 
     private static ViCoRemoteSessionInfo Parse(string output)

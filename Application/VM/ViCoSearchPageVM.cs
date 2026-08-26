@@ -66,6 +66,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         ConnectRemoteCommand = GetCommandBinding(ConnectRemote);
         ConnectRemoteWithPromptCommand = GetCommandBinding(ConnectRemoteWithPrompt);
         SaveConfigurationCommand = GetCommandBindingAsync(SaveConfigurationAsync);
+        CreateConfigurationCommand = GetCommandBindingAsync(CreateConfigurationAsync);
         OpenPcProjectsCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.WorkstationProjects));
         OpenSimulationCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.Simulation));
         OpenCommissioningCommand = GetCommandBinding(() => OpenRelated(ViCoRelatedPathKind.Commissioning));
@@ -79,6 +80,7 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     public ICommand ConnectRemoteCommand { get; }
     public ICommand ConnectRemoteWithPromptCommand { get; }
     public ICommand SaveConfigurationCommand { get; }
+    public ICommand CreateConfigurationCommand { get; }
     public ICommand OpenPcProjectsCommand { get; }
     public ICommand OpenSimulationCommand { get; }
     public ICommand OpenCommissioningCommand { get; }
@@ -128,6 +130,9 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
             OnPropertyChanged(nameof(CanUseSelectedWorkstationActions));
             OnPropertyChanged(nameof(IsSelectedWorkstationOffline));
             OnPropertyChanged(nameof(CanEditConfiguration));
+            OnPropertyChanged(nameof(CanCreateConfiguration));
+            OnPropertyChanged(nameof(HasSelectedConfigurationCard));
+            OnPropertyChanged(nameof(IsSelectedConfigurationMissing));
             Projects.Clear();
             ConfigurationFields.Clear();
             if (value is not null)
@@ -154,10 +159,22 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     public bool IsSelectedWorkstationOffline =>
         SelectedWorkstation is not null && !SelectedWorkstation.IsOnline;
 
-    /// <summary>Only existing configuration subtasks can be saved back to Kanbanize.</summary>
+    /// <summary>An existing configuration card can be edited; missing standard subtasks are added on save.</summary>
     public bool CanEditConfiguration =>
         _configurationService.IsConfigured &&
         SelectedWorkstation?.Model.WorkstationConfiguration.IsEditable == true;
+
+    public bool CanCreateConfiguration =>
+        _configurationService.IsConfigured &&
+        SelectedWorkstation is not null &&
+        !SelectedWorkstation.Model.HasConfigurationCard &&
+        SelectedWorkstation.Model.KanbanizeLaneId > 0 &&
+        SelectedWorkstation.Model.ConfigurationColumnId > 0;
+
+    public bool HasSelectedConfigurationCard => SelectedWorkstation?.Model.HasConfigurationCard == true;
+
+    public bool IsSelectedConfigurationMissing =>
+        SelectedWorkstation is not null && !SelectedWorkstation.Model.HasConfigurationCard;
 
     private string? _selectedProject;
     public string? SelectedProject
@@ -529,12 +546,12 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
     {
         if (!CanEditConfiguration || SelectedWorkstation is null)
         {
-            StatusText = "Für diesen Arbeitsplatz sind keine bearbeitbaren KONFIGURATION-Unteraufgaben vorhanden.";
+            StatusText = "Für diesen Arbeitsplatz ist keine bearbeitbare KONFIGURATION-Karte vorhanden.";
             return;
         }
 
         var changedFields = ConfigurationFields
-            .Where(field => field.IsChanged && field.CanSave)
+            .Where(field => field.IsChanged || !field.CanSave)
             .Select(field => field.ToField())
             .ToArray();
         if (changedFields.Length == 0)
@@ -576,6 +593,48 @@ public sealed class ViCoSearchPageVM : MvvmBase, IDisposable
         {
             StatusText = "KONFIGURATION-Werte konnten nicht gespeichert werden.";
             _log.Error("Kanbanize", StatusText, exception);
+        }
+    }
+
+    private async Task CreateConfigurationAsync()
+    {
+        if (IsBusy)
+            return;
+        if (!CanCreateConfiguration || SelectedWorkstation is null)
+        {
+            StatusText = "KONFIGURATION kann nicht angelegt werden: Lane, Zielspalte oder Kanbanize-Zugriff fehlt.";
+            return;
+        }
+
+        var pcName = SelectedWorkstation.PcName;
+        try
+        {
+            IsBusy = true;
+            StatusText = "Standardisierte KONFIGURATION-Karte wird angelegt …";
+            var cardId = await _configurationService.CreateStandardAsync(
+                SelectedWorkstation.Model.KanbanizeLaneId,
+                SelectedWorkstation.Model.ConfigurationColumnId,
+                ConfigurationFields.Select(field => field.ToField()).ToArray(),
+                _lifetimeCancellation.Token);
+            await _onlineRefresh.RefreshAsync(_lifetimeCancellation.Token);
+            IsBusy = false;
+            await RefreshCachedDataAsync($"KONFIGURATION-Karte {cardId} wurde angelegt und neu geladen.");
+            SelectedWorkstation = Results.FirstOrDefault(row =>
+                string.Equals(row.PcName, pcName, StringComparison.OrdinalIgnoreCase));
+            _log.Information("Kanbanize", $"KONFIGURATION-Karte {cardId} für {pcName} wurde angelegt.");
+        }
+        catch (OperationCanceledException)
+        {
+            // Application shutdown cancels only the pending external request.
+        }
+        catch (Exception exception)
+        {
+            StatusText = $"KONFIGURATION-Karte konnte nicht angelegt werden: {exception.Message}";
+            _log.Error("Kanbanize", "KONFIGURATION-Karte konnte nicht angelegt werden.", exception);
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 

@@ -89,19 +89,17 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="5">
-                        <ux:TextBox MinHeight="30"
-                                    Watermark="Online-PC filtern"
-                                    Text="{Binding ServerFilter, UpdateSourceTrigger=PropertyChanged}" />
-                        <ux:ComboBox MinHeight="36"
-                                     Margin="0,5,0,0"
-                                     Watermark="Online-PC auswählen"
-                                     ItemsSource="{Binding ServerNames}"
-                                     SelectedItem="{Binding SelectedServer, Mode=TwoWay}"
-                                     IsEditable="False"
-                                     IsTextSearchEnabled="True"
-                                     IsTextSearchCaseSensitive="false" />
-                    </StackPanel>
+                    <ux:ComboBox Grid.Row="0"
+                                 Grid.Column="0"
+                                 MinHeight="36"
+                                 Margin="5"
+                                 Watermark="Online-PC eingeben oder auswählen"
+                                 ItemsSource="{Binding ServerNames}"
+                                 SelectedItem="{Binding SelectedServer, Mode=TwoWay}"
+                                 Text="{Binding ServerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEditable="True"
+                                 StaysOpenOnEdit="True"
+                                 IsTextSearchEnabled="False" />
                     <ux:CheckBox Grid.Row="0" Grid.Column="1" Margin="25,5,25,5" Style="{StaticResource CheckBoxSmallStyle}" IsChecked="{Binding CheckboxUseLocalhost}">
                         <TextBlock Text="Use Localhost" Style="{StaticResource TextRobotoLightStyle}"/>
                     </ux:CheckBox>

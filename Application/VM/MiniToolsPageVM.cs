@@ -74,8 +74,7 @@ namespace VIBN_Tools.Application.VM
         //List<FeeJoint> JointsList { get; set; }
 
 
-        private readonly ProjectSettings _projectSettings;
-        public ProjectSettings ProjectSettings => _projectSettings;
+        public ProjectSettings ProjectSettings { get; } = new();
 
 
 

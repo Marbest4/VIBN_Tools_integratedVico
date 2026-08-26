@@ -40,6 +40,8 @@ try
     await VerifyKanbanizeHttpWriteScopeAsync();
     Console.WriteLine("Running workstation KONFIGURATION write-scope smoke test...");
     await VerifyWorkstationConfigurationWriteScopeAsync();
+    Console.WriteLine("Running Kanbanize refresh/subtask API smoke test...");
+    await VerifyKanbanizeRefreshApiAsync(temporaryRoot);
     Console.WriteLine("Running role store and update smoke test...");
     await VerifyRoleStoreAndUpdateAsync(temporaryRoot);
     Console.WriteLine("Running administration identity smoke test...");
@@ -163,8 +165,10 @@ static async Task VerifyLegacyWorkstationCatalogAsync(string temporaryRoot)
            workstation.WorkstationConfiguration.Other.Value.Contains("Freitag", StringComparison.Ordinal),
         "KONFIGURATION fields and subtask identities were not retained for safe editing.");
     Assert(workstation.Status == "Belegt", "Active Kanbanize cards must mark the workstation as occupied.");
-    Assert(workstation.Projects.Count == 1, "Project card parsing failed.");
-    Assert(workstation.AutomationSoftware.Count == 3, "TIA, Beckhoff and Rockwell should be detected.");
+    Assert(workstation.Projects.Count == 7 && workstation.Projects.Any(card => card.Contains("GM9000", StringComparison.Ordinal)),
+        "Every non-configuration card from the workstation lane must remain visible.");
+    Assert(workstation.AutomationSoftware.Count == 2,
+        "Software must be detected only from the KONFIGURATION/SW subtask, never from older lane cards.");
     Assert(workstation.SoftwareInformation.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase),
         "Beckhoff software information is missing.");
     Assert(workstation.RobotCount == 1 && workstation.RobotDetails[0].Name == "R01",
@@ -486,9 +490,9 @@ static async Task VerifyKanbanizeHttpWriteScopeAsync()
         "The card reader must preserve the source card identity and workplace start date.");
     Assert(handler.Requests.Count == 3, "The API adapter should make one read and two narrowly scoped writes.");
     Assert(handler.Requests[0].RelativeUrl.Contains("per_page=1000", StringComparison.Ordinal) &&
-           handler.Requests[0].RelativeUrl.Contains("custom_id", StringComparison.Ordinal) &&
-           handler.Requests[0].RelativeUrl.Contains("custom_fields", StringComparison.Ordinal),
-        "The synchronization reader must request all relevant card identity and schedule fields.");
+           handler.Requests[0].RelativeUrl.Contains("expand=custom_fields", StringComparison.Ordinal) &&
+           !handler.Requests[0].RelativeUrl.Contains("fields=", StringComparison.Ordinal),
+        "The synchronization reader must expand schedule data without the incompatible fields query.");
     Assert(handler.Requests.All(request => request.ApiKey == "test-only-key"),
         "Every Kanbanize request must carry the configured API key.");
 
@@ -521,6 +525,8 @@ static async Task VerifyKanbanizeHttpWriteScopeAsync()
 static async Task VerifyWorkstationConfigurationWriteScopeAsync()
 {
     using var handler = new RecordingHttpMessageHandler();
+    handler.EnqueueJson("{\"data\":[]}");
+    handler.EnqueueJson("{}");
     handler.EnqueueJson("{}");
     using var httpClient = new HttpClient(handler);
     var service = new KanbanizeWorkstationConfigurationService(httpClient, "test-only-key");
@@ -530,14 +536,15 @@ static async Task VerifyWorkstationConfigurationWriteScopeAsync()
         new[]
         {
             new ViCoConfigurationField("USER", "zkds-simulation-p01", 711),
-            // A missing subtask is deliberately ignored: the editor is not
-            // allowed to create new board data merely to fill a missing key.
-            new ViCoConfigurationField("SONSTIGES", "nicht schreiben", 0)
+            new ViCoConfigurationField("SONSTIGES", "neu anlegen", 0)
         });
 
-    Assert(handler.Requests.Count == 1,
-        "Only an existing, changed KONFIGURATION subtask may be written.");
-    var request = handler.Requests.Single();
+    Assert(handler.Requests.Count == 3,
+        "Missing IDs must first be checked, then an existing subtask patched and a genuinely missing one created.");
+    Assert(handler.Requests[0].Method == HttpMethod.Get &&
+           handler.Requests[0].RelativeUrl == "/api/v2/cards/710/subtasks",
+        "The idempotency check must read the current card-level subtasks before creating a missing key.");
+    var request = handler.Requests[1];
     Assert(request.Method == HttpMethod.Patch &&
            request.RelativeUrl == "/api/v2/cards/710/subtasks/711" &&
            request.ApiKey == "test-only-key",
@@ -547,6 +554,49 @@ static async Task VerifyWorkstationConfigurationWriteScopeAsync()
     Assert(fields.SequenceEqual(new[] { "description" }, StringComparer.Ordinal) &&
            payload.RootElement.GetProperty("description").GetString() == "USER: zkds-simulation-p01",
         "The configuration editor must update only the existing subtask description.");
+    var createRequest = handler.Requests[2];
+    Assert(createRequest.Method == HttpMethod.Post &&
+           createRequest.RelativeUrl == "/api/v2/cards/710/subtasks",
+        "A missing standardized configuration subtask must use the card-level subtasks endpoint.");
+    using var createPayload = JsonDocument.Parse(createRequest.Body);
+    Assert(createPayload.RootElement.GetProperty("description").GetString() == "SONSTIGES: neu anlegen",
+        "The missing standard subtask description is incorrect.");
+
+    using var staleHandler = new RecordingHttpMessageHandler();
+    staleHandler.EnqueueJson("{\"data\":[{\"subtask_id\":799,\"description\":\"SONSTIGES: bereits vorhanden\"}]}");
+    staleHandler.EnqueueJson("{}");
+    using var staleClient = new HttpClient(staleHandler);
+    var staleService = new KanbanizeWorkstationConfigurationService(staleClient, "test-only-key");
+    await staleService.SaveFieldsAsync(
+        710,
+        new[] { new ViCoConfigurationField("SONSTIGES", "aktualisiert", 0) });
+    Assert(staleHandler.Requests[1].Method == HttpMethod.Patch &&
+           staleHandler.Requests[1].RelativeUrl == "/api/v2/cards/710/subtasks/799",
+        "A stale local ID must not create a duplicate subtask when the key already exists remotely.");
+}
+
+static async Task VerifyKanbanizeRefreshApiAsync(string temporaryRoot)
+{
+    var cacheRoot = Path.Combine(temporaryRoot, "kanbanize-refresh");
+    using var handler = new KanbanizeRefreshHttpMessageHandler();
+    using var client = new HttpClient(handler);
+    await new KanbanizeRefreshService(client, "test-only-key", cacheRoot).RefreshAsync();
+
+    Assert(handler.Requests.Any(url => url.StartsWith("/api/v2/cards?board_ids=1541", StringComparison.Ordinal)) &&
+           !handler.Requests.Any(url => url.StartsWith("/api/v2/cards?", StringComparison.Ordinal) &&
+                                       url.Contains("fields=", StringComparison.OrdinalIgnoreCase)),
+        "The card query must omit the API instance's incompatible fields parameter.");
+    Assert(handler.Requests.Contains("/api/v2/cards/501/subtasks", StringComparer.Ordinal),
+        "KONFIGURATION subtasks must be loaded through the card-level subtasks endpoint.");
+
+    using var cache = JsonDocument.Parse(await File.ReadAllTextAsync(
+        Path.Combine(cacheRoot, "WorkstationBoardCache.json")));
+    var cards = cache.RootElement.GetProperty("cards");
+    Assert(cards.GetArrayLength() == 2,
+        "All cards returned for the workstation lane must be retained in the structured cache.");
+    var configuration = cards.EnumerateArray().Single(card => card.GetProperty("id").GetInt32() == 501);
+    Assert(configuration.GetProperty("subtasks")[0].GetProperty("description").GetString() == "STANDORT: Werk 1",
+        "The separately loaded KONFIGURATION subtasks were not cached.");
 }
 
 static async Task VerifyAdministrationIdentityAsync()
@@ -724,6 +774,35 @@ sealed class RecordingHttpMessageHandler : HttpMessageHandler
         if (_responses.Count == 0)
             throw new InvalidOperationException("No mocked Kanbanize response was provided.");
         return _responses.Dequeue();
+    }
+}
+
+sealed class KanbanizeRefreshHttpMessageHandler : HttpMessageHandler
+{
+    public List<string> Requests { get; } = new();
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var url = request.RequestUri?.PathAndQuery ?? string.Empty;
+        Requests.Add(url);
+        var json = url switch
+        {
+            "/api/v2/boards/1541/lanes" => "{\"data\":[{\"lane_id\":28125,\"name\":\"GM12345 Tool PC\"}]}",
+            var value when value.StartsWith("/api/v2/cards?board_ids=1541", StringComparison.Ordinal) =>
+                "{\"data\":{\"data\":[{\"card_id\":501,\"lane_id\":28125,\"column_id\":29373,\"title\":\"KONFIGURATION\"},{\"card_id\":502,\"lane_id\":28125,\"column_id\":29375,\"title\":\"GM9000/01-001\"}],\"pagination\":{\"all_pages\":1}}}",
+            var value when value.StartsWith("/api/v2/cards?board_ids=846", StringComparison.Ordinal) =>
+                "{\"data\":{\"data\":[],\"pagination\":{\"all_pages\":1}}}",
+            var value when value.StartsWith("/api/v2/boards/846/columns", StringComparison.Ordinal) => "{\"data\":[]}",
+            "/api/v2/cards/501/subtasks" => "{\"data\":[{\"subtask_id\":601,\"description\":\"STANDORT: Werk 1\"}]}",
+            _ => throw new InvalidOperationException($"Unexpected Kanbanize refresh request: {url}")
+        };
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        });
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
 using VIBN_Tools.Core.ViCo;
 
@@ -31,15 +32,13 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             throw new InvalidOperationException("Kanbanize API access is not configured.");
 
         var lanesTask = GetJsonAsync("/boards/1541/lanes", cancellationToken);
-        var cardsTask = GetJsonAsync(
-            "/cards?board_ids=1541&per_page=1000&fields=card_id,lane_id,column_id,title,subtasks",
-            cancellationToken);
-        var robotCardsTask = GetJsonAsync("/cards?board_ids=846&per_page=1000&fields=card_id,title,column_id", cancellationToken);
+        var cardsTask = LoadCardsAsync(1541, loadConfigurationSubtasks: true, cancellationToken);
+        var robotCardsTask = LoadCardsAsync(846, loadConfigurationSubtasks: false, cancellationToken);
         var robotColumnsTask = GetJsonAsync("/boards/846/columns?fields=column_id,name", cancellationToken);
         await Task.WhenAll(lanesTask, cardsTask, robotCardsTask, robotColumnsTask);
         using var lanes = await lanesTask;
-        using var cards = await cardsTask;
-        using var robotCards = await robotCardsTask;
+        var cards = await cardsTask;
+        var robotCards = await robotCardsTask;
         using var robotColumns = await robotColumnsTask;
 
         var laneLines = new List<string>();
@@ -54,13 +53,12 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         }
 
         var cardLines = new List<string>();
-        foreach (var card in EnumerateObjects(cards.RootElement))
+        foreach (var card in cards)
         {
-            if (!TryGetScalar(card, "lane_id", out var laneId) || !TryGetScalar(card, "title", out var title))
+            if (card.LaneId.Length == 0 || card.Title.Length == 0)
                 continue;
-            var status = TryGetScalar(card, "column_id", out var columnId) ? MapStatus(columnId) : string.Empty;
-            cardLines.Add(status + title);
-            cardLines.Add(laneId);
+            cardLines.Add(MapStatus(card.ColumnId) + card.Title);
+            cardLines.Add(card.LaneId);
         }
 
         Directory.CreateDirectory(_cacheRoot);
@@ -80,22 +78,23 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
                     .GroupBy(lane => lane.Id, StringComparer.OrdinalIgnoreCase)
                     .Select(group => group.First())
                     .ToList(),
-                Cards = GetCardEntries(cards.RootElement)
+                Cards = cards
             },
             cancellationToken);
 
         var robotCardLines = new List<string>();
         var robotNameLines = new List<string>();
         var knownRobotCards = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var card in EnumerateObjects(robotCards.RootElement))
+        foreach (var card in robotCards)
         {
-            if (!TryGetScalar(card, "title", out var title) ||
-                !title.Contains("Software Robotik", StringComparison.OrdinalIgnoreCase) ||
-                !TryGetScalar(card, "column_id", out var columnId))
+            if (!card.Title.Contains("Software Robotik", StringComparison.OrdinalIgnoreCase) ||
+                card.ColumnId.Length == 0)
             {
                 continue;
             }
-            var identity = TryGetScalar(card, "card_id", out var cardId) ? cardId : $"{title}|{columnId}";
+            var title = card.Title;
+            var columnId = card.ColumnId;
+            var identity = card.Id > 0 ? card.Id.ToString() : $"{title}|{columnId}";
             if (!knownRobotCards.Add(identity))
                 continue;
             robotCardLines.Add(title);
@@ -121,15 +120,127 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
         await WriteAtomicallyAsync(Path.Combine(_cacheRoot, "AllRobyColumns.txt"), robotColumnLines, cancellationToken);
     }
 
+    private async Task<List<WorkstationCardCacheEntry>> LoadCardsAsync(
+        int boardId,
+        bool loadConfigurationSubtasks,
+        CancellationToken cancellationToken)
+    {
+        const int pageSize = 1000;
+        using var firstPage = await GetJsonAsync(
+            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}",
+            cancellationToken);
+        var cards = GetCardEntries(firstPage.RootElement);
+        var pageCount = Math.Max(1, ReadPageCount(firstPage.RootElement));
+        for (var page = 2; page <= pageCount; page++)
+        {
+            using var nextPage = await GetJsonAsync(
+                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}",
+                cancellationToken);
+            cards.AddRange(GetCardEntries(nextPage.RootElement));
+        }
+
+        cards = cards
+            .GroupBy(card => card.Id)
+            .Select(group => group.First())
+            .ToList();
+        if (loadConfigurationSubtasks)
+            await LoadConfigurationSubtasksAsync(cards, cancellationToken);
+        return cards;
+    }
+
+    /// <summary>
+    /// This Businessmap API does not accept positional fields or subtasks in
+    /// the optional cards <c>fields</c> query. Omitting that filter and loading
+    /// them only for the small set of KONFIGURATION cards avoids the invalid
+    /// 400 request as well as an N+1 request for every normal project card.
+    /// </summary>
+    private async Task LoadConfigurationSubtasksAsync(
+        IEnumerable<WorkstationCardCacheEntry> cards,
+        CancellationToken cancellationToken)
+    {
+        using var throttle = new SemaphoreSlim(6);
+        var requests = cards
+            .Where(card => string.Equals(card.Title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase))
+            .Select(async card =>
+            {
+                await throttle.WaitAsync(cancellationToken);
+                try
+                {
+                    using var document = await GetJsonAsync($"/cards/{card.Id}/subtasks", cancellationToken);
+                    card.Subtasks = GetSubtasks(document.RootElement);
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            });
+        await Task.WhenAll(requests);
+    }
+
     private async Task<JsonDocument> GetJsonAsync(string relativeUrl, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, ApiBase + relativeUrl);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Headers.TryAddWithoutValidation("apikey", _apiKey);
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        const int maximumAttempts = 3;
+        for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, ApiBase + relativeUrl);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.TryAddWithoutValidation("apikey", _apiKey);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+            }
+            catch (HttpRequestException) when (attempt < maximumAttempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
+                continue;
+            }
+
+            using (response)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                    return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+                }
+
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (attempt < maximumAttempts && IsTransient(response.StatusCode))
+                {
+                    var delay = response.Headers.RetryAfter?.Delta ??
+                        TimeSpan.FromMilliseconds(250 * attempt);
+                    await Task.Delay(delay, cancellationToken);
+                    continue;
+                }
+
+                throw CreateApiException(response.StatusCode, response.ReasonPhrase, error);
+            }
+        }
+
+        throw new HttpRequestException("Kanbanize konnte nach mehreren Versuchen nicht erreicht werden.");
+    }
+
+    private static bool IsTransient(HttpStatusCode statusCode) =>
+        statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or
+        HttpStatusCode.InternalServerError or HttpStatusCode.BadGateway or
+        HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout;
+
+    private static HttpRequestException CreateApiException(
+        HttpStatusCode statusCode,
+        string? reasonPhrase,
+        string responseBody)
+    {
+        var detail = responseBody.Trim();
+        if (detail.Length > 600)
+            detail = detail[..600];
+        var prefix = statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+            ? "Kanbanize-Anmeldung fehlgeschlagen. API-Key und Board-Berechtigung prüfen."
+            : $"Kanbanize API meldet {(int)statusCode} ({reasonPhrase}).";
+        return new HttpRequestException(detail.Length == 0 ? prefix : $"{prefix} {detail}");
     }
 
     private static IEnumerable<JsonElement> EnumerateObjects(JsonElement root)
@@ -175,7 +286,7 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
                 LaneId = TryGetScalar(card, "lane_id", out var laneId) ? laneId : string.Empty,
                 ColumnId = TryGetScalar(card, "column_id", out var columnId) ? columnId : string.Empty,
                 Title = TryGetScalar(card, "title", out var title) ? title : string.Empty,
-                Subtasks = GetSubtasks(card)
+                Subtasks = new List<WorkstationSubtaskCacheEntry>()
             })
             .Where(card => card.Id > 0 && card.LaneId.Length > 0)
             .GroupBy(card => card.Id)
@@ -183,14 +294,11 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             .ToList();
     }
 
-    private static List<WorkstationSubtaskCacheEntry> GetSubtasks(JsonElement card)
+    private static List<WorkstationSubtaskCacheEntry> GetSubtasks(JsonElement root)
     {
-        if (card.ValueKind != JsonValueKind.Object ||
-            !card.TryGetProperty("subtasks", out var subtasks) ||
-            subtasks.ValueKind != JsonValueKind.Array)
-        {
+        var subtasks = GetDataArray(root);
+        if (subtasks.ValueKind != JsonValueKind.Array)
             return new List<WorkstationSubtaskCacheEntry>();
-        }
 
         return subtasks.EnumerateArray()
             .Where(subtask => subtask.ValueKind == JsonValueKind.Object)
@@ -203,6 +311,29 @@ public sealed class KanbanizeRefreshService : IViCoOnlineRefreshService
             })
             .Where(subtask => subtask.Id > 0 && subtask.Description.Length > 0)
             .ToList();
+    }
+
+    private static JsonElement GetDataArray(JsonElement root)
+    {
+        var data = root;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var nested))
+            data = nested;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out nested))
+            data = nested;
+        return data;
+    }
+
+    private static int ReadPageCount(JsonElement root)
+    {
+        var data = root;
+        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var nested))
+            data = nested;
+        if (data.ValueKind == JsonValueKind.Object &&
+            data.TryGetProperty("pagination", out var pagination))
+        {
+            return TryGetInt(pagination, "all_pages");
+        }
+        return 1;
     }
 
     private static bool TryGetScalar(JsonElement value, string name, out string result)

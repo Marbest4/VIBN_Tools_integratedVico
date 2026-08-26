@@ -12,6 +12,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
     private dynamic? _portal;
     private dynamic? _project;
     private string? _engineeringDllPath;
+    private string? _selectedVersion;
     private int? _selectedPlcIndex;
 
     public void SelectVersion(string version)
@@ -33,6 +34,7 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             throw new FileNotFoundException($"TIA Openness assembly for {normalized} was not found.", path);
 
         DisposePortal();
+        _selectedVersion = normalized;
         _engineeringDllPath = path;
         _engineeringAssembly = Assembly.LoadFrom(path);
     }
@@ -45,18 +47,47 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             ?? throw new MissingMethodException(portalType.FullName, "GetProcesses");
 
         var processes = ((System.Collections.IEnumerable)getProcesses.Invoke(null, null))
-            .Cast<dynamic>()
+            .Cast<object>()
             .ToArray();
 
-        if (processes.Length != 1)
-            throw new InvalidOperationException(
-                processes.Length == 0
-                    ? "No open TIA Portal instance was found."
-                    : "More than one TIA Portal instance is open.");
+        if (processes.Length == 0)
+            throw new InvalidOperationException($"Keine geöffnete TIA-Portal-Instanz {_selectedVersion} gefunden.");
 
-        _portal = processes[0].Attach();
+        var candidates = processes
+            .Select(process => new PortalProcess(
+                process,
+                ReadStringMember(process, "ProjectPath"),
+                ReadStringMember(process, "Id", "ProcessId")))
+            .Where(process => !string.IsNullOrWhiteSpace(process.ProjectPath))
+            .ToArray();
+        if (candidates.Length > 1)
+        {
+            var projects = string.Join(" | ", candidates.Select(candidate =>
+                $"{candidate.ProjectPath} (PID {candidate.ProcessId})"));
+            throw new InvalidOperationException(
+                $"Mehrere TIA-Projekte sind geöffnet. Nur ein Projekt in {_selectedVersion} geöffnet lassen: {projects}");
+        }
+        if (candidates.Length == 0 && processes.Length > 1)
+            throw new InvalidOperationException(
+                $"Mehrere TIA-Portal-Instanzen {_selectedVersion} sind geöffnet, aber keine meldet einen ProjectPath. Nur die Instanz mit dem gewünschten Projekt geöffnet lassen.");
+
+        // Older releases and a few project types do not expose ProjectPath.
+        // With a single process attaching is still unambiguous.
+        var selected = candidates.FirstOrDefault()?.Process ?? processes[0];
+        dynamic selectedProcess = selected;
+        _portal = selectedProcess.Attach();
+
+        const int maximumProjectWaits = 40;
+        for (var attempt = 0; attempt < maximumProjectWaits && _portal.Projects.Count == 0; attempt++)
+            Thread.Sleep(250);
         if (_portal.Projects.Count == 0)
-            throw new InvalidOperationException("The connected TIA instance has no open project.");
+        {
+            var selectedPath = candidates.FirstOrDefault()?.ProjectPath;
+            throw new InvalidOperationException(
+                $"Die verbundene TIA-Instanz {_selectedVersion} stellt nach 10 Sekunden kein Projekt über Openness bereit." +
+                (string.IsNullOrWhiteSpace(selectedPath) ? string.Empty : $" Gemeldeter ProjectPath: {selectedPath}.") +
+                " TIA-Version, Openness-Rechte, vollständig geladenes Projekt und ggf. Multiuser-/Local-Session-Projekttyp prüfen.");
+        }
 
         _project = _portal.Projects[0];
         _selectedPlcIndex = null;
@@ -364,6 +395,20 @@ public sealed class TiaOpennessSession : ITiaOpennessSession
             }
         }
         return -1;
+    }
+
+    private sealed class PortalProcess
+    {
+        public PortalProcess(object process, string projectPath, string processId)
+        {
+            Process = process;
+            ProjectPath = projectPath;
+            ProcessId = processId;
+        }
+
+        public object Process { get; }
+        public string ProjectPath { get; }
+        public string ProcessId { get; }
     }
 
     private static void TraverseGroup(dynamic group, string parentPath, string itemCollection, TiaProjectTree tree)

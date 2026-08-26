@@ -79,7 +79,7 @@ public sealed record ViCoWorkstationConfiguration(
         User, Location, Software, ProjectIp, Other
     };
 
-    public bool IsEditable => CardId > 0 && Fields.Any(field => field.CanSave);
+    public bool IsEditable => CardId > 0;
 }
 
 public sealed record ViCoWorkstation(
@@ -93,7 +93,9 @@ public sealed record ViCoWorkstation(
     IReadOnlyList<string> Details,
     IReadOnlyList<AutomationSoftwareInfo>? Software = null,
     IReadOnlyList<ViCoRobotInfo>? Robots = null,
-    ViCoWorkstationConfiguration? Configuration = null)
+    ViCoWorkstationConfiguration? Configuration = null,
+    int KanbanizeLaneId = 0,
+    int ConfigurationColumnId = 0)
 {
     public IReadOnlyList<AutomationSoftwareInfo> AutomationSoftware { get; } =
         Software ?? Array.Empty<AutomationSoftwareInfo>();
@@ -101,9 +103,9 @@ public sealed record ViCoWorkstation(
     public IReadOnlyList<ViCoRobotInfo> RobotDetails { get; } =
         Robots ?? Array.Empty<ViCoRobotInfo>();
 
-    public string ProjectSummary => string.Join(" | ", Projects.Take(3));
+    public string ProjectSummary => string.Join(" | ", Projects);
 
-    public string AdditionalProjects => Projects.Count > 3 ? $"+{Projects.Count - 3}" : string.Empty;
+    public string AdditionalProjects => string.Empty;
 
     /// <summary>Raw project states retained for diagnostic/detail displays.</summary>
     public string ProjectStatusSummary => string.Join(", ", Details
@@ -127,6 +129,8 @@ public sealed record ViCoWorkstation(
 
     public ViCoWorkstationConfiguration WorkstationConfiguration =>
         Configuration ?? ViCoWorkstationConfiguration.Empty;
+
+    public bool HasConfigurationCard => WorkstationConfiguration.CardId > 0;
 }
 
 public sealed record ViCoWorkstationSnapshot(
@@ -167,6 +171,17 @@ public interface IRemoteDesktopService
     void ConnectWithCredentialPrompt(string hostName, string userName, IReadOnlyCollection<int> monitorIndexes);
 }
 
+/// <summary>Creates and removes the short-lived Windows credential used by automatic RDP.</summary>
+public interface IRemoteCredentialStore
+{
+    void SaveTemporary(string hostName, string userName);
+
+    Task RemoveAfterAsync(
+        string hostName,
+        TimeSpan delay,
+        CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Read-only remote-session data. <see cref="IsAvailable"/> is false when
 /// Windows denies the remote query or the session service cannot be reached.
@@ -175,9 +190,13 @@ public sealed record ViCoRemoteSessionInfo(
     bool IsAvailable,
     string ActiveUser,
     string LastLogonUser,
-    DateTimeOffset? LastLogonAt)
+    DateTimeOffset? LastLogonAt,
+    string DiagnosticMessage = "")
 {
     public static ViCoRemoteSessionInfo NotAvailable { get; } = new(false, string.Empty, string.Empty, null);
+
+    public static ViCoRemoteSessionInfo Unavailable(string reason) =>
+        new(false, string.Empty, string.Empty, null, reason);
 }
 
 /// <summary>Queries terminal-server/RDP session information without modifying the remote PC.</summary>
@@ -195,13 +214,19 @@ public interface IViCoOnlineRefreshService
     Task RefreshAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>Writes only existing KONFIGURATION subtasks back to Kanbanize.</summary>
+/// <summary>Creates or updates the standardized KONFIGURATION card for a workstation lane.</summary>
 public interface IViCoWorkstationConfigurationService
 {
     bool IsConfigured { get; }
 
     Task SaveFieldsAsync(
         int configurationCardId,
+        IReadOnlyCollection<ViCoConfigurationField> fields,
+        CancellationToken cancellationToken = default);
+
+    Task<int> CreateStandardAsync(
+        int laneId,
+        int columnId,
         IReadOnlyCollection<ViCoConfigurationField> fields,
         CancellationToken cancellationToken = default);
 }

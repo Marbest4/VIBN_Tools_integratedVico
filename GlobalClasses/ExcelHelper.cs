@@ -14,8 +14,6 @@ namespace VIBN_Tools.GlobalClasses
             //using var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read);
             //return new XSSFWorkbook(fs);
 
-            XSSFWorkbook workbook;
-
             try
             {
                 using (FileStream fs = new FileStream(FileName, FileMode.Open, FileAccess.Read))

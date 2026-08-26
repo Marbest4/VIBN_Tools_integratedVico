@@ -27,8 +27,8 @@
 | `LegacyWorkstationCatalog.cs` | liest kompatible Cachedateien und die strukturierte `KONFIGURATION`-Karte; Kanbanize-Benutzer hat Vorrang |
 | `KanbanizeRefreshService.cs` | lädt Arbeitsplätze/Robotik aus Kanbanize und ersetzt Caches atomar |
 | `WorkstationBoardCache.cs` | typisierte Cacheform mit Karten- und Unteraufgaben-IDs |
-| `KanbanizeWorkstationConfigurationService.cs` | PATCHt ausschließlich Beschreibungen vorhandener KONFIGURATION-Unteraufgaben |
-| `DesktopWorkstationServices.cs` | Ping, `.rdp`-Start und read-only `quser`-Abfrage für Sitzungen |
+| `KanbanizeWorkstationConfigurationService.cs` | aktualisiert/ergänzt Standard-Unteraufgaben und legt eine fehlende KONFIGURATION-Karte nur auf expliziten Befehl an |
+| `DesktopWorkstationServices.cs` | Ping, temporärer Credential-Manager-Eintrag, `.rdp`-Start und read-only `quser`-Abfrage mit Fehlerdiagnose |
 | `RemoteDesktopProfileBuilder.cs` | reine, testbare `.rdp`-Profilbildung für automatische oder abgefragte Anmeldungen |
 | `JsonViCoUserRoleStore.cs` | atomare `roles.json`-Ablage |
 | `LegacyRoleMigrationReader.cs` | einmaliger Nur-Lese-Import älterer Zuordnungen |
@@ -38,7 +38,7 @@
 
 | Klasse | Aufgabe |
 | --- | --- |
-| `ViCoSearchPageVM` | Suche, Refresh, Pfadauflösung, Online-/Session-Abfragen, RDP und KONFIGURATION-Speichern |
+| `ViCoSearchPageVM` | Suche, Refresh, Pfadauflösung, Online-/Session-Abfragen, RDP sowie KONFIGURATION speichern/anlegen |
 | `ViCoWorkstationRowVM` | Präsentation einer Tabellenzeile: Farben, Erreichbarkeit, RDP-Sitzung und Konfigurationsspalten |
 | `ViCoConfigurationFieldVM` | Änderungsnachverfolgung einer vorhandenen Konfigurations-Unteraufgabe |
 | `ViCoPageVM` | Projekte und Favoriten |

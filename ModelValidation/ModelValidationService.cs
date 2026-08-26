@@ -299,7 +299,7 @@ namespace VIBN_Tools.ModelValidation
         }
 
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public new event PropertyChangedEventHandler PropertyChanged;
     }
 
 }

@@ -73,7 +73,7 @@ namespace VIBN_Tools.CAD_Wizard
             Services.ApiInstance.Object.Send(guidBasicFrame);
             await Services.ApiInstance.Object.WaitForSceneObjectAsync(guidBasicFrame.ToString());
 
-            Parallel.ForEachAsync(objectList, async (el, token) =>
+            await Parallel.ForEachAsync(objectList, async (el, token) =>
             {
                 await Services.ApiInstance.Object.AddChildToParentAsync(guidBasicFrame, el.Guid);
             });

@@ -125,12 +125,8 @@ internal static class Program
                 ExerciseDeferredTemplates(view);
             }
 
-            // The hardware grid is in a deferred tab. Selecting it with a
-            // populated row catches its ComboBox and converter bindings.
-            var specialDeviceTabs = FindVisualChildren<TabControl>(specialDevicePage).FirstOrDefault();
-            if (specialDeviceTabs is null)
-                throw new InvalidOperationException("The Special Device tab control was not initialized.");
-            specialDeviceTabs.SelectedIndex = 1;
+            // Manual form, queue and TIA hardware grid now share one page.
+            // A populated row catches its ComboBox and converter bindings.
             ExerciseDeferredTemplates(specialDevicePage);
 
             if (Environment.GetEnvironmentVariable("VIBN_CAPTURE_UI_PREVIEW") == "1")

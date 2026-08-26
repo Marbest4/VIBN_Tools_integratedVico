@@ -161,7 +161,7 @@ namespace VIBN_Tools.ContainerToFee.GrobStandard
             var slotNames = parametermapping.Select(x => x.SlotName).ToArray();
             var values = parametermapping.Select(x => x.Value).ToArray();
 
-            Services.ApiInstance.Object.SetSlotValuesAsync(guids, slotNames, values);
+            await Services.ApiInstance.Object.SetSlotValuesAsync(guids, slotNames, values);
         }
 
 

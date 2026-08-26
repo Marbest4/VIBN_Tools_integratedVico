@@ -14,7 +14,7 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
         // C L A S S   S P E C I F I C   P R O P E R T I E S
         //===================================================================================================================
 
-        public string Name => Tag;
+        public new string Name => Tag;
 
 
         private string _tag;

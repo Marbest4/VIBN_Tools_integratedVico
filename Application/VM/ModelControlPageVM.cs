@@ -367,7 +367,7 @@ namespace VIBN_Tools.Application.VM
 
                 return true;
             }
-            catch (FormatException fEx)
+            catch (FormatException)
             {
                 MessageBox.Show("The CSV file format is invalid or missing required columns.", "CSV Import", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;

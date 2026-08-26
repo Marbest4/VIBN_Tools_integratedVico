@@ -8,7 +8,7 @@ Die neuen und geänderten Integrationsklassen besitzen XML-Kommentare an ihren �
 | --- | --- |
 | `ViCoRolePolicy` | feste Level9-Rolle und atomar validierte Mindestbesetzung |
 | `ViCoWorkstation`, `ViCoConfigurationField` | Statusregel und sichere Zuordnung von Kanbanize-Unteraufgaben |
-| `ViCoSearchPageVM` | begrenzte Ping-/RDP-Abfragen, Offline-Schutz und nur vorhandene Konfigurationsfelder |
+| `ViCoSearchPageVM` | begrenzte Ping-/RDP-Abfragen, Offline-Schutz sowie Bearbeiten/standardisiertes Anlegen der Konfiguration |
 | `WindowsRemoteSessionService` | read-only Abfrage und „Nicht abrufbar“ bei fehlender Berechtigung |
 | `VibnWorkplaceSynchronizationPolicy` | Vorlage, Terminformel, Konflikt- und Duplikatschutz |
 | `KanbanizeCardApiService` | minimaler HTTP-Write-Scope ohne Fremdfelder |

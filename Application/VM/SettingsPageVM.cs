@@ -89,6 +89,14 @@ namespace VIBN_Tools.Application.VM
                 _selectedServer = value;
                 OnPropertyChanged();
 
+                if (!string.IsNullOrWhiteSpace(value) &&
+                    !string.Equals(_serverFilter, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    _serverFilter = value;
+                    OnPropertyChanged(nameof(ServerFilter));
+                    _ = RefreshOnlineServersAsync();
+                }
+
                 if (_isServerChangeActive) return;
 
                 if (!string.Equals(value, "localhost", StringComparison.OrdinalIgnoreCase))
@@ -117,6 +125,16 @@ namespace VIBN_Tools.Application.VM
                     return;
                 _serverFilter = value ?? string.Empty;
                 OnPropertyChanged();
+
+                if (!string.IsNullOrWhiteSpace(_selectedServer) &&
+                    !string.Equals(_selectedServer, _serverFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    _isServerChangeActive = true;
+                    _selectedServer = string.Empty;
+                    OnPropertyChanged(nameof(SelectedServer));
+                    _isServerChangeActive = false;
+                    IsServerReachable = false;
+                }
                 _ = RefreshOnlineServersAsync();
             }
         }

@@ -81,7 +81,9 @@ public static class ViCoFeatureBootstrapper
     public static ViCoSearchPageVM CreateSearchViewModel()
     {
         var options = ViCoPathsOptions.CreateDefault();
-        var remoteDesktop = new WindowsRemoteDesktopService(options.WorkingDirectory);
+        var remoteDesktop = new WindowsRemoteDesktopService(
+            options.WorkingDirectory,
+            new WindowsTemporaryRemoteCredentialStore());
         var apiKey = ResolveKanbanizeApiKey();
 
         return new ViCoSearchPageVM(
@@ -190,10 +192,7 @@ public static class ViCoFeatureBootstrapper
 
     private static string? ResolveKanbanizeApiKey()
     {
-        var configured = Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY");
-        return string.IsNullOrWhiteSpace(configured)
-            ? KanbanizeService.KanbanizeService.ApiKey
-            : configured;
+        return Environment.GetEnvironmentVariable("VIBN_VICO_KANBANIZE_API_KEY")?.Trim();
     }
 
     private static IReadOnlyList<string> FindInstalledTiaVersions()

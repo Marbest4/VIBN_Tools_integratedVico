@@ -30,12 +30,12 @@ Die Berechtigungen sind im Detail in der [Rollenverwaltung](ROLLENVERWALTUNG.md)
 1. In **Project Settings** den gewünschten Online-PC filtern, auswählen und die FEE-Verbindung aufbauen.
 2. In **ViCo → Übersicht & Verbindung** den Arbeitsplatz oder das Projekt suchen und Kanbanize-Daten aktualisieren, falls notwendig.
 3. Falls eine Karte benötigt wird, im Hauptreiter **Kanbanize Karten** zuerst die Vorschau ausführen und erst danach bewusst synchronisieren.
-4. Für TIA-nahe Schritte **ViCo → TIA Portal** oder **Special Devices → TIA-Hardware lesen** verwenden.
+4. Für TIA-nahe Schritte **ViCo → TIA Portal** oder den TIA-Hardwarebereich auf der gemeinsamen Seite **Special Devices** verwenden.
 5. Änderungen, Fehler und externe Zugriffe am unteren Rand im Diagnoseprotokoll nachvollziehen.
 
 ## Project Settings
 
-Das Eingabefeld **Online-PC filtern** filtert sofort nach Namen. Das Dropdown enthält ausschließlich erreichbare PCs aus dem gemeinsamen ViCo-Arbeitsplatzverzeichnis. Offline-PCs werden absichtlich nicht angeboten.
+Das editierbare Dropdown **Online-PC eingeben oder auswählen** ist Auswahl und Filter in einem Feld. Es filtert sofort nach Namen und enthält ausschließlich erreichbare PCs aus dem gemeinsamen ViCo-Arbeitsplatzverzeichnis. Offline-PCs werden absichtlich nicht angeboten.
 
 1. Bei Bedarf **Liste aktualisieren** drücken.
 2. PC auswählen; die Statuszeile zeigt anschließend die Erreichbarkeit.
@@ -58,15 +58,16 @@ Die Tabelle zeigt:
 | --- | --- |
 | Belegung | **Frei** (grün), wenn nur Backlog/Erledigt vorliegt; **Belegt** (rot), sobald Planung oder In Arbeit vorliegt |
 | PC | dynamischer Arbeitsplatzname |
-| Projekt(e) | ausschließlich Projekte in Planung oder In Arbeit |
-| Software | TIA Portal, Beckhoff TwinCAT und/oder Rockwell Studio 5000 aus der KONFIGURATION-Karte bzw. Kanbanize |
+| Projekt(e) | alle Karten der Arbeitsplatz-Lane außer der separat behandelten `KONFIGURATION`-Karte |
+| Software | ausschließlich der Wert der Unteraufgabe `SW:` |
 | Standort, Projekt-IP, Sonstiges | Werte aus der Karte `KONFIGURATION` und ihren Unteraufgaben |
 | RDP-Sitzung | aktiver Remote-Benutzer oder „Keine aktive Sitzung“ |
 | Letzte Anmeldung | zuletzt ermittelte Anmeldung mit Benutzer und Zeit |
 | Benutzer | bevorzugter Remote-Benutzer aus der KONFIGURATION-Karte |
 | Online | Grün für erreichbar, Rot für offline |
+| Konfiguration | **Vorhanden** (grün) oder **Konfigurationskarte fehlt!** (rot) |
 
-Die Legende verwendet `[B]` für Backlog, `[P]` für Planung, `[W]` für In Arbeit und `[D]` für Erledigt. Backlog und Erledigt erscheinen absichtlich nicht mehr als aktive Projektspalte, sondern im ausklappbaren Bereich **Alle Kanbanize-Informationen**.
+Die Legende verwendet `[B]` für Backlog, `[P]` für Planung, `[W]` für In Arbeit und `[D]` für Erledigt. Alle Lane-Karten werden in der Projektspalte und zusätzlich vollständig im ausklappbaren Bereich **Alle Kanbanize-Informationen** angeboten.
 
 Wenn Windows die Abfrage einer Remote-Sitzung nicht erlaubt, stehen RDP-Sitzung und letzte Anmeldung auf **Nicht abrufbar**. Dies ist kein Offline-Status. Bei Start unter einem Konto mit ausreichender Remote-Abfrageberechtigung werden die Informationen normal angezeigt.
 
@@ -74,13 +75,13 @@ Wenn Windows die Abfrage einer Remote-Sitzung nicht erlaubt, stehen RDP-Sitzung 
 
 Nach Auswahl eines Online-PCs stehen bis zu vier lokale Monitore sowie diese Aktionen bereit:
 
-- **Remote Desktop** verwendet die automatische Anmeldung mit dem priorisierten Kanbanize-Benutzer und den für diesen PC lokal gespeicherten Windows-RDP-Anmeldedaten.
-- **Remote Desktop mit Anmeldedaten** startet dieselbe Remote-Verbindung, zeigt aber bewusst den Windows-Anmeldedialog. Dort kann die korrekte Anmeldung eingegeben und für spätere automatische Starts gespeichert werden.
+- **Remote Desktop** verwendet den priorisierten Kanbanize-Benutzer. Unmittelbar vor dem Start wird das Kennwort aus der lokalen Benutzervariable `VIBN_RDP_PASSWORD` temporär für `TERMSRV/<PC>` eingetragen und nach 20 Sekunden entfernt.
+- **RDP mit Anmeldedaten** startet dieselbe Remote-Verbindung ohne temporären Eintrag und zeigt bewusst den Windows-Anmeldedialog.
 - **PC-Projektordner**, **Simulation**, **PLC-Projekt** und **Planung** öffnen den zugehörigen Pfad für das ausgewählte Projekt.
 
 Bei einem Offline-PC sind diese Buttons nicht sichtbar. Dadurch kann keine fehlerhafte Remote- oder UNC-Aktion ausgelöst werden.
 
-Für einen neuen PC oder Windows-Benutzer einmal **Remote Desktop mit Anmeldedaten** verwenden, die vom Tool angezeigte Benutzerzuordnung prüfen und im Windows-Dialog **Anmeldedaten speichern** aktivieren. Danach startet **Remote Desktop** ohne Dialog. Die Zugangsdaten liegen nur im Windows-Anmeldeinformationsspeicher des angemeldeten Benutzers – nie im VIBN-Quellcode, Kanbanize-Cache oder Rollenbestand.
+Einmalig die Benutzervariable `VIBN_RDP_PASSWORD` gemäß [Konfiguration und Betrieb](KONFIGURATION_UND_BETRIEB.md) setzen und das Tool neu starten. Das Kennwort steht weder im Quellcode noch im Kanbanize-Cache oder Rollenbestand. Der separate Dialog-Button bleibt für abweichende Zugangsdaten verfügbar.
 
 ### Arbeitsplatz-Konfiguration bearbeiten
 
@@ -92,7 +93,7 @@ Die rechte Seite enthält die vorhandenen Unteraufgaben einer Kanbanize-Karte mi
 - `PROJEKT-IP:`
 - `SONSTIGES:`
 
-Werte bearbeiten und **Speichern** drücken. Das Tool ändert ausschließlich die Beschreibung der vorhandenen Unteraufgabe. Fehlt eine Unteraufgabe, wird sie grau dargestellt und nicht erstellt. Andere Kartenattribute, Kartenpositionen, Titel oder Beschreibungen bleiben unverändert.
+Bei vorhandener Karte Werte bearbeiten und **Speichern** drücken. Bestehende Unteraufgaben werden aktualisiert, fehlende Standard-Unteraufgaben werden ergänzt. Fehlt die Karte vollständig, zeigt die letzte Tabellenspalte dies rot an; **Standardkarte anlegen** erzeugt nach ausdrücklicher Bestätigung genau eine `KONFIGURATION`-Karte mit den fünf Standard-Unteraufgaben. Normale Projektkarten bleiben unverändert.
 
 ### Projekte & Favoriten und Transfer
 
@@ -146,13 +147,13 @@ Hersteller, Gerätetyp, Präfix und Byteadressen auswählen. Das Gerät wird zun
 
 ### TIA-Hardware übernehmen
 
-1. **TIA-Hardware lesen** öffnen.
+1. Auf der gemeinsamen Seite zum Bereich **Hardware aus geöffnetem TIA-Projekt lesen** wechseln.
 2. TIA-Version wählen, **Mit TIA verbinden** und PLC auswählen.
 3. **Hardware auslesen** drücken.
 4. In der Tabelle Modul, TIA-Typ, Eingangs-/Ausgangsbyte, Längen, Präfix und Logik prüfen. Die Logik wird nur bei eindeutiger Erkennung vorausgewählt.
 5. Erforderlichenfalls Logik, Byteadressen und Robotertyp korrigieren.
 6. Gewünschte Zeilen markieren und **Ausgewählte Geräte in Warteschlange übernehmen** drücken.
-7. Im Reiter **Warteschlange** kontrollieren und erst danach **In FEE erzeugen** ausführen.
+7. In der rechts oben sichtbaren **Warteschlange** kontrollieren und erst danach **In FEE erzeugen** ausführen.
 
 Die FEE-Erzeugung ist absichtlich serialisiert. Fehlgeschlagene Geräte bleiben in der Warteschlange, damit sie geprüft und erneut ausgeführt werden können.
 

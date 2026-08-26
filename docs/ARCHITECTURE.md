@@ -14,7 +14,7 @@
 | Data | Source | Rule |
 | --- | --- | --- |
 | Workstations and user assignment | Kanbanize workstation cache | `KONFIGURATION / USER` overrides older card text |
-| Workstation configuration | existing `KONFIGURATION` subtasks | only existing subtask descriptions are editable |
+| Workstation configuration | `KONFIGURATION` card and card-level subtasks endpoint | update existing standard subtasks; explicitly create missing subtask/card |
 | Online state | bounded ICMP ping | offline suppresses remote/path actions |
 | Remote session / last logon | read-only `quser` | lack of permission means “Not available”, not offline |
 | Workplace card schedule | VIBN source + single VIBN template deadline | source −14 days, template +56 days |
@@ -32,4 +32,4 @@
 
 ## Remote Desktop credential boundary
 
-The application writes only a host, the Kanbanize-selected user and the prompt mode into an `.rdp` profile. Passwords are never part of the source tree, cache, role data or Kanbanize payloads. Windows Credential Manager owns credentials locally for the signed-in Windows user: the prompted RDP action establishes or changes them, and the automatic action reuses them.
+The `.rdp` profile contains only host, Kanbanize-selected user, monitor selection and prompt mode. The automatic action reads `VIBN_RDP_PASSWORD` from the signed-in user's environment, creates `TERMSRV/<host>` through `cmdkey`, launches `mstsc`, and removes that entry after 20 seconds. The password is never part of source, cache, role data, RDP file or Kanbanize payloads. The prompted action does not create a credential entry.

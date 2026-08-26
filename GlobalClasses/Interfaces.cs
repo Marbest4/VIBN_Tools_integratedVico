@@ -98,7 +98,7 @@ namespace VIBN_Tools.GlobalClasses
         public interface IAddonContainer<TParent> : IAddonContainer
             where TParent : ContainerBaseClass
         {
-            TParent ParentContainer { get; set; }
+            new TParent ParentContainer { get; set; }
         }
 
 

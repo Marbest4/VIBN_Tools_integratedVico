@@ -426,7 +426,7 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
             var task = HandleFeeObjectChangedAsync(sender, e);
 
             _debounceTasks.Add(task);
-            task.ContinueWith(t => _debounceTasks.Remove(t));
+            _ = task.ContinueWith(t => _debounceTasks.Remove(t));
 
             _ = task;
 

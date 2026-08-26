@@ -82,14 +82,27 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="RDP-Sitzung" Binding="{Binding RemoteSessionStatus, Mode=OneWay}" Width="160" />
-                    <DataGridTextColumn Header="Letzte Anmeldung" Binding="{Binding LastRemoteLogon, Mode=OneWay}" Width="185" />
+                    <DataGridTemplateColumn Header="RDP-Sitzung" Width="175">
+                        <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding RemoteSessionStatus, Mode=OneWay}" ToolTip="{Binding RemoteSessionDiagnostic, Mode=OneWay}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Letzte Anmeldung" Width="195">
+                        <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding LastRemoteLogon, Mode=OneWay}" ToolTip="{Binding RemoteSessionDiagnostic, Mode=OneWay}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Benutzer" Binding="{Binding UserName, Mode=OneWay}" Width="150" />
                     <DataGridTemplateColumn Header="Online" Width="82">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Margin="3" Padding="5,3" Background="{Binding OnlineStatusBackground, Mode=OneWay}" CornerRadius="3">
                                     <TextBlock HorizontalAlignment="Center" Text="{Binding OnlineStatus, Mode=OneWay}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Konfiguration" Width="185">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Margin="3" Padding="5,3" Background="{Binding ConfigurationStatusBackground, Mode=OneWay}" CornerRadius="3">
+                                    <TextBlock HorizontalAlignment="Center" Text="{Binding ConfigurationStatus, Mode=OneWay}" TextWrapping="Wrap" />
                                 </Border>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -133,9 +146,17 @@
                                         MinWidth="105"
                                         Content="Speichern"
                                         Command="{Binding SaveConfigurationCommand}"
-                                        IsEnabled="{Binding CanEditConfiguration}" />
+                                        IsEnabled="{Binding CanEditConfiguration}"
+                                        Visibility="{Binding HasSelectedConfigurationCard, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Button DockPanel.Dock="Right"
+                                        Margin="0,0,6,0"
+                                        MinWidth="150"
+                                        Content="Standardkarte anlegen"
+                                        Command="{Binding CreateConfigurationCommand}"
+                                        IsEnabled="{Binding CanCreateConfiguration}"
+                                        Visibility="{Binding IsSelectedConfigurationMissing, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             </DockPanel>
-                            <TextBlock Margin="0,4,0,7" FontSize="12.5" Foreground="#FF666666" Text="Es werden ausschließlich vorhandene USER-, STANDORT-, SW-, PROJEKT-IP- und SONSTIGES-Unteraufgaben der KONFIGURATION-Karte geändert." TextWrapping="Wrap" />
+                            <TextBlock Margin="0,4,0,7" FontSize="12.5" Foreground="#FF666666" Text="USER, STANDORT, SW, PROJEKT-IP und SONSTIGES werden als standardisierte Unteraufgaben gespeichert. Fehlende Unteraufgaben werden beim Speichern ergänzt." TextWrapping="Wrap" />
                             <DataGrid ItemsSource="{Binding ConfigurationFields}"
                                       AutoGenerateColumns="False"
                                       CanUserAddRows="False"
@@ -149,18 +170,7 @@
                                     <DataGridTemplateColumn Header="Wert" Width="*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="28">
-                                                    <TextBox.Style>
-                                                        <Style TargetType="TextBox">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding CanSave}" Value="False">
-                                                                    <Setter Property="IsReadOnly" Value="True" />
-                                                                    <Setter Property="Background" Value="#FFE6E6E6" />
-                                                                    <Setter Property="ToolTip" Value="Diese Unteraufgabe ist in Kanbanize nicht angelegt und kann daher nicht gespeichert werden." />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBox.Style>
+                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="28">
                                                 </TextBox>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -170,7 +180,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Aktive Projekte (Planung / In Arbeit)" />
+                    <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Alle Karten dieser Arbeitsplatz-Lane" />
                     <ComboBox MinHeight="36" Padding="7,4" FontSize="14" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" />
 
                     <TextBlock Margin="0,12,0,0" FontFamily="Consolas" FontSize="12.5" Text="{Binding PathInformation, Mode=OneWay}" TextWrapping="Wrap" />

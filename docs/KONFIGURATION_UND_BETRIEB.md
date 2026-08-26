@@ -16,12 +16,22 @@ Ohne Unternehmensnetz startet die Oberfläche weiterhin. Live-Daten, Kartenaktio
 | Wert | Ort | Zweck |
 | --- | --- | --- |
 | Kanbanize API-Schlüssel | `VIBN_VICO_KANBANIZE_API_KEY` | bevorzugter Live-Zugang für ViCo und Kartenreiter |
+| RDP-Kennwort | `VIBN_RDP_PASSWORD` | lokale Benutzervariable für den kurzlebigen `TERMSRV/<PC>`-Eintrag |
 | Rollen-Datei | `VIBN_VICO_ROLES_FILE` | optionaler zentraler Pfad zu `roles.json` |
 | ViCo-Pfade | `VIBN_Tools.Infrastructure/ViCo/ViCoPathsOptions.cs` | Caches, Projekte, Versionen und Standard-Arbeitsordner |
 | TIA-Bridge | `Application/ViCoFeatureBootstrapper.cs` | Bridge-Executable, Pipe pro Prozess, lokale Versionserkennung |
 | Logging | `ApplicationLogService` / vorhandene Log-Konfiguration | sichtbares Diagnosepanel und Logdatei |
 
 API-Schlüssel und Kennwörter gehören nicht in Quellcode, Screenshots, Tickets oder das Diagnoseprotokoll.
+
+Einmalige Einrichtung für den aktuell angemeldeten Windows-Benutzer (Platzhalter ersetzen, danach das Tool neu starten):
+
+```powershell
+[Environment]::SetEnvironmentVariable('VIBN_VICO_KANBANIZE_API_KEY', '<BUSINESSMAP-API-KEY>', 'User')
+[Environment]::SetEnvironmentVariable('VIBN_RDP_PASSWORD', '<REMOTE-PASSWORT>', 'User')
+```
+
+Kanbanize/Businessmap verwendet hier keinen Benutzerpasswort-Login, sondern den API-Key im Header `apikey`. Ein abgelaufener, rotierter oder für das Board nicht berechtigter Key führt zu 401/403; eine 400-Feldvalidierung ist dagegen ein Abfragefehler. Der Refresh wiederholt nur sichere GET-Anfragen bei Netzwerk-, 408-, 429- und 5xx-Fehlern.
 
 ## Datenquellen und Aktualisierung
 
@@ -51,17 +61,23 @@ Das ist korrekt, wenn FEE die Verbindung nicht bestätigt. Die Anwendung setzt `
 
 Der PC kann trotzdem online sein. Der aktuell angemeldete Benutzer darf die Remote-Terminalsitzungen nicht abfragen oder `quser` erreicht den Zielcomputer nicht. Mit einem Konto mit ausreichender administrativer Berechtigung starten oder die Remote-Abfrageberechtigung prüfen. Der RDP-Start selbst bleibt davon unabhängig.
 
+Ein lokaler oder Domänen-Administrator funktioniert nur, wenn dieses Konto auch auf dem Ziel-PC autorisiert ist und Remote Desktop Services/RPC durch die Firewall erreichbar sind. Es gibt keinen sicheren Workaround, der diese Rechte umgeht. „Letzte Anmeldung“ bezeichnet die jüngste von `quser` noch gelistete aktive/getrennte Terminalsitzung; bereits abgemeldete Sitzungen sind ohne Zugriff auf das Windows-Sicherheitsereignisprotokoll nicht verlässlich bestimmbar.
+
 ### Remote Desktop verwendet einen falschen Benutzer
 
-Die `USER:`-Unteraufgabe der `KONFIGURATION`-Karte hat Vorrang. In ViCo den angezeigten Remote-Benutzer prüfen, Konfiguration gegebenenfalls bearbeiten und speichern, anschließend die Daten aktualisieren. Der normale Remote-Button verwendet nur die lokale Windows-RDP-Anmeldung; der zweite Button zeigt den Windows-Anmeldedialog. Bei geänderter Zuordnung den gespeicherten Eintrag für `TERMSRV/<PC-Name>` in der Windows-Anmeldeinformationsverwaltung entfernen und einmal über den Dialog-Button mit **Anmeldedaten speichern** neu anmelden.
+Die `USER:`-Unteraufgabe der `KONFIGURATION`-Karte hat Vorrang. Der normale Remote-Button erzeugt `TERMSRV/<PC-Name>` mit diesem Benutzer nur für den Start und entfernt den Eintrag nach 20 Sekunden; der zweite Button zeigt den Windows-Anmeldedialog.
 
 ### Automatische Remote-Anmeldung ist noch nicht eingerichtet
 
-Für den aktuellen Windows-Benutzer existiert noch keine gespeicherte RDP-Anmeldung für den Ziel-PC. **Remote Desktop mit Anmeldedaten** wählen, die Anmeldung eingeben und im Windows-Dialog **Anmeldedaten speichern** aktivieren. Danach verwendet der normale Button diesen lokalen Eintrag automatisch. Das Tool speichert oder verteilt kein Passwort.
+Die Benutzervariable `VIBN_RDP_PASSWORD` fehlt oder ist leer. Sie mit dem oben dokumentierten PowerShell-Befehl setzen und das Tool neu starten. Der separate Dialog-Button funktioniert ohne diese Variable.
 
 ### Konfigurationswerte lassen sich nicht speichern
 
-Nur vorhandene Unteraufgaben mit einer gültigen ID sind schreibbar. Fehlt beispielsweise `PROJEKT-IP:`, zeigt die Zeile sich schreibgeschützt. Das Tool erstellt sie nicht automatisch. Zusätzlich benötigt der Kanbanize-Zugang Bearbeitungsrechte für Unteraufgaben der betreffenden Karte.
+Vorhandene Standard-Unteraufgaben werden per PATCH gespeichert; fehlende Standard-Unteraufgaben werden per POST an `/cards/{card}/subtasks` ergänzt. Fehlt die gesamte Karte, kann sie nur über **Standardkarte anlegen** bewusst erzeugt werden.
+
+### Kanbanize meldet 400 bei `fields`
+
+`subtasks`, Positionsfelder und Custom Fields sind in dieser Instanz keine zulässigen Werte des Kartenparameters `fields`. Beide Kartenabrufe verzichten deshalb vollständig auf `fields`, paginieren über alle Seiten und rufen ausschließlich für Karten mit dem exakten Titel `KONFIGURATION` `/cards/{card_id}/subtasks` auf.
 
 ### Kanbanize-Vorschau zeigt Konflikt
 
@@ -69,10 +85,13 @@ Keinen Synchronisieren-Lauf erzwingen. Prüfen, ob genau eine datierte `Grundinb
 
 ### TIA Bridge verbindet sich nicht oder Hardware bleibt leer
 
-1. Passende TIA-Version installieren und Projekt öffnen.
-2. TIA-Version, PLC und Openness-Berechtigung prüfen.
-3. Im Diagnosepanel die Bridge-Fehler lesen.
-4. Für Special Devices sowohl Eingangs- als auch Ausgangsbyte und Logik kontrollieren; fehlende Adressen müssen manuell ergänzt werden.
+1. Exakt passende TIA-Version auswählen und das Projekt vollständig öffnen. Openness arbeitet nicht im Versions-Kompatibilitätsmodus.
+2. Bei mehreren TIA-Fenstern nur das gewünschte Projekt geöffnet lassen. Die Bridge priorisiert `ProjectPath` und wartet bis zu zehn Sekunden auf `Projects`.
+3. Gruppe `Siemens TIA Openness`, TIA-Funktionsrecht **Edit project via Openness API**, Firewallfreigabe und installierte Optionen/HSPs prüfen.
+4. Im Diagnosepanel die Bridge-Fehler lesen.
+5. Für Special Devices Eingangs-/Ausgangsbyte und Logik kontrollieren; fehlende Adressen manuell ergänzen.
+
+Unterstützt werden lokal erkannte PublicAPI-Installationen V15 bis V22. Es wird immer die Assembly der ausgewählten Version geladen; V20 verwendet ausschließlich `Portal V20/PublicAPI/V20/Siemens.Engineering.dll`.
 
 ### XamlParseException oder Binding-Fehler
 
@@ -86,6 +105,10 @@ Nicht mit einem erneuten Schreibvorgang fortfahren. Status/Stacktrace sichern, d
 - Kanbanize-Caches werden atomar geschrieben; die UI liest stabile Snapshots.
 - Dateiübertragungen und FEE-Geräteerzeugungen sind begrenzt/serialisiert.
 - Keine rekursiven Netzwerkscans oder TIA-/Outlook-Aufrufe im UI-Thread ergänzen.
+
+## Warnungsstrategie
+
+Der historische WPF-Bestand wurde vor Nullable-Referenztypen entwickelt. Im Hauptprojekt gilt deshalb `Nullable=annotations`; neue Integrationsprojekte bleiben `Nullable=enable`, Core und Infrastructure bauen Warnungen als Fehler. Externe `MSB3277`-Hinweise entstehen durch Versionsunterschiede zwischen geliefertem FEE-SDK und .NET 8 und dürfen nur durch ein abgestimmtes SDK-Upgrade, nicht durch blindes Suppressieren, beseitigt werden.
 
 ## Veröffentlichung
 

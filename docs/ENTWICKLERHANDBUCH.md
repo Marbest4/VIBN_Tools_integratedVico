@@ -29,13 +29,15 @@ TIA: ViewModel → Tia.Client → Named Pipe → TiaBridge → Siemens Openness
 4. Anzeige in `ViCoWorkstationRowVM` und XAML ergänzen.
 5. Parser- und Write-Scope-Test hinzufügen.
 
-Die `KONFIGURATION`-Bearbeitung ist das Referenzmuster: Nur vorhandene Unteraufgaben werden per PATCH verändert; Karten, Titel, Positionen und sonstige Felder bleiben unberührt.
+Die `KONFIGURATION`-Bearbeitung ist das Referenzmuster: vorhandene Unteraufgaben werden per PATCH geändert, fehlende Standard-Unteraufgaben per POST ergänzt. Eine fehlende Karte wird nur nach dem expliziten UI-Befehl standardisiert erstellt; normale Karten bleiben unberührt.
 
 ### Neue RDP-/Windows-Aktion
 
 Zuerst ein Interface in `Workstations.cs` ergänzen. Danach eine konkrete Implementierung in `DesktopWorkstationServices.cs` schreiben und sie im Bootstrapper registrieren. Keine `Process.Start`-Aufrufe direkt aus einem ViewModel einfügen. Offline-Schutz und Fehlerprotokoll gehören in das ViewModel.
 
-Ein RDP-Profil darf ausschließlich Ziel-PC, Benutzer, Monitorwahl und Abfragemodus enthalten. Zugangsdaten gehören in den Windows-Anmeldeinformationsspeicher des interaktiven Benutzers; keine Passwortquelle, kein temporärer `cmdkey`-Aufruf und keine Zugangsdaten-Datei dürfen in der Anwendung ergänzt werden.
+Ein RDP-Profil darf ausschließlich Ziel-PC, Benutzer, Monitorwahl und Abfragemodus enthalten. Der einzige Kennwortprovider ist `VIBN_RDP_PASSWORD`; `WindowsTemporaryRemoteCredentialStore` reicht den Wert über `ProcessStartInfo.ArgumentList` an `cmdkey`, protokolliert ihn nie und entfernt den Zieleintrag verzögert. Keine zweite Passwortquelle und kein Literal ergänzen.
+
+`quser /server:<PC>` besitzt keinen sicheren Rechte-Bypass. Fehler 5 wird als Berechtigungsdiagnose an die Oberfläche gereicht. Alternative Implementierungen dürfen keine Credentials auslesen oder Berechtigungen umgehen.
 
 ### Neue Kanbanize-Funktion
 

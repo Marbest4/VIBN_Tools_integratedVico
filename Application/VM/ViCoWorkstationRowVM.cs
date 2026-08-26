@@ -42,12 +42,16 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
     public int RobotCount => Model.RobotCount;
     public string RobotSummary => Model.RobotSummary;
     public IReadOnlyList<string> Details => Model.Details;
-    public string ConfigurationSoftware => string.IsNullOrWhiteSpace(Model.WorkstationConfiguration.Software.Value)
-        ? Model.SoftwareInformation
-        : Model.WorkstationConfiguration.Software.Value;
+    public string ConfigurationSoftware => Model.WorkstationConfiguration.Software.Value;
     public string ConfigurationLocation => Model.WorkstationConfiguration.Location.Value;
     public string ConfigurationProjectIp => Model.WorkstationConfiguration.ProjectIp.Value;
     public string ConfigurationOther => Model.WorkstationConfiguration.Other.Value;
+    public string ConfigurationStatus => Model.HasConfigurationCard
+        ? "Vorhanden"
+        : "Konfigurationskarte fehlt!";
+    public string ConfigurationStatusBackground => Model.HasConfigurationCard
+        ? "#FFC6EFCE"
+        : "#FFFFC7CE";
 
     private bool _isOnline;
 
@@ -116,15 +120,31 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
         }
     }
 
+    private string _remoteSessionDiagnostic = string.Empty;
+    public string RemoteSessionDiagnostic
+    {
+        get => _remoteSessionDiagnostic;
+        private set
+        {
+            _remoteSessionDiagnostic = value;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Maps a remote query result to concise, user-facing grid values.</summary>
     public void SetRemoteSession(ViCoRemoteSessionInfo info)
     {
         if (!info.IsAvailable)
         {
-            RemoteSessionStatus = "Nicht abrufbar";
-            LastRemoteLogon = "Nicht abrufbar";
+            RemoteSessionDiagnostic = info.DiagnosticMessage;
+            var permissionFailure = info.DiagnosticMessage.Contains("Berechtigung", StringComparison.OrdinalIgnoreCase) ||
+                                    info.DiagnosticMessage.Contains("Access is denied", StringComparison.OrdinalIgnoreCase);
+            RemoteSessionStatus = permissionFailure ? "Nicht abrufbar (Rechte)" : "Nicht abrufbar";
+            LastRemoteLogon = permissionFailure ? "Nicht abrufbar (Rechte)" : "Nicht abrufbar";
             return;
         }
+
+        RemoteSessionDiagnostic = string.Empty;
 
         RemoteSessionStatus = string.IsNullOrWhiteSpace(info.ActiveUser)
             ? "Keine aktive Sitzung"
@@ -138,6 +158,7 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
     {
         RemoteSessionStatus = "Offline";
         LastRemoteLogon = "—";
+        RemoteSessionDiagnostic = "Der PC ist offline.";
     }
 
     /// <summary>Updates only the editable KONFIGURATION projection after a successful save.</summary>
@@ -152,6 +173,8 @@ public sealed class ViCoWorkstationRowVM : MvvmBase
         OnPropertyChanged(nameof(ConfigurationLocation));
         OnPropertyChanged(nameof(ConfigurationProjectIp));
         OnPropertyChanged(nameof(ConfigurationOther));
+        OnPropertyChanged(nameof(ConfigurationStatus));
+        OnPropertyChanged(nameof(ConfigurationStatusBackground));
     }
 }
 

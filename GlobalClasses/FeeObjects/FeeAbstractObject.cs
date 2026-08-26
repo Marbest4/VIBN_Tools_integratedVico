@@ -180,7 +180,7 @@ namespace VIBN_Tools.GlobalClasses.FeeObjects
             {
                 if (Parent != null)
                 {
-                    Services.ApiInstance.Object.AddChildToParentAsync(Parent.Guid, Guid);
+                    await Services.ApiInstance.Object.AddChildToParentAsync(Parent.Guid, Guid);
                 }
                 return true;
             }

@@ -22,10 +22,16 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         var robotCards = await ReadLinesAsync("AllRobyCards.txt", warnings, cancellationToken);
         var robotNames = await ReadLinesAsync("AllRobyCardsRobyName.txt", warnings, cancellationToken);
         var robotColumns = await ReadLinesAsync("AllRobyColumns.txt", warnings, cancellationToken);
-        var configurations = await ReadConfigurationsAsync(warnings, cancellationToken);
+        var boardData = await ReadBoardDataAsync(warnings, cancellationToken);
         var combined = CombineLegacyCards(lanes, cards);
         return new ViCoWorkstationSnapshot(
-            ParseWorkstations(combined, robotCards, robotNames, robotColumns, configurations),
+            ParseWorkstations(
+                combined,
+                robotCards,
+                robotNames,
+                robotColumns,
+                boardData.Configurations,
+                boardData.ConfigurationColumns),
             warnings);
     }
 
@@ -48,13 +54,13 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         }
     }
 
-    private async Task<IReadOnlyDictionary<string, ViCoWorkstationConfiguration>> ReadConfigurationsAsync(
+    private async Task<CachedBoardData> ReadBoardDataAsync(
         ICollection<string> warnings,
         CancellationToken cancellationToken)
     {
         var path = Path.Combine(_cacheRoot, "WorkstationBoardCache.json");
         if (!File.Exists(path))
-            return new Dictionary<string, ViCoWorkstationConfiguration>(StringComparer.OrdinalIgnoreCase);
+            return CachedBoardData.Empty;
 
         try
         {
@@ -67,7 +73,7 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 stream,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
                 cancellationToken) ?? new WorkstationBoardCache();
-            return cache.Cards
+            var configurations = cache.Cards
                 .Where(card => string.Equals(card.Title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase))
                 .Where(card => card.Id > 0 && card.LaneId.Length > 0)
                 .GroupBy(card => card.LaneId, StringComparer.OrdinalIgnoreCase)
@@ -75,12 +81,33 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                     group => group.Key,
                     group => BuildConfiguration(group.OrderByDescending(card => card.Subtasks.Count).First()),
                     StringComparer.OrdinalIgnoreCase);
+            var columns = cache.Cards
+                .Where(card => card.Id > 0 && card.LaneId.Length > 0)
+                .GroupBy(card => card.LaneId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    ResolveConfigurationColumn,
+                    StringComparer.OrdinalIgnoreCase);
+            return new CachedBoardData(configurations, columns);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
             warnings.Add($"{path}: {exception.Message}");
-            return new Dictionary<string, ViCoWorkstationConfiguration>(StringComparer.OrdinalIgnoreCase);
+            return CachedBoardData.Empty;
         }
+    }
+
+    private static int ResolveConfigurationColumn(IEnumerable<WorkstationCardCacheEntry> cards)
+    {
+        var columnIds = cards
+            .Select(card => int.TryParse(card.ColumnId, out var columnId) ? columnId : 0)
+            .Where(columnId => columnId > 0)
+            .ToArray();
+        if (columnIds.Any(columnId => columnId is >= 29368 and <= 29371))
+            return 29368;
+        if (columnIds.Any(columnId => columnId is >= 29373 and <= 29376))
+            return 29373;
+        return columnIds.FirstOrDefault();
     }
 
     private static IReadOnlyList<string> CombineLegacyCards(
@@ -127,7 +154,8 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         IReadOnlyList<string> robotCards,
         IReadOnlyList<string> robotNames,
         IReadOnlyList<string> robotColumns,
-        IReadOnlyDictionary<string, ViCoWorkstationConfiguration> configurations)
+        IReadOnlyDictionary<string, ViCoWorkstationConfiguration> configurations,
+        IReadOnlyDictionary<string, int> configurationColumns)
     {
         var result = new List<ViCoWorkstation>();
         for (var index = 0; index < combined.Count; index++)
@@ -151,6 +179,10 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             }
 
             var pcName = ExtractPcName(displayName);
+            var laneCards = details
+                .Where(detail => !IsConfigurationCard(detail))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             var configuration = configurations.TryGetValue(laneId, out var configured)
                 ? configured
                 : ViCoWorkstationConfiguration.Empty;
@@ -165,14 +197,11 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 : details
                 .Select(ExtractUserName)
                 .FirstOrDefault(value => value.Length > 0) ?? string.Empty;
-            var software = ParseSoftware(details.Append(configuration.Software.Value));
-            var softwareSummary = string.Join(" | ", software.Select(item => item.DisplayName));
+            var software = ParseSoftware(new[] { configuration.Software.Value });
+            var softwareSummary = configuration.Software.Value.Trim();
             var fee = string.Join(" | ", details.Where(value => value.Contains("FEE", StringComparison.OrdinalIgnoreCase)));
             var hardware = details.FirstOrDefault(value => value.Contains("LAN", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
-            var projects = details
-                .Where(value => IsProjectCard(value) && IsActiveProject(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var projects = laneCards;
             var robots = FindRobotInformation(projects, robotCards, robotNames, robotColumns);
             foreach (var robot in robots)
                 details.Add($"Robot: {robot.Name} – {robot.Status}");
@@ -188,7 +217,11 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
                 details,
                 software,
                 robots,
-                configuration));
+                configuration,
+                int.TryParse(laneId, out var numericLaneId) ? numericLaneId : 0,
+                configurationColumns.TryGetValue(laneId, out var configurationColumnId)
+                    ? configurationColumnId
+                    : 0));
         }
 
         return result;
@@ -283,23 +316,10 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
         return ProjectIdentity.CleanDisplay(cleaned).Trim(' ', '-', ':', '|');
     }
 
-    private static bool IsProjectCard(string value) =>
-        (value.Contains("GM", StringComparison.OrdinalIgnoreCase) ||
-         value.Contains("GU", StringComparison.OrdinalIgnoreCase)) &&
-        !value.Contains("ZKDS", StringComparison.OrdinalIgnoreCase) &&
-        !value.Contains("LAN", StringComparison.OrdinalIgnoreCase) &&
-         !value.Contains("TIA", StringComparison.OrdinalIgnoreCase) &&
-         !value.Contains("Beckhoff", StringComparison.OrdinalIgnoreCase) &&
-         !value.Contains("TwinCAT", StringComparison.OrdinalIgnoreCase) &&
-         !value.Contains("Rockwell", StringComparison.OrdinalIgnoreCase) &&
-         !value.Contains("Studio 5000", StringComparison.OrdinalIgnoreCase) &&
-        !value.Contains("FEE", StringComparison.OrdinalIgnoreCase) &&
-        !value.Contains("KONFIGURATION", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsActiveProject(string value)
+    private static bool IsConfigurationCard(string value)
     {
-        var status = ProjectIdentity.GetStatus(value);
-        return status is "Planung" or "In Arbeit";
+        var title = Regex.Replace(value, @"^\s*\[[BPWD]\]\s*", string.Empty);
+        return string.Equals(title.Trim(), "KONFIGURATION", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ViCoWorkstationConfiguration BuildConfiguration(WorkstationCardCacheEntry card)
@@ -389,6 +409,15 @@ public sealed class LegacyWorkstationCatalog : IViCoWorkstationCatalog
             .Replace("#Working#", "[W] ")
             .Replace("#Done#", "[D] ")
             .Trim();
+
+    private sealed record CachedBoardData(
+        IReadOnlyDictionary<string, ViCoWorkstationConfiguration> Configurations,
+        IReadOnlyDictionary<string, int> ConfigurationColumns)
+    {
+        public static CachedBoardData Empty { get; } = new(
+            new Dictionary<string, ViCoWorkstationConfiguration>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+    }
 }
 
 /// <summary>Searches workstation data without exposing cache parsing details to the UI.</summary>

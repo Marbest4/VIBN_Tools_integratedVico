@@ -176,7 +176,7 @@ namespace VIBN_Tools.Application.VM
 
             // Command Initialise
             CreateImportFile = new AsyncCommandHandler(
-                async para => Create_ImportFile(para),
+                para => Create_ImportFile(para),
                 para => CanCreateImportFile());
 
 

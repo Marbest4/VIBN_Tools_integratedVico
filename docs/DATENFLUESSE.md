@@ -25,14 +25,17 @@ sequenceDiagram
     participant C as Konfigurationsadapter
     participant K as Kanbanize
     U->>VM: Wert ändern und Speichern
-    VM->>VM: nur geänderte vorhandene Felder auswählen
+    VM->>VM: geänderte und fehlende Standardfelder auswählen
     VM->>C: Karte + Subtask-ID + KEY: Wert
     C->>K: PATCH /cards/{card}/subtasks/{subtask}
+    opt Standard-Unteraufgabe fehlt
+        C->>K: POST /cards/{card}/subtasks
+    end
     K-->>C: Erfolg/Fehler
     C-->>VM: Ergebnis
 ```
 
-Andere Kartenfelder und nicht vorhandene Unteraufgaben werden nie geschrieben.
+Andere normale Kartenfelder werden nie geschrieben. Fehlt die komplette Karte, läuft ein separater ausdrücklicher Ablauf über `POST /cards` mit Titel `KONFIGURATION` und anschließend fünf Standard-Unteraufgaben.
 
 ## Remote Desktop und Sitzungsauskunft
 
@@ -55,7 +58,7 @@ sequenceDiagram
     end
 ```
 
-Die alternative Schaltfläche „Remote Desktop mit Anmeldedaten“ ruft denselben RDP-Adapter mit `prompt for credentials:i:1` auf. Sie dient auch zur einmaligen Einrichtung oder Änderung der lokalen Windows-RDP-Anmeldung. Der normale Start nutzt `prompt for credentials:i:0` und damit ausschließlich den gespeicherten Windows-Eintrag; das Tool übergibt oder speichert kein Kennwort.
+Die alternative Schaltfläche „RDP mit Anmeldedaten“ ruft denselben RDP-Adapter mit `prompt for credentials:i:1` ohne temporären Eintrag auf. Der normale Start liest `VIBN_RDP_PASSWORD`, erzeugt `TERMSRV/<PC>` unmittelbar vor `mstsc` und löscht den Eintrag nach 20 Sekunden. Das Kennwort landet nie im `.rdp`-Profil, Cache oder Log.
 
 ## Kanbanize VIBN → Arbeitsplätze
 

@@ -14,8 +14,8 @@ VIBN Tools ist die WPF-Desktopanwendung für Modellierung, virtuelle Inbetriebna
 ## Wichtige Eigenschaften
 
 - ViCo verwendet einen gemeinsamen, dynamischen PC-/Benutzerbestand aus Kanbanize; es gibt keine fest kompilierte PC-Benutzer-Zuordnung.
-- Die ViCo-Übersicht zeigt nur aktive Projekte aus Planung und In Arbeit. Backlog und Abschluss bleiben in den vollständigen Kanbanize-Informationen sichtbar.
-- Der normale Button **Remote Desktop** behält die automatische Anmeldung bei und verwendet ausschließlich die lokal gespeicherten Windows-RDP-Anmeldedaten. **Remote Desktop mit Anmeldedaten** öffnet den Windows-Anmeldedialog zur Ersteinrichtung oder Änderung.
+- Die ViCo-Übersicht zeigt alle Karten der jeweiligen Arbeitsplatz-Lane. Die Zustandskennung `[B]`, `[P]`, `[W]` oder `[D]` bleibt sichtbar; die `KONFIGURATION`-Karte wird separat angezeigt und bearbeitet.
+- Der normale Button **Remote Desktop** legt den lokalen Credential-Manager-Eintrag aus `VIBN_RDP_PASSWORD` nur für den Start an und entfernt ihn nach 20 Sekunden. **RDP mit Anmeldedaten** öffnet den Windows-Anmeldedialog ohne diesen temporären Eintrag.
 - Kanbanize synchronisiert keine Duplikate und ändert bei vorhandenen generierten Karten ausschließlich den berechneten Starttermin und die Deadline.
 - Die TIA-Openness-Kommunikation läuft in einem separaten Bridge-Prozess; ein TIA-Fehler beendet nicht die WPF-Anwendung.
 - Rollen ersetzen Lizenzanfragen. Level7 schaltet CAD Wizard, Container Generation und Container2Fee frei; Level8 zusätzlich AI-Test und Kanbanize; die ViCo-Verwaltung ist ab Level8 sichtbar und ab Level9 schreibbar.

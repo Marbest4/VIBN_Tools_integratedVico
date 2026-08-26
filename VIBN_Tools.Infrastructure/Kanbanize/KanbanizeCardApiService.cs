@@ -88,9 +88,8 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         // requests enough cards for the two operational boards in one call;
         // the page loop remains as a safe fallback for larger boards.
         const int pageSize = 1000;
-        const string fields = "card_id,board_id,lane_id,column_id,title,custom_id,deadline,custom_fields";
         using var firstPage = await GetJsonAsync(
-            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}&fields={fields}&expand=custom_fields",
+            $"/cards?board_ids={boardId}&page=1&per_page={pageSize}&expand=custom_fields",
             cancellationToken);
         var cards = ParseCards(firstPage.RootElement).ToList();
         var pageCount = Math.Max(1, ReadPageCount(firstPage.RootElement));
@@ -100,7 +99,7 @@ public sealed class KanbanizeCardApiService : IKanbanizeCardService
         for (var page = 2; page <= pageCount; page++)
         {
             using var nextPage = await GetJsonAsync(
-                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}&fields={fields}&expand=custom_fields",
+                $"/cards?board_ids={boardId}&page={page}&per_page={pageSize}&expand=custom_fields",
                 cancellationToken);
             cards.AddRange(ParseCards(nextPage.RootElement));
         }

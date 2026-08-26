@@ -3,7 +3,10 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
+    <!-- The legacy VIBN application predates nullable flow analysis. Keep
+         annotations available without producing hundreds of false-positive
+         initialization warnings; new boundary projects remain nullable-strict. -->
+    <Nullable>annotations</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 	<BaseOutputPath>$(MSBuildProjectDirectory)\artifacts\build\</BaseOutputPath>
@@ -69,9 +72,6 @@
     </Reference>
     <Reference Include="FS.SDK">
       <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.dll</HintPath>
-    </Reference>
-    <Reference Include="FS.SDK.Hmi">
-      <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Hmi.dll</HintPath>
     </Reference>
     <Reference Include="FS.SDK.Mathematics">
       <HintPath>$(FeeScreenSimRoot)\Bin\FS.SDK.Mathematics.dll</HintPath>
